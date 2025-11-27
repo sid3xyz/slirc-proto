@@ -1,6 +1,23 @@
 use std::fmt::{self, Write};
 
+use crate::mode::{Mode, ModeType};
+
 use super::types::Command;
+
+/// Helper to write a mode flag (+o, -v, etc.) directly without allocation
+fn write_mode_flag<T: ModeType>(f: &mut fmt::Formatter<'_>, m: &Mode<T>) -> fmt::Result {
+    match m {
+        Mode::Plus(mode, _) => {
+            f.write_char('+')?;
+            write!(f, "{}", mode)
+        }
+        Mode::Minus(mode, _) => {
+            f.write_char('-')?;
+            write!(f, "{}", mode)
+        }
+        Mode::NoPrefix(mode) => write!(f, "{}", mode),
+    }
+}
 
 /// Write a command with arguments directly to a formatter.
 /// The last argument is treated as trailing and gets a `:` prefix if needed.
@@ -57,7 +74,7 @@ impl fmt::Display for Command {
                 f.write_str(u)?;
                 f.write_char(' ')?;
                 for m in modes {
-                    write!(f, "{}", m.flag())?;
+                    write_mode_flag(f, m)?;
                 }
                 Ok(())
             }
@@ -78,7 +95,7 @@ impl fmt::Display for Command {
                 f.write_str(c)?;
                 f.write_char(' ')?;
                 for m in modes {
-                    write!(f, "{}", m.flag())?;
+                    write_mode_flag(f, m)?;
                 }
                 for m in modes {
                     if let Some(arg) = m.arg() {
@@ -224,36 +241,102 @@ impl fmt::Display for Command {
             Command::MONITOR(c, Some(t)) => write_cmd(f, "MONITOR", &[c, t]),
             Command::MONITOR(c, None) => write_cmd(f, "MONITOR", &[c]),
             Command::BATCH(t, Some(c), Some(a)) => {
-                let mut args: Vec<&str> = vec![t, c.to_str()];
-                args.extend(a.iter().map(|s| s.as_str()));
-                write_cmd(f, "BATCH", &args)
+                // Write directly to avoid Vec allocation
+                f.write_str("BATCH")?;
+                f.write_char(' ')?;
+                f.write_str(t)?;
+                f.write_char(' ')?;
+                f.write_str(c.to_str())?;
+                for (i, arg) in a.iter().enumerate() {
+                    f.write_char(' ')?;
+                    // Last argument needs trailing handling
+                    if i == a.len() - 1
+                        && (arg.is_empty() || arg.contains(' ') || arg.starts_with(':'))
+                    {
+                        f.write_char(':')?;
+                    }
+                    f.write_str(arg)?;
+                }
+                Ok(())
             }
             Command::BATCH(t, Some(c), None) => write_cmd(f, "BATCH", &[t, c.to_str()]),
             Command::BATCH(t, None, Some(a)) => {
-                let mut args: Vec<&str> = vec![t];
-                args.extend(a.iter().map(|s| s.as_str()));
-                write_cmd(f, "BATCH", &args)
+                // Write directly to avoid Vec allocation
+                f.write_str("BATCH")?;
+                f.write_char(' ')?;
+                f.write_str(t)?;
+                for (i, arg) in a.iter().enumerate() {
+                    f.write_char(' ')?;
+                    // Last argument needs trailing handling
+                    if i == a.len() - 1
+                        && (arg.is_empty() || arg.contains(' ') || arg.starts_with(':'))
+                    {
+                        f.write_char(':')?;
+                    }
+                    f.write_str(arg)?;
+                }
+                Ok(())
             }
             Command::BATCH(t, None, None) => write_cmd(f, "BATCH", &[t]),
             Command::CHGHOST(u, h) => write_cmd(f, "CHGHOST", &[u, h]),
             Command::SETNAME(r) => write_cmd_freeform(f, "SETNAME", &[r]),
             Command::FAIL(command, code, context) => {
-                let mut args: Vec<&str> = vec![command.as_str(), code.as_str()];
-                args.extend(context.iter().map(|s| s.as_str()));
-                write_cmd_freeform(f, "FAIL", &args)
+                // Write directly to avoid Vec allocation, last arg is freeform (colon-prefixed)
+                f.write_str("FAIL")?;
+                f.write_char(' ')?;
+                f.write_str(command.as_str())?;
+                f.write_char(' ')?;
+                f.write_str(code.as_str())?;
+                for (i, arg) in context.iter().enumerate() {
+                    f.write_char(' ')?;
+                    // Last argument gets colon prefix (freeform)
+                    if i == context.len() - 1 {
+                        f.write_char(':')?;
+                    }
+                    f.write_str(arg)?;
+                }
+                Ok(())
             }
             Command::WARN(command, code, context) => {
-                let mut args: Vec<&str> = vec![command.as_str(), code.as_str()];
-                args.extend(context.iter().map(|s| s.as_str()));
-                write_cmd_freeform(f, "WARN", &args)
+                // Write directly to avoid Vec allocation, last arg is freeform (colon-prefixed)
+                f.write_str("WARN")?;
+                f.write_char(' ')?;
+                f.write_str(command.as_str())?;
+                f.write_char(' ')?;
+                f.write_str(code.as_str())?;
+                for (i, arg) in context.iter().enumerate() {
+                    f.write_char(' ')?;
+                    // Last argument gets colon prefix (freeform)
+                    if i == context.len() - 1 {
+                        f.write_char(':')?;
+                    }
+                    f.write_str(arg)?;
+                }
+                Ok(())
             }
             Command::NOTE(command, code, context) => {
-                let mut args: Vec<&str> = vec![command.as_str(), code.as_str()];
-                args.extend(context.iter().map(|s| s.as_str()));
-                write_cmd_freeform(f, "NOTE", &args)
+                // Write directly to avoid Vec allocation, last arg is freeform (colon-prefixed)
+                f.write_str("NOTE")?;
+                f.write_char(' ')?;
+                f.write_str(command.as_str())?;
+                f.write_char(' ')?;
+                f.write_str(code.as_str())?;
+                for (i, arg) in context.iter().enumerate() {
+                    f.write_char(' ')?;
+                    // Last argument gets colon prefix (freeform)
+                    if i == context.len() - 1 {
+                        f.write_char(':')?;
+                    }
+                    f.write_str(arg)?;
+                }
+                Ok(())
             }
             Command::Response(resp, a) => {
-                write!(f, "{:03}", *resp as u16)?;
+                // Write the 3-digit response code directly, zero-copy
+                let code = *resp as u16;
+                f.write_char((b'0' + (code / 100) as u8) as char)?;
+                f.write_char((b'0' + ((code / 10) % 10) as u8) as char)?;
+                f.write_char((b'0' + (code % 10) as u8) as char)?;
                 for arg in a.iter().take(a.len().saturating_sub(1)) {
                     f.write_char(' ')?;
                     f.write_str(arg)?;
