@@ -7,6 +7,10 @@
 /fuzz/corpus/
 /fuzz/artifacts/
 
+# Local Copilot context (not tracked, but Copilot reads them)
+.github/agents/
+.github/instructions/
+
 # Benchmark artifacts
 /target/criterion/
 
