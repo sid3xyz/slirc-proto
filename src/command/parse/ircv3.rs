@@ -119,6 +119,73 @@ pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseE
                 raw(cmd, args)
             }
         }
+        "CHATHISTORY" => {
+            use crate::command::subcommands::{ChatHistorySubCommand, MessageReference};
+            if args.len() < 3 {
+                return Ok(raw(cmd, args));
+            }
+            let subcommand = match args[0].parse::<ChatHistorySubCommand>() {
+                Ok(s) => s,
+                Err(_) => return Ok(raw(cmd, args)),
+            };
+            match subcommand {
+                ChatHistorySubCommand::TARGETS => {
+                    // TARGETS <timestamp> <timestamp> <limit>
+                    if args.len() < 4 {
+                        return Ok(raw(cmd, args));
+                    }
+                    let msg_ref1 = MessageReference::parse(args[1]).unwrap_or(MessageReference::Timestamp(args[1].to_owned()));
+                    let msg_ref2 = MessageReference::parse(args[2]).ok();
+                    let limit = args[3].parse::<u32>().unwrap_or(50);
+                    Command::CHATHISTORY {
+                        subcommand,
+                        target: String::new(), // TARGETS has no target
+                        msg_ref1,
+                        msg_ref2,
+                        limit,
+                    }
+                }
+                ChatHistorySubCommand::BETWEEN => {
+                    // BETWEEN <target> <msgref> <msgref> <limit>
+                    if args.len() < 5 {
+                        return Ok(raw(cmd, args));
+                    }
+                    let target = args[1].to_owned();
+                    let msg_ref1 = match MessageReference::parse(args[2]) {
+                        Ok(r) => r,
+                        Err(_) => return Ok(raw(cmd, args)),
+                    };
+                    let msg_ref2 = MessageReference::parse(args[3]).ok();
+                    let limit = args[4].parse::<u32>().unwrap_or(50);
+                    Command::CHATHISTORY {
+                        subcommand,
+                        target,
+                        msg_ref1,
+                        msg_ref2,
+                        limit,
+                    }
+                }
+                _ => {
+                    // LATEST/BEFORE/AFTER/AROUND <target> <msgref> <limit>
+                    if args.len() < 4 {
+                        return Ok(raw(cmd, args));
+                    }
+                    let target = args[1].to_owned();
+                    let msg_ref1 = match MessageReference::parse(args[2]) {
+                        Ok(r) => r,
+                        Err(_) => return Ok(raw(cmd, args)),
+                    };
+                    let limit = args[3].parse::<u32>().unwrap_or(50);
+                    Command::CHATHISTORY {
+                        subcommand,
+                        target,
+                        msg_ref1,
+                        msg_ref2: None,
+                        limit,
+                    }
+                }
+            }
+        }
         _ => raw(cmd, args),
     };
 

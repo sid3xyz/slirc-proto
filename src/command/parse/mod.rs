@@ -35,7 +35,7 @@ impl Command {
             | "OPERSERV" | "BOTSERV" | "HOSTSERV" | "MEMOSERV" => messaging::parse(cmd_str, args),
 
             "CAP" | "AUTHENTICATE" | "ACCOUNT" | "BATCH" | "CHGHOST" | "SETNAME" | "MONITOR"
-            | "TAGMSG" | "WEBIRC" => ircv3::parse(cmd_str, args),
+            | "TAGMSG" | "WEBIRC" | "CHATHISTORY" => ircv3::parse(cmd_str, args),
 
             "MODE" => Ok(if args.is_empty() {
                 connection::raw(cmd, args)

@@ -287,6 +287,39 @@ impl fmt::Display for Command {
             Command::WEBIRC(pass, gateway, host, ip, None) => {
                 write_cmd(f, "WEBIRC", &[pass, gateway, host, ip])
             }
+            Command::CHATHISTORY {
+                subcommand,
+                target,
+                msg_ref1,
+                msg_ref2,
+                limit,
+            } => {
+                use crate::command::subcommands::ChatHistorySubCommand;
+                f.write_str("CHATHISTORY ")?;
+                write!(f, "{}", subcommand)?;
+                match subcommand {
+                    ChatHistorySubCommand::TARGETS => {
+                        // TARGETS <timestamp> <timestamp> <limit>
+                        write!(f, " {} ", msg_ref1)?;
+                        if let Some(ref2) = msg_ref2 {
+                            write!(f, "{} ", ref2)?;
+                        }
+                        write!(f, "{}", limit)
+                    }
+                    ChatHistorySubCommand::BETWEEN => {
+                        // BETWEEN <target> <msgref> <msgref> <limit>
+                        write!(f, " {} {} ", target, msg_ref1)?;
+                        if let Some(ref2) = msg_ref2 {
+                            write!(f, "{} ", ref2)?;
+                        }
+                        write!(f, "{}", limit)
+                    }
+                    _ => {
+                        // LATEST/BEFORE/AFTER/AROUND <target> <msgref> <limit>
+                        write!(f, " {} {} {}", target, msg_ref1, limit)
+                    }
+                }
+            }
             Command::FAIL(command, code, context) => {
                 // Write directly to avoid Vec allocation, last arg is freeform (colon-prefixed)
                 f.write_str("FAIL")?;

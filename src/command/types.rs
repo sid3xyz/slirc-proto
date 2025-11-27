@@ -10,7 +10,7 @@
 use crate::mode::{ChannelMode, Mode, UserMode};
 use crate::response::Response;
 
-use super::subcommands::{BatchSubCommand, CapSubCommand};
+use super::subcommands::{BatchSubCommand, CapSubCommand, ChatHistorySubCommand, MessageReference};
 
 /// IRC command with its parameters.
 ///
@@ -175,6 +175,20 @@ pub enum Command {
     TAGMSG(String),
     /// `WEBIRC password gateway hostname ip [:options]` - WebIRC/CGI:IRC identification
     WEBIRC(String, String, String, String, Option<String>),
+    /// `CHATHISTORY subcommand target/params...` - IRCv3 chat history retrieval
+    ///
+    /// Variants:
+    /// - `LATEST <target> <* | msgref> <limit>`
+    /// - `BEFORE/AFTER/AROUND <target> <msgref> <limit>`
+    /// - `BETWEEN <target> <msgref> <msgref> <limit>`
+    /// - `TARGETS <timestamp> <timestamp> <limit>`
+    CHATHISTORY {
+        subcommand: ChatHistorySubCommand,
+        target: String,
+        msg_ref1: MessageReference,
+        msg_ref2: Option<MessageReference>,
+        limit: u32,
+    },
 
     // === Standard Replies (IRCv3) ===
     /// `FAIL command code [context...] :description`
