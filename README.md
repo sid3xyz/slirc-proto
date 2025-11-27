@@ -167,6 +167,29 @@ let modes: Vec<Mode<ChannelMode>> = "+ov nick1 nick2".parse().unwrap();
 let user_modes: Vec<Mode<UserMode>> = "+iw".parse().unwrap();
 ```
 
+### ISUPPORT and Mode Disambiguation
+
+Some mode characters (like `q`) have different meanings on different IRC networks.
+Use `PrefixSpec` from ISUPPORT to determine server-specific mode semantics:
+
+```rust
+use slirc_proto::isupport::PrefixSpec;
+
+// Parse the server's PREFIX token (from RPL_ISUPPORT 005)
+let spec = PrefixSpec::parse("(qaohv)~&@%+").unwrap();
+
+// Check if 'q' is a prefix mode (founder) or something else (quiet)
+if spec.is_prefix_mode('q') {
+    println!("This server uses 'q' for founder (~)");
+} else {
+    println!("This server uses 'q' for quiet (list mode)");
+}
+
+// Get prefix symbols for modes
+assert_eq!(spec.prefix_for_mode('o'), Some('@'));  // operator
+assert_eq!(spec.mode_for_prefix('~'), Some('q'));  // founder
+```
+
 ## Examples
 
 See the [`examples/`](examples/) directory:
