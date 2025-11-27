@@ -38,8 +38,7 @@ impl CtcpHandler {
         // Wait for welcome
         loop {
             match timeout(Duration::from_secs(30), self.transport.read_message()).await {
-                Ok(Ok(Some(raw_line))) => {
-                    let message: Message = raw_line.parse()?;
+                Ok(Ok(Some(message))) => {
                     match &message.command {
                         Command::Response(response, _) if response.code() == 1 => {
                             println!("✓ Connected and registered!");
@@ -164,8 +163,7 @@ impl CtcpHandler {
         
         loop {
             match timeout(Duration::from_secs(300), self.transport.read_message()).await {
-                Ok(Ok(Some(raw_line))) => {
-                    let message: Message = raw_line.parse()?;
+                Ok(Ok(Some(message))) => {
                     self.handle_message(message).await?;
                 }
                 Ok(Ok(None)) => {
@@ -316,7 +314,7 @@ impl CtcpHandler {
             prefix: None,
             command,
         };
-        self.transport.write_message(&format!("{}\r\n", message)).await?;
+        self.transport.write_message(&message).await?;
         Ok(())
     }
 
