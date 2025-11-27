@@ -1,12 +1,7 @@
 name: "Copilot Setup Steps"
 
-# Runs on workflow_dispatch and push for validation; Copilot invokes via internal dispatch
-on:
-  workflow_dispatch:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
+# Copilot coding agent invokes this workflow by filename/job name convention
+on: workflow_dispatch
 
 jobs:
   copilot-setup-steps:
