@@ -109,21 +109,19 @@ impl Transport {
     }
 
     pub async fn read_message(&mut self) -> Result<Option<Message>, TransportReadError> {
+        macro_rules! read_framed {
+            ($framed:expr) => {
+                match $framed.next().await {
+                    Some(Ok(msg)) => Ok(Some(msg)),
+                    Some(Err(e)) => Err(TransportReadError::from(e)),
+                    None => Ok(None),
+                }
+            };
+        }
+
         match self {
-            Transport::Tcp { framed } => {
-                match framed.next().await {
-                    Some(Ok(msg)) => Ok(Some(msg)),
-                    Some(Err(e)) => Err(TransportReadError::from(e)),
-                    None => Ok(None),
-                }
-            }
-            Transport::Tls { framed } => {
-                match framed.next().await {
-                    Some(Ok(msg)) => Ok(Some(msg)),
-                    Some(Err(e)) => Err(TransportReadError::from(e)),
-                    None => Ok(None),
-                }
-            }
+            Transport::Tcp { framed } => read_framed!(framed),
+            Transport::Tls { framed } => read_framed!(framed),
             #[cfg(feature = "tokio")]
             Transport::WebSocket { stream } => {
                 let text = read_websocket_message(stream).await?;
@@ -148,13 +146,15 @@ impl Transport {
     }
 
     pub async fn write_message(&mut self, message: Message) -> Result<()> {
+        macro_rules! write_framed {
+            ($framed:expr, $msg:expr) => {
+                $framed.send($msg).await.map_err(|e| anyhow::anyhow!(e))
+            };
+        }
+
         match self {
-            Transport::Tcp { framed } => {
-                framed.send(message).await.map_err(|e| anyhow::anyhow!(e))
-            }
-            Transport::Tls { framed } => {
-                framed.send(message).await.map_err(|e| anyhow::anyhow!(e))
-            }
+            Transport::Tcp { framed } => write_framed!(framed, message),
+            Transport::Tls { framed } => write_framed!(framed, message),
             #[cfg(feature = "tokio")]
             Transport::WebSocket { stream } => write_websocket_message(stream, &message.to_string()).await,
             #[cfg(feature = "tokio")]
