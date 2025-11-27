@@ -1,0 +1,44 @@
+name: "Copilot Setup Steps"
+
+# Runs on workflow_dispatch and push for validation; Copilot invokes via internal dispatch
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-action@master
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+
+      - name: Cache cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Fetch dependencies
+        run: cargo fetch --locked
+
+      - name: Build all features
+        run: cargo build --all-features
+
+      - name: Verify clippy passes
+        run: cargo clippy --all-features -- -D warnings
