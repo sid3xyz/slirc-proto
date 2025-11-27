@@ -23,20 +23,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         prefix: None,
         command: Command::NICK("example_bot".to_string()),
     };
-    transport.write_message(&nick_msg.to_string()).await?;
+    println!("→ {}", nick_msg);
+    transport.write_message(&nick_msg).await?;
 
     let user_msg = Message {
         tags: None,
         prefix: None,
         command: Command::USER("example".to_string(), "0".to_string(), "Example Bot".to_string()),
     };
-    transport.write_message(&user_msg.to_string()).await?;
+    println!("→ {}", user_msg);
+    transport.write_message(&user_msg).await?;
 
     // Wait for registration to complete
     loop {
         match timeout(Duration::from_secs(30), transport.read_message()).await {
-            Ok(Ok(Some(line))) => {
-                let message: Message = line.parse()?;
+            Ok(Ok(Some(message))) => {
                 println!("← {}", message);
                 
                 match &message.command {
@@ -51,8 +52,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             prefix: None,
                             command: Command::PONG(server.clone(), None),
                         };
-                        transport.write_message(&pong.to_string()).await?;
                         println!("→ {}", pong);
+                        transport.write_message(&pong).await?;
                     }
                     _ => {}
                 }
@@ -78,8 +79,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         prefix: None,
         command: Command::JOIN("#example".to_string(), None, None),
     };
-    transport.write_message(&join_msg.to_string()).await?;
     println!("→ {}", join_msg);
+    transport.write_message(&join_msg).await?;
 
     // Send a welcome message
     let welcome_msg = Message {
@@ -90,16 +91,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "Hello from slirc-proto example!".to_string(),
         ),
     };
-    transport.write_message(&welcome_msg.to_string()).await?;
     println!("→ {}", welcome_msg);
+    transport.write_message(&welcome_msg).await?;
 
     // Listen for messages
     println!("\n--- Listening for messages (Ctrl+C to exit) ---");
     
     loop {
         match timeout(Duration::from_secs(300), transport.read_message()).await {
-            Ok(Ok(Some(line))) => {
-                let message: Message = line.parse()?;
+            Ok(Ok(Some(message))) => {
                 println!("← {}", message);
                 
                 match &message.command {
@@ -110,8 +110,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             prefix: None,
                             command: Command::PONG(server.clone(), None),
                         };
-                        transport.write_message(&pong.to_string()).await?;
                         println!("→ {}", pong);
+                        transport.write_message(&pong).await?;
                     }
                     Command::PRIVMSG(target, text) => {
                         if text.contains("hello") {
@@ -124,8 +124,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     "Hello there! 👋".to_string(),
                                 ),
                             };
-                            transport.write_message(&response.to_string()).await?;
                             println!("→ {}", response);
+                            transport.write_message(&response).await?;
                         }
                     }
                     _ => {}
@@ -151,8 +151,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         prefix: None,
         command: Command::QUIT(Some("Goodbye!".to_string())),
     };
-    transport.write_message(&quit_msg.to_string()).await?;
     println!("→ {}", quit_msg);
+    transport.write_message(&quit_msg).await?;
 
     Ok(())
 }

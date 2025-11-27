@@ -1,29 +1,23 @@
-
 use anyhow::Result;
-use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio_rustls::server::TlsStream;
+use tokio_util::codec::Framed;
 use tracing::warn;
+
+use crate::error::ProtocolError;
+use crate::irc::IrcCodec;
+use crate::Message;
+use futures_util::{SinkExt, StreamExt};
 
 #[cfg(feature = "tokio")]
 use tokio_tungstenite::{WebSocketStream, tungstenite::Message as WsMessage};
-#[cfg(feature = "tokio")]
-use futures_util::{SinkExt, StreamExt};
 
 pub const MAX_IRC_LINE_LEN: usize = 8191;
-
-const MAX_LINE_PREVIEW_LEN: usize = 512;
 
 #[derive(Debug)]
 pub enum TransportReadError {
     Io(std::io::Error),
-    LineTooLong {
-        preview: String
-    },
-    IllegalControlChar {
-        ch: char,
-        preview: String,
-    },
+    Protocol(ProtocolError),
 }
 
 impl From<std::io::Error> for TransportReadError {
@@ -32,15 +26,19 @@ impl From<std::io::Error> for TransportReadError {
     }
 }
 
+impl From<ProtocolError> for TransportReadError {
+    fn from(err: ProtocolError) -> Self {
+        Self::Protocol(err)
+    }
+}
+
 #[allow(clippy::large_enum_variant)]
 pub enum Transport {
     Tcp {
-        reader: BufReader<tokio::net::tcp::OwnedReadHalf>,
-        writer: tokio::net::tcp::OwnedWriteHalf,
+        framed: Framed<tokio::net::TcpStream, IrcCodec>,
     },
     Tls {
-        reader: BufReader<tokio::io::ReadHalf<TlsStream<TcpStream>>>,
-        writer: tokio::io::WriteHalf<TlsStream<TcpStream>>,
+        framed: Framed<TlsStream<TcpStream>, IrcCodec>,
     },
     #[cfg(feature = "tokio")]
     WebSocket {
@@ -54,16 +52,13 @@ pub enum Transport {
 
 impl Transport {
     pub fn tcp(stream: TcpStream) -> Self {
-
-
         if let Err(e) = Self::enable_keepalive(&stream) {
             warn!("failed to enable TCP keepalive: {}", e);
         }
 
-        let (read, write) = stream.into_split();
+        let codec = IrcCodec::new("utf-8").expect("Failed to create UTF-8 codec: encoding not supported");
         Self::Tcp {
-            reader: BufReader::new(read),
-            writer: write,
+            framed: Framed::new(stream, codec),
         }
     }
 
@@ -82,10 +77,9 @@ impl Transport {
     }
 
     pub fn tls(stream: TlsStream<TcpStream>) -> Self {
-        let (read, write) = tokio::io::split(stream);
+        let codec = IrcCodec::new("utf-8").expect("Failed to create UTF-8 codec: encoding not supported");
         Self::Tls {
-            reader: BufReader::new(read),
-            writer: write,
+            framed: Framed::new(stream, codec),
         }
     }
 
@@ -114,33 +108,53 @@ impl Transport {
         }
     }
 
-    pub async fn read_message(&mut self) -> Result<Option<String>, TransportReadError> {
+    pub async fn read_message(&mut self) -> Result<Option<Message>, TransportReadError> {
+        macro_rules! read_framed {
+            ($framed:expr) => {
+                match $framed.next().await {
+                    Some(Ok(msg)) => Ok(Some(msg)),
+                    Some(Err(e)) => Err(TransportReadError::from(e)),
+                    None => Ok(None),
+                }
+            };
+        }
+
+        macro_rules! read_websocket {
+            ($stream:expr) => {{
+                let text = read_websocket_message($stream).await?;
+                match text {
+                    Some(s) => s.parse::<Message>()
+                        .map(Some)
+                        .map_err(TransportReadError::from),
+                    None => Ok(None)
+                }
+            }};
+        }
+
         match self {
-            Transport::Tcp { reader, .. } => read_line_limited(reader).await,
-            Transport::Tls { reader, .. } => read_line_limited(reader).await,
+            Transport::Tcp { framed } => read_framed!(framed),
+            Transport::Tls { framed } => read_framed!(framed),
             #[cfg(feature = "tokio")]
-            Transport::WebSocket { stream } => read_websocket_message(stream).await,
+            Transport::WebSocket { stream } => read_websocket!(stream),
             #[cfg(feature = "tokio")]
-            Transport::WebSocketTls { stream } => read_websocket_message(stream).await,
+            Transport::WebSocketTls { stream } => read_websocket!(stream),
         }
     }
 
-    pub async fn write_message(&mut self, message: &str) -> Result<()> {
+    pub async fn write_message(&mut self, message: &Message) -> Result<()> {
+        macro_rules! write_framed {
+            ($framed:expr, $msg:expr) => {
+                $framed.send($msg.clone()).await.map_err(|e| anyhow::anyhow!(e))
+            };
+        }
+
         match self {
-            Transport::Tcp { writer, .. } => {
-                writer.write_all(message.as_bytes()).await?;
-                writer.flush().await?;
-                Ok(())
-            }
-            Transport::Tls { writer, .. } => {
-                writer.write_all(message.as_bytes()).await?;
-                writer.flush().await?;
-                Ok(())
-            }
+            Transport::Tcp { framed } => write_framed!(framed, message),
+            Transport::Tls { framed } => write_framed!(framed, message),
             #[cfg(feature = "tokio")]
-            Transport::WebSocket { stream } => write_websocket_message(stream, message).await,
+            Transport::WebSocket { stream } => write_websocket_message(stream, &message.to_string()).await,
             #[cfg(feature = "tokio")]
-            Transport::WebSocketTls { stream } => write_websocket_message(stream, message).await,
+            Transport::WebSocketTls { stream } => write_websocket_message(stream, &message.to_string()).await,
         }
     }
 }
@@ -154,20 +168,15 @@ where
     loop {
         match stream.next().await {
             Some(Ok(WsMessage::Text(text))) => {
-
                 if text.len() > MAX_IRC_LINE_LEN {
-                    let preview = text.chars().take(MAX_LINE_PREVIEW_LEN).collect();
-                    return Err(TransportReadError::LineTooLong { preview });
+                    return Err(TransportReadError::Protocol(ProtocolError::MessageTooLong(text.len())));
                 }
-
 
                 let trimmed = text.trim_end_matches(&['\r', '\n'][..]);
 
-
                 for ch in trimmed.chars() {
                     if ch == '\0' || (ch.is_control() && ch != '\r' && ch != '\n') {
-                        let preview = trimmed.chars().take(MAX_LINE_PREVIEW_LEN).collect();
-                        return Err(TransportReadError::IllegalControlChar { ch, preview });
+                        return Err(TransportReadError::Protocol(ProtocolError::IllegalControlChar(ch)));
                     }
                 }
 
@@ -177,16 +186,13 @@ where
                 return Ok(None);
             }
             Some(Ok(WsMessage::Ping(_))) | Some(Ok(WsMessage::Pong(_))) => {
-
                 continue;
             }
             Some(Ok(WsMessage::Binary(_))) => {
-
                 warn!("Ignoring binary WebSocket frame (IRC is text-only)");
                 continue;
             }
             Some(Ok(WsMessage::Frame(_))) => {
-
                 continue;
             }
             Some(Err(e)) => {
@@ -204,88 +210,9 @@ async fn write_websocket_message<S>(stream: &mut WebSocketStream<S>, message: &s
 where
     S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
 {
-
-
     let msg = message.trim_end_matches(&['\r', '\n'][..]);
     stream.send(WsMessage::Text(msg.to_string())).await
         .map_err(|e| anyhow::anyhow!("WebSocket send error: {}", e))?;
     Ok(())
-}
-
-async fn read_line_limited<R>(reader: &mut BufReader<R>) -> Result<Option<String>, TransportReadError>
-where
-    R: AsyncRead + Unpin,
-{
-    let mut line: Vec<u8> = Vec::with_capacity(512);
-    let mut exceeded_limit = false;
-
-    loop {
-        let buffer = reader.fill_buf().await?;
-
-        if buffer.is_empty() {
-            if line.is_empty() && !exceeded_limit {
-                return Ok(None);
-            }
-            break;
-        }
-
-        let newline_pos = buffer.iter().position(|&b| b == b'\n');
-        let to_consume = newline_pos.map_or(buffer.len(), |idx| idx + 1);
-
-        if !exceeded_limit {
-            let projected_len = line.len().saturating_add(to_consume);
-            if projected_len > MAX_IRC_LINE_LEN {
-                let available = MAX_IRC_LINE_LEN.saturating_sub(line.len());
-                line.extend_from_slice(&buffer[..available.min(buffer.len())]);
-                exceeded_limit = true;
-            } else {
-                line.extend_from_slice(&buffer[..to_consume]);
-            }
-        }
-
-        reader.consume(to_consume);
-
-        if newline_pos.is_some() {
-            break;
-        }
-    }
-
-    if exceeded_limit {
-        warn!(
-            length = line.len(),
-            "Message exceeds {} byte limit",
-            MAX_IRC_LINE_LEN
-        );
-
-        let preview_len = line.len().min(MAX_LINE_PREVIEW_LEN);
-        let preview = String::from_utf8_lossy(&line[..preview_len]).to_string();
-        return Err(TransportReadError::LineTooLong { preview });
-    }
-
-    while matches!(line.last(), Some(b'\r') | Some(b'\n')) {
-        line.pop();
-    }
-
-    if line.is_empty() {
-        Ok(Some(String::new()))
-    } else {
-        let line_str = String::from_utf8_lossy(&line).to_string();
-
-
-
-        for ch in line_str.chars() {
-
-
-
-            if ch == '\0' || (ch.is_control() && ch != '\r' && ch != '\n' && ch != '\u{0001}') {
-                let preview = line_str.chars()
-                    .take(MAX_LINE_PREVIEW_LEN)
-                    .collect();
-                return Err(TransportReadError::IllegalControlChar { ch, preview });
-            }
-        }
-
-        Ok(Some(line_str))
-    }
 }
 

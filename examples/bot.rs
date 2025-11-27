@@ -52,8 +52,7 @@ impl Bot {
         // Wait for welcome message
         loop {
             match timeout(Duration::from_secs(30), self.transport.read_message()).await {
-                Ok(Ok(Some(raw_line))) => {
-                    let message: Message = raw_line.parse()?;
+                Ok(Ok(Some(message))) => {
                     match &message.command {
                         Command::Response(response, _) if response.code() == 1 => {
                             println!("✓ Connected to server!");
@@ -89,9 +88,8 @@ impl Bot {
         
         loop {
             match timeout(Duration::from_secs(300), self.transport.read_message()).await {
-                Ok(Ok(Some(raw_line))) => {
+                Ok(Ok(Some(message))) => {
                     self.stats.messages_received += 1;
-                    let message: Message = raw_line.parse()?;
                     self.handle_message(message).await?;
                 }
                 Ok(Ok(None)) => {
@@ -265,7 +263,7 @@ impl Bot {
             prefix: None,
             command,
         };
-        self.transport.write_message(&format!("{}\r\n", message)).await?;
+        self.transport.write_message(&message).await?;
         Ok(())
     }
 
