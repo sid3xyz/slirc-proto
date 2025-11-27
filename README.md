@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/slirc-proto.svg)](https://crates.io/crates/slirc-proto)
 [![Documentation](https://docs.rs/slirc-proto/badge.svg)](https://docs.rs/slirc-proto)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: Unlicense](https://img.shields.io/badge/License-Unlicense-blue.svg)](LICENSE)
 [![MSRV](https://img.shields.io/badge/MSRV-1.70-blue.svg)](https://blog.rust-lang.org/2023/06/01/Rust-1.70.0.html)
 
 A Rust library for parsing and serializing IRC protocol messages, with full IRCv3 support.
@@ -172,7 +172,7 @@ cargo run --example bot
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
+This project is released into the public domain under [The Unlicense](LICENSE).
 
 ## Acknowledgments
 

@@ -140,4 +140,4 @@ If you have questions, feel free to:
 ## License
 
 By contributing to slirc-proto, you agree that your contributions will be
-licensed under the MIT License.
+released into the public domain under The Unlicense.
