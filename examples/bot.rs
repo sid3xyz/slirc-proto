@@ -8,11 +8,11 @@
 
 // use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tokio::time::{timeout, sleep};
+use tokio::time::{sleep, timeout};
 
 use slirc_proto::{
-    Command, Message, Transport,
     ctcp::{Ctcp, CtcpKind},
+    Command, Message, Transport,
 };
 
 struct Bot {
@@ -31,10 +31,14 @@ struct BotStats {
 }
 
 impl Bot {
-    async fn new(server: &str, nick: &str, channels: Vec<String>) -> Result<Self, Box<dyn std::error::Error>> {
+    async fn new(
+        server: &str,
+        nick: &str,
+        channels: Vec<String>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let stream = tokio::net::TcpStream::connect(server).await?;
         let transport = Transport::tcp(stream);
-        
+
         Ok(Bot {
             nick: nick.to_string(),
             channels,
@@ -47,26 +51,29 @@ impl Bot {
     async fn connect(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         // Send registration
         self.send_message(Command::NICK(self.nick.clone())).await?;
-        self.send_message(Command::USER("bot".to_string(), "0".to_string(), "slirc-proto Example Bot".to_string())).await?;
+        self.send_message(Command::USER(
+            "bot".to_string(),
+            "0".to_string(),
+            "slirc-proto Example Bot".to_string(),
+        ))
+        .await?;
 
         // Wait for welcome message
         loop {
             match timeout(Duration::from_secs(30), self.transport.read_message()).await {
-                Ok(Ok(Some(message))) => {
-                    match &message.command {
-                        Command::Response(response, _) if response.code() == 1 => {
-                            println!("✓ Connected to server!");
-                            self.stats.uptime_start = Some(SystemTime::now());
-                            break;
-                        }
-                        Command::PING(server, _) => {
-                            self.handle_ping(server).await?;
-                        }
-                        _ => {
-                            println!("← {}", message);
-                        }
+                Ok(Ok(Some(message))) => match &message.command {
+                    Command::Response(response, _) if response.code() == 1 => {
+                        println!("✓ Connected to server!");
+                        self.stats.uptime_start = Some(SystemTime::now());
+                        break;
                     }
-                }
+                    Command::PING(server, _) => {
+                        self.handle_ping(server).await?;
+                    }
+                    _ => {
+                        println!("← {}", message);
+                    }
+                },
                 Ok(Ok(None)) => return Err("Connection closed during registration".into()),
                 Ok(Err(e)) => return Err(format!("Transport error: {:?}", e).into()),
                 Err(_) => return Err("Registration timeout".into()),
@@ -76,7 +83,8 @@ impl Bot {
         // Join channels
         let channels = self.channels.clone();
         for channel in channels {
-            self.send_message(Command::JOIN(channel.clone(), None, None)).await?;
+            self.send_message(Command::JOIN(channel.clone(), None, None))
+                .await?;
             println!("→ Joining {}", channel);
         }
 
@@ -84,8 +92,11 @@ impl Bot {
     }
 
     async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("🤖 Bot is running! Use {}help for commands", self.command_prefix);
-        
+        println!(
+            "🤖 Bot is running! Use {}help for commands",
+            self.command_prefix
+        );
+
         loop {
             match timeout(Duration::from_secs(300), self.transport.read_message()).await {
                 Ok(Ok(Some(message))) => {
@@ -102,7 +113,8 @@ impl Bot {
                 }
                 Err(_) => {
                     // Send keepalive PING to server
-                    self.send_message(Command::PING("keepalive".to_string(), None)).await?;
+                    self.send_message(Command::PING("keepalive".to_string(), None))
+                        .await?;
                 }
             }
         }
@@ -139,7 +151,12 @@ impl Bot {
             Command::PART(channel, reason) => {
                 if let Some(prefix) = &message.prefix {
                     let reason_str = reason.as_deref().unwrap_or("");
-                    println!("[{}] ← {} left ({})", channel, prefix.nick().unwrap_or("?"), reason_str);
+                    println!(
+                        "[{}] ← {} left ({})",
+                        channel,
+                        prefix.nick().unwrap_or("?"),
+                        reason_str
+                    );
                 }
             }
             Command::QUIT(reason) => {
@@ -158,12 +175,20 @@ impl Bot {
     }
 
     async fn handle_ping(&mut self, server: &str) -> Result<(), Box<dyn std::error::Error>> {
-        self.send_message(Command::PONG(server.to_string(), None)).await?;
+        self.send_message(Command::PONG(server.to_string(), None))
+            .await?;
         Ok(())
     }
 
-    async fn handle_ctcp(&mut self, message: &Message, target: &str, ctcp: &Ctcp<'_>) -> Result<(), Box<dyn std::error::Error>> {
-        let sender = message.prefix.as_ref()
+    async fn handle_ctcp(
+        &mut self,
+        message: &Message,
+        target: &str,
+        ctcp: &Ctcp<'_>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let sender = message
+            .prefix
+            .as_ref()
             .and_then(|p| p.nick())
             .unwrap_or("unknown");
 
@@ -174,7 +199,11 @@ impl Bot {
                     kind: CtcpKind::Version,
                     params: Some("slirc-proto-bot v0.1.0"),
                 };
-                let reply_target = if target.starts_with('#') { sender } else { target };
+                let reply_target = if target.starts_with('#') {
+                    sender
+                } else {
+                    target
+                };
                 self.send_ctcp_reply(reply_target, &response).await?;
             }
             CtcpKind::Ping => {
@@ -183,7 +212,11 @@ impl Bot {
                     kind: CtcpKind::Ping,
                     params: ctcp.params,
                 };
-                let reply_target = if target.starts_with('#') { sender } else { target };
+                let reply_target = if target.starts_with('#') {
+                    sender
+                } else {
+                    target
+                };
                 self.send_ctcp_reply(reply_target, &response).await?;
             }
             CtcpKind::Action => {
@@ -198,35 +231,61 @@ impl Bot {
         Ok(())
     }
 
-    async fn handle_command(&mut self, message: &Message, target: &str, text: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let sender = message.prefix.as_ref()
+    async fn handle_command(
+        &mut self,
+        message: &Message,
+        target: &str,
+        text: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let sender = message
+            .prefix
+            .as_ref()
             .and_then(|p| p.nick())
             .unwrap_or("unknown");
 
         let command_text = &text[self.command_prefix.len()..];
         let parts: Vec<&str> = command_text.split_whitespace().collect();
-        
+
         if parts.is_empty() {
             return Ok(());
         }
 
         let command = parts[0].to_lowercase();
-        let reply_target = if target.starts_with('#') { target } else { sender };
+        let reply_target = if target.starts_with('#') {
+            target
+        } else {
+            sender
+        };
 
         self.stats.commands_processed += 1;
 
         match command.as_str() {
             "help" => {
-                let help_text = format!("Available commands: {}help, {}stats, {}ping, {}echo <text>, {}time", 
-                    self.command_prefix, self.command_prefix, self.command_prefix, self.command_prefix, self.command_prefix);
+                let help_text = format!(
+                    "Available commands: {}help, {}stats, {}ping, {}echo <text>, {}time",
+                    self.command_prefix,
+                    self.command_prefix,
+                    self.command_prefix,
+                    self.command_prefix,
+                    self.command_prefix
+                );
                 self.send_reply(reply_target, &help_text).await?;
             }
             "stats" => {
-                let uptime = self.stats.uptime_start
-                    .map(|start| SystemTime::now().duration_since(start).unwrap_or_default().as_secs())
+                let uptime = self
+                    .stats
+                    .uptime_start
+                    .map(|start| {
+                        SystemTime::now()
+                            .duration_since(start)
+                            .unwrap_or_default()
+                            .as_secs()
+                    })
                     .unwrap_or(0);
-                let stats_text = format!("📊 Messages: {}, Commands: {}, Uptime: {}s", 
-                    self.stats.messages_received, self.stats.commands_processed, uptime);
+                let stats_text = format!(
+                    "📊 Messages: {}, Commands: {}, Uptime: {}s",
+                    self.stats.messages_received, self.stats.commands_processed, uptime
+                );
                 self.send_reply(reply_target, &stats_text).await?;
             }
             "ping" => {
@@ -237,23 +296,34 @@ impl Bot {
                     .duration_since(UNIX_EPOCH)
                     .unwrap_or_default()
                     .as_secs();
-                self.send_reply(reply_target, &format!("🕐 Unix timestamp: {}", now)).await?;
+                self.send_reply(reply_target, &format!("🕐 Unix timestamp: {}", now))
+                    .await?;
             }
             "echo" => {
                 if parts.len() > 1 {
                     let echo_text = parts[1..].join(" ");
-                    self.send_reply(reply_target, &format!("📢 {}", echo_text)).await?;
+                    self.send_reply(reply_target, &format!("📢 {}", echo_text))
+                        .await?;
                 } else {
                     self.send_reply(reply_target, "Usage: !echo <text>").await?;
                 }
             }
             _ => {
-                self.send_reply(reply_target, &format!("❓ Unknown command '{}'. Use {}help for available commands.", 
-                    command, self.command_prefix)).await?;
+                self.send_reply(
+                    reply_target,
+                    &format!(
+                        "❓ Unknown command '{}'. Use {}help for available commands.",
+                        command, self.command_prefix
+                    ),
+                )
+                .await?;
             }
         }
 
-        println!("[COMMAND] {} used {}{}", sender, self.command_prefix, command);
+        println!(
+            "[COMMAND] {} used {}{}",
+            sender, self.command_prefix, command
+        );
         Ok(())
     }
 
@@ -267,19 +337,29 @@ impl Bot {
         Ok(())
     }
 
-    async fn send_reply(&mut self, target: &str, text: &str) -> Result<(), Box<dyn std::error::Error>> {
-        self.send_message(Command::PRIVMSG(target.to_string(), text.to_string())).await
+    async fn send_reply(
+        &mut self,
+        target: &str,
+        text: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.send_message(Command::PRIVMSG(target.to_string(), text.to_string()))
+            .await
     }
 
-    async fn send_ctcp_reply(&mut self, target: &str, ctcp: &Ctcp<'_>) -> Result<(), Box<dyn std::error::Error>> {
+    async fn send_ctcp_reply(
+        &mut self,
+        target: &str,
+        ctcp: &Ctcp<'_>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let ctcp_text = ctcp.to_string();
-        self.send_message(Command::NOTICE(target.to_string(), ctcp_text)).await
+        self.send_message(Command::NOTICE(target.to_string(), ctcp_text))
+            .await
     }
 
     async fn reconnect(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         println!("🔄 Reconnecting in 5 seconds...");
         sleep(Duration::from_secs(5)).await;
-        
+
         // Try to reconnect
         match tokio::net::TcpStream::connect("irc.libera.chat:6667").await {
             Ok(stream) => {
@@ -305,7 +385,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "irc.libera.chat:6667",
         "slirc_bot",
         vec!["#slirc-test".to_string()],
-    ).await?;
+    )
+    .await?;
 
     bot.connect().await?;
     bot.run().await

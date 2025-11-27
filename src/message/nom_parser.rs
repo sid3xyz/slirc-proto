@@ -38,7 +38,7 @@ pub fn parse_message(input: &str) -> IResult<&str, ParsedMessage<'_>> {
     let (input, tags) = opt(parse_tags)(input)?;
     let (input, _) = space0(input)?;
 
-    // Parse optional prefix  
+    // Parse optional prefix
     let (input, prefix) = opt(parse_prefix)(input)?;
     let (input, _) = space0(input)?;
 
@@ -52,13 +52,11 @@ pub fn parse_message(input: &str) -> IResult<&str, ParsedMessage<'_>> {
     while let Some(b' ') = rest.as_bytes().first().copied() {
         // Skip the space
         rest = &rest[1..];
-        
+
         if let Some(b':') = rest.as_bytes().first().copied() {
             // Trailing parameter - everything after `:` until line end
             let after_colon = &rest[1..];
-            let end = after_colon
-                .find(['\r', '\n'])
-                .unwrap_or(after_colon.len());
+            let end = after_colon.find(['\r', '\n']).unwrap_or(after_colon.len());
             let trailing = &after_colon[..end];
             params.push(trailing);
             rest = &after_colon[end..];
@@ -84,12 +82,15 @@ pub fn parse_message(input: &str) -> IResult<&str, ParsedMessage<'_>> {
         }
     }
 
-    Ok((rest, ParsedMessage {
-        tags,
-        prefix,
-        command,
-        params,
-    }))
+    Ok((
+        rest,
+        ParsedMessage {
+            tags,
+            prefix,
+            command,
+            params,
+        },
+    ))
 }
 
 /// A parsed IRC message with borrowed string slices.
@@ -124,13 +125,11 @@ impl<'a> ParsedMessage<'a> {
                     kind: e.code,
                 })
             }
-            Err(nom::Err::Incomplete(_)) => {
-                Err(DetailedParseError {
-                    input: input.to_string(),
-                    position: input.len(),
-                    kind: ErrorKind::Eof,
-                })
-            }
+            Err(nom::Err::Incomplete(_)) => Err(DetailedParseError {
+                input: input.to_string(),
+                position: input.len(),
+                kind: ErrorKind::Eof,
+            }),
         }
     }
 }
@@ -148,8 +147,12 @@ pub struct DetailedParseError {
 
 impl std::fmt::Display for DetailedParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Parse error at position {}: {:?}", self.position, self.kind)?;
-        
+        write!(
+            f,
+            "Parse error at position {}: {:?}",
+            self.position, self.kind
+        )?;
+
         // Show the error position in the input
         if self.position < self.input.len() {
             let before = &self.input[..self.position];
@@ -158,7 +161,7 @@ impl std::fmt::Display for DetailedParseError {
         } else {
             write!(f, "\n  Input: {}<<<EOF>>>", self.input)?;
         }
-        
+
         Ok(())
     }
 }
@@ -239,8 +242,8 @@ mod tests {
 
     #[test]
     fn test_parse_complex_tags() {
-        let msg = ParsedMessage::parse("@msgid=abc123;time=2023-01-01 :nick PRIVMSG #ch :msg").unwrap();
+        let msg =
+            ParsedMessage::parse("@msgid=abc123;time=2023-01-01 :nick PRIVMSG #ch :msg").unwrap();
         assert_eq!(msg.tags, Some("msgid=abc123;time=2023-01-01"));
     }
 }
-

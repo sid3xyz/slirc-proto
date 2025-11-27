@@ -33,19 +33,19 @@ impl Prefix {
             User,
             Host,
         }
-        
+
         let mut name = String::new();
         let mut user = String::new();
         let mut host = String::new();
         let mut part = Part::Name;
         let mut is_server = false;
-        
+
         for c in s.chars() {
             // A dot in the name part (before ! or @) suggests server name
             if c == '.' && part == Part::Name {
                 is_server = true;
             }
-            
+
             match c {
                 '!' if part == Part::Name => {
                     is_server = false;
@@ -65,14 +65,14 @@ impl Prefix {
                 }
             }
         }
-        
+
         if is_server {
             Prefix::ServerName(name)
         } else {
             Prefix::Nickname(name, user, host)
         }
     }
-    
+
     /// Parse with validation, returning an error for invalid prefixes.
     pub fn try_from_str(s: &str) -> Result<Self, MessageParseError> {
         if validate_prefix(s) {
@@ -81,7 +81,7 @@ impl Prefix {
             Err(MessageParseError::InvalidPrefix(s.to_owned()))
         }
     }
-    
+
     /// Get the nickname if this is a user prefix.
     pub fn nick(&self) -> Option<&str> {
         match self {
@@ -89,7 +89,7 @@ impl Prefix {
             _ => None,
         }
     }
-    
+
     /// Get the username if this is a user prefix.
     pub fn user(&self) -> Option<&str> {
         match self {
@@ -97,7 +97,7 @@ impl Prefix {
             _ => None,
         }
     }
-    
+
     /// Get the hostname.
     pub fn host(&self) -> Option<&str> {
         match self {
@@ -110,7 +110,7 @@ impl Prefix {
 
 impl FromStr for Prefix {
     type Err = ();
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Prefix::new_from_str(s))
     }
@@ -136,84 +136,84 @@ fn validate_prefix(s: &str) -> bool {
     if s.is_empty() {
         return false;
     }
-    
+
     // No NUL, control characters, or spaces
     if s.chars().any(|c| c == '\0' || c.is_control() || c == ' ') {
         return false;
     }
-    
+
     // If no ! or @, it's just a name - valid
     if !s.contains('!') && !s.contains('@') {
         return true;
     }
-    
+
     // If has @ or !, must follow nick!user@host format
     let at_pos = match s.find('@') {
         Some(i) => i,
         None => return false, // Has ! but no @ - invalid
     };
-    
+
     let before_at = &s[..at_pos];
     let host = &s[at_pos + 1..];
-    
+
     if host.is_empty() {
         return false;
     }
-    
+
     let (nick, user) = match before_at.find('!') {
         Some(bang) => (&before_at[..bang], &before_at[bang + 1..]),
         None => (before_at, ""),
     };
-    
+
     // Nick is required
     if nick.is_empty() {
         return false;
     }
-    
+
     // Validate nickname format
     if !validate_nickname(nick) {
         return false;
     }
-    
+
     // User can't have @ or control chars
     if !user.is_empty() && user.chars().any(|c| c == '@' || c == ' ' || c.is_control()) {
         return false;
     }
-    
+
     // Host can't have spaces or control chars
     if host.chars().any(|c| c == ' ' || c.is_control()) {
         return false;
     }
-    
+
     true
 }
 
 fn validate_nickname(nick: &str) -> bool {
     let mut chars = nick.chars();
-    
+
     let first = match chars.next() {
         Some(c) => c,
         None => return false,
     };
-    
+
     // Special characters allowed in nicknames: [ ] \ ` _ ^ { | }
     let is_special = |c: char| {
         let code = c as u32;
         (0x5B..=0x60).contains(&code) || (0x7B..=0x7D).contains(&code)
     };
-    
+
     // First char: letter or special
     if !(first.is_ascii_alphabetic() || is_special(first)) {
         return false;
     }
-    
+
     // Rest: letter, digit, special, or hyphen
     for c in chars {
         if !(c.is_ascii_alphanumeric() || is_special(c) || c == '-') {
             return false;
         }
     }
-    
+
     // Reasonable length limit
     nick.len() <= 50
 }
@@ -240,7 +240,7 @@ impl<'a> PrefixRef<'a> {
         if let Some(at_pos) = s.find('@') {
             let before = &s[..at_pos];
             let host = &s[at_pos + 1..];
-            
+
             let (nick, user) = match before.find('!') {
                 Some(bang) => {
                     let n = &before[..bang];
@@ -251,11 +251,15 @@ impl<'a> PrefixRef<'a> {
                     )
                 }
                 None => (
-                    if before.is_empty() { None } else { Some(before) },
+                    if before.is_empty() {
+                        None
+                    } else {
+                        Some(before)
+                    },
                     None,
                 ),
             };
-            
+
             Self {
                 nick,
                 user,
@@ -266,7 +270,7 @@ impl<'a> PrefixRef<'a> {
             // nick!user without @host
             let nick = &s[..bang];
             let user = &s[bang + 1..];
-            
+
             Self {
                 nick: if nick.is_empty() { None } else { Some(nick) },
                 user: if user.is_empty() { None } else { Some(user) },
@@ -291,7 +295,7 @@ impl<'a> PrefixRef<'a> {
             }
         }
     }
-    
+
     /// Check if this prefix looks like a server name.
     pub fn is_server(&self) -> bool {
         self.nick.is_none() && self.user.is_none() && self.host.is_some()
@@ -322,25 +326,28 @@ impl<'a> PrefixRef<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_parse_server_name() {
         let p = Prefix::new_from_str("irc.example.com");
         assert_eq!(p, Prefix::ServerName("irc.example.com".into()));
     }
-    
+
     #[test]
     fn test_parse_nick_user_host() {
         let p = Prefix::new_from_str("nick!user@host.com");
-        assert_eq!(p, Prefix::Nickname("nick".into(), "user".into(), "host.com".into()));
+        assert_eq!(
+            p,
+            Prefix::Nickname("nick".into(), "user".into(), "host.com".into())
+        );
     }
-    
+
     #[test]
     fn test_parse_nick_only() {
         let p = Prefix::new_from_str("nickname");
         assert_eq!(p, Prefix::Nickname("nickname".into(), "".into(), "".into()));
     }
-    
+
     #[test]
     fn test_prefix_ref_parse() {
         let p = PrefixRef::parse("nick!user@host.com");
@@ -348,14 +355,14 @@ mod tests {
         assert_eq!(p.user, Some("user"));
         assert_eq!(p.host, Some("host.com"));
     }
-    
+
     #[test]
     fn test_prefix_ref_server() {
         let p = PrefixRef::parse("irc.example.com");
         assert!(p.is_server());
         assert_eq!(p.host, Some("irc.example.com"));
     }
-    
+
     #[test]
     fn test_valid_prefix() {
         assert!(is_valid_prefix_str("nick!user@host"));
@@ -364,14 +371,14 @@ mod tests {
         assert!(!is_valid_prefix_str(""));
         assert!(!is_valid_prefix_str("nick with space"));
     }
-    
+
     #[test]
     fn test_prefix_accessors() {
         let p = Prefix::Nickname("nick".into(), "user".into(), "host".into());
         assert_eq!(p.nick(), Some("nick"));
         assert_eq!(p.user(), Some("user"));
         assert_eq!(p.host(), Some("host"));
-        
+
         let s = Prefix::ServerName("irc.test.com".into());
         assert_eq!(s.nick(), None);
         assert_eq!(s.host(), Some("irc.test.com"));

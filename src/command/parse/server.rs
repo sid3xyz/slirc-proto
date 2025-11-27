@@ -1,7 +1,6 @@
-
-use crate::error::MessageParseError;
 use super::super::types::Command;
 use super::connection::raw;
+use crate::error::MessageParseError;
 
 pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseError> {
     let result = match cmd {

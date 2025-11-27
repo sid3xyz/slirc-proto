@@ -1,4 +1,3 @@
-
 //! Zero-copy borrowed message types for high-performance parsing.
 //!
 //! This module provides `MessageRef<'a>`, a borrowed message type that holds
@@ -17,11 +16,11 @@
 //! assert_eq!(msg.source_nickname(), Some("nick"));
 //! ```
 
+use crate::command::Command;
 use crate::command::CommandRef;
 use crate::error::MessageParseError;
-use crate::prefix::PrefixRef;
 use crate::message::{Message, Tag};
-use crate::command::Command;
+use crate::prefix::PrefixRef;
 
 use super::nom_parser::ParsedMessage;
 
@@ -156,9 +155,7 @@ impl<'a> MessageRef<'a> {
         self.tags
             .into_iter()
             .flat_map(|tags| tags.split(';'))
-            .map(|tag| {
-                tag.split_once('=').unwrap_or((tag, ""))
-            })
+            .map(|tag| tag.split_once('=').unwrap_or((tag, "")))
     }
 
     /// Get the server time tag value, if present.
@@ -237,18 +234,19 @@ impl<'a> MessageRef<'a> {
 
     /// Convert the command to an owned Command.
     fn to_owned_command(&self) -> Command {
-        Command::new(self.command.name, self.command.args.clone())
-            .unwrap_or_else(|_| Command::Raw(
+        Command::new(self.command.name, self.command.args.clone()).unwrap_or_else(|_| {
+            Command::Raw(
                 self.command.name.to_string(),
                 self.command.args.iter().map(|s| s.to_string()).collect(),
-            ))
+            )
+        })
     }
 
     /// Serialize back to a raw IRC message string.
     pub fn to_raw_owned(&self) -> String {
         let capacity = self.raw.len();
         let mut s = String::with_capacity(capacity);
-        
+
         if let Some(tags) = &self.tags {
             s.push('@');
             s.push_str(tags);

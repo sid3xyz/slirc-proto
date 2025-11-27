@@ -1,6 +1,5 @@
-
-use crate::error::MessageParseError;
 use super::super::types::Command;
+use crate::error::MessageParseError;
 
 pub(super) fn raw(cmd: &str, args: Vec<&str>) -> Command {
     Command::Raw(
@@ -69,7 +68,10 @@ pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseE
                 Command::SQUIT(args[0].to_owned(), args[1].to_owned())
             }
         }
-        _ => unreachable!("connection::parse called with non-connection command: {}", cmd),
+        _ => unreachable!(
+            "connection::parse called with non-connection command: {}",
+            cmd
+        ),
     };
 
     Ok(result)

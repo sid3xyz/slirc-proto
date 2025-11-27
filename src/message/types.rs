@@ -1,4 +1,3 @@
-
 use std::borrow::Cow;
 
 use crate::chan::ChannelExt;
@@ -29,8 +28,6 @@ impl Message {
         command: &str,
         args: Vec<&str>,
     ) -> Result<Message, error::MessageParseError> {
-
-
         let parsed_prefix = if let Some(p) = prefix {
             Some(crate::prefix::Prefix::try_from_str(p)?)
         } else {
@@ -45,8 +42,6 @@ impl Message {
     }
 
     pub fn source_nickname(&self) -> Option<&str> {
-
-
         self.prefix.as_ref().and_then(|p| match p {
             Prefix::Nickname(name, _, _) => Some(&name[..]),
             _ => None,
@@ -69,13 +64,21 @@ impl Message {
             .and_then(|Tag(_, v)| v.as_deref())
     }
 
-    pub fn server_time(&self) -> Option<&str> { self.tag_value("time") }
+    pub fn server_time(&self) -> Option<&str> {
+        self.tag_value("time")
+    }
 
-    pub fn label(&self) -> Option<&str> { self.tag_value("label") }
+    pub fn label(&self) -> Option<&str> {
+        self.tag_value("label")
+    }
 
-    pub fn msgid(&self) -> Option<&str> { self.tag_value("msgid") }
+    pub fn msgid(&self) -> Option<&str> {
+        self.tag_value("msgid")
+    }
 
-    pub fn account_tag(&self) -> Option<&str> { self.tag_value("account") }
+    pub fn account_tag(&self) -> Option<&str> {
+        self.tag_value("account")
+    }
     /// Create a PRIVMSG message to a target with text
     pub fn privmsg<T, M>(target: T, text: M) -> Self
     where
@@ -329,7 +332,7 @@ mod tests {
             Command::PRIVMSG(target, text) => {
                 assert_eq!(target, "#channel");
                 assert_eq!(text, "Hello, world!");
-            },
+            }
             _ => panic!("Expected PRIVMSG command"),
         }
         assert!(msg.tags.is_none());
@@ -343,7 +346,7 @@ mod tests {
             Command::NOTICE(target, text) => {
                 assert_eq!(target, "nickname");
                 assert_eq!(text, "This is a notice");
-            },
+            }
             _ => panic!("Expected NOTICE command"),
         }
     }
@@ -355,7 +358,7 @@ mod tests {
             Command::JOIN(channel, key, _) => {
                 assert_eq!(channel, "#test");
                 assert!(key.is_none());
-            },
+            }
             _ => panic!("Expected JOIN command"),
         }
     }
@@ -367,7 +370,7 @@ mod tests {
             Command::JOIN(channel, key, _) => {
                 assert_eq!(channel, "#private");
                 assert_eq!(key.as_ref().unwrap(), "secret");
-            },
+            }
             _ => panic!("Expected JOIN command"),
         }
     }
@@ -379,7 +382,7 @@ mod tests {
             Command::PART(channel, message) => {
                 assert_eq!(channel, "#test");
                 assert!(message.is_none());
-            },
+            }
             _ => panic!("Expected PART command"),
         }
     }
@@ -391,7 +394,7 @@ mod tests {
             Command::PART(channel, message) => {
                 assert_eq!(channel, "#test");
                 assert_eq!(message.as_ref().unwrap(), "Goodbye!");
-            },
+            }
             _ => panic!("Expected PART command"),
         }
     }
@@ -402,7 +405,7 @@ mod tests {
         match msg.command {
             Command::NICK(nickname) => {
                 assert_eq!(nickname, "newnick");
-            },
+            }
             _ => panic!("Expected NICK command"),
         }
     }
@@ -415,7 +418,7 @@ mod tests {
                 assert_eq!(username, "testuser");
                 assert_eq!(mode, "0");
                 assert_eq!(realname, "Test User");
-            },
+            }
             _ => panic!("Expected USER command"),
         }
     }
@@ -427,7 +430,7 @@ mod tests {
             Command::PING(server, server2) => {
                 assert_eq!(server, "irc.example.com");
                 assert!(server2.is_none());
-            },
+            }
             _ => panic!("Expected PING command"),
         }
     }
@@ -439,7 +442,7 @@ mod tests {
             Command::PONG(server, server2) => {
                 assert_eq!(server, "irc.example.com");
                 assert!(server2.is_none());
-            },
+            }
             _ => panic!("Expected PONG command"),
         }
     }
@@ -450,7 +453,7 @@ mod tests {
         match msg.command {
             Command::QUIT(message) => {
                 assert!(message.is_none());
-            },
+            }
             _ => panic!("Expected QUIT command"),
         }
     }
@@ -461,7 +464,7 @@ mod tests {
         match msg.command {
             Command::QUIT(message) => {
                 assert_eq!(message.as_ref().unwrap(), "Goodbye!");
-            },
+            }
             _ => panic!("Expected QUIT command"),
         }
     }
@@ -474,7 +477,7 @@ mod tests {
                 assert_eq!(channel, "#channel");
                 assert_eq!(nickname, "baduser");
                 assert!(reason.is_none());
-            },
+            }
             _ => panic!("Expected KICK command"),
         }
     }
@@ -487,7 +490,7 @@ mod tests {
                 assert_eq!(channel, "#channel");
                 assert_eq!(nickname, "baduser");
                 assert_eq!(reason.as_ref().unwrap(), "Spam");
-            },
+            }
             _ => panic!("Expected KICK command"),
         }
     }
@@ -498,7 +501,7 @@ mod tests {
         match msg.command {
             Command::AWAY(message) => {
                 assert!(message.is_none());
-            },
+            }
             _ => panic!("Expected AWAY command"),
         }
     }
@@ -509,19 +512,18 @@ mod tests {
         match msg.command {
             Command::AWAY(message) => {
                 assert_eq!(message.as_ref().unwrap(), "Be back later");
-            },
+            }
             _ => panic!("Expected AWAY command"),
         }
     }
 
     #[test]
     fn test_with_message_tags() {
-        let msg = Message::privmsg("#test", "Hello")
-            .with_message_tags(vec![
-                Tag::new("time", Some("2023-01-01T00:00:00Z".to_string())),
-                Tag::new("msgid", Some("abc123".to_string())),
-            ]);
-        
+        let msg = Message::privmsg("#test", "Hello").with_message_tags(vec![
+            Tag::new("time", Some("2023-01-01T00:00:00Z".to_string())),
+            Tag::new("msgid", Some("abc123".to_string())),
+        ]);
+
         assert!(msg.tags.is_some());
         let tags = msg.tags.unwrap();
         assert_eq!(tags.len(), 2);
@@ -537,7 +539,7 @@ mod tests {
             .with_tag("time", Some("2023-01-01T00:00:00Z"))
             .with_tag("msgid", Some("abc123"))
             .with_tag("bot", None::<String>);
-        
+
         assert!(msg.tags.is_some());
         let tags = msg.tags.unwrap();
         assert_eq!(tags.len(), 3);
@@ -552,11 +554,10 @@ mod tests {
     #[test]
     fn test_with_prefix() {
         use crate::prefix::Prefix;
-        
+
         let prefix = Prefix::new_from_str("nick!user@host");
-        let msg = Message::privmsg("#test", "Hello")
-            .with_prefix(prefix.clone());
-        
+        let msg = Message::privmsg("#test", "Hello").with_prefix(prefix.clone());
+
         assert!(msg.prefix.is_some());
         assert_eq!(msg.prefix.unwrap(), prefix);
     }
@@ -564,26 +565,26 @@ mod tests {
     #[test]
     fn test_chaining_methods() {
         use crate::prefix::Prefix;
-        
+
         let msg = Message::privmsg("#test", "Hello")
             .with_tag("time", Some("2023-01-01T00:00:00Z"))
             .with_prefix(Prefix::new_from_str("bot!bot@example.com"));
-        
+
         // Verify command
         match msg.command {
             Command::PRIVMSG(target, text) => {
                 assert_eq!(target, "#test");
                 assert_eq!(text, "Hello");
-            },
+            }
             _ => panic!("Expected PRIVMSG command"),
         }
-        
+
         // Verify tags
         assert!(msg.tags.is_some());
         let tags = msg.tags.unwrap();
         assert_eq!(tags.len(), 1);
         assert_eq!(tags[0].0.as_ref(), "time");
-        
+
         // Verify prefix
         assert!(msg.prefix.is_some());
     }
@@ -593,10 +594,10 @@ mod tests {
         let original_msg = Message::privmsg("#test", "Hello, world!")
             .with_tag("time", Some("2023-01-01T00:00:00Z"))
             .with_tag("msgid", Some("abc123"));
-        
+
         let serialized = original_msg.to_string();
         let parsed: Message = serialized.parse().expect("Should parse successfully");
-        
+
         // The parsed message should be equivalent to the original
         assert_eq!(original_msg, parsed);
     }

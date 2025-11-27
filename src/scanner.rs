@@ -47,14 +47,11 @@ impl DetectedProtocol {
 
 /// HTTP method prefixes.
 const HTTP_METHODS: &[&str] = &[
-    "GET ", "POST ", "PUT ", "DELETE ", "HEAD ",
-    "OPTIONS ", "PATCH ", "CONNECT ", "TRACE ",
+    "GET ", "POST ", "PUT ", "DELETE ", "HEAD ", "OPTIONS ", "PATCH ", "CONNECT ", "TRACE ",
 ];
 
 /// SMTP command prefixes.
-const SMTP_COMMANDS: &[&str] = &[
-    "HELO ", "EHLO ", "MAIL ", "RCPT ", "DATA ",
-];
+const SMTP_COMMANDS: &[&str] = &["HELO ", "EHLO ", "MAIL ", "RCPT ", "DATA "];
 
 /// Detect the protocol from the first line of input.
 ///
@@ -127,7 +124,10 @@ mod tests {
     #[test]
     fn test_detect_irc() {
         assert_eq!(detect_protocol("NICK foo"), DetectedProtocol::Irc);
-        assert_eq!(detect_protocol("USER guest 0 * :Real"), DetectedProtocol::Irc);
+        assert_eq!(
+            detect_protocol("USER guest 0 * :Real"),
+            DetectedProtocol::Irc
+        );
         assert_eq!(detect_protocol("PING :server"), DetectedProtocol::Irc);
         assert_eq!(detect_protocol(""), DetectedProtocol::Irc);
     }
@@ -135,19 +135,31 @@ mod tests {
     #[test]
     fn test_detect_http() {
         assert_eq!(detect_protocol("GET / HTTP/1.1"), DetectedProtocol::Http);
-        assert_eq!(detect_protocol("POST /api HTTP/1.1"), DetectedProtocol::Http);
-        assert_eq!(detect_protocol("HEAD /index.html HTTP/1.0"), DetectedProtocol::Http);
+        assert_eq!(
+            detect_protocol("POST /api HTTP/1.1"),
+            DetectedProtocol::Http
+        );
+        assert_eq!(
+            detect_protocol("HEAD /index.html HTTP/1.0"),
+            DetectedProtocol::Http
+        );
     }
 
     #[test]
     fn test_detect_smtp() {
         assert_eq!(detect_protocol("HELO example.com"), DetectedProtocol::Smtp);
-        assert_eq!(detect_protocol("EHLO mail.server.com"), DetectedProtocol::Smtp);
+        assert_eq!(
+            detect_protocol("EHLO mail.server.com"),
+            DetectedProtocol::Smtp
+        );
     }
 
     #[test]
     fn test_detect_ssh() {
-        assert_eq!(detect_protocol("SSH-2.0-OpenSSH_8.0"), DetectedProtocol::Ssh);
+        assert_eq!(
+            detect_protocol("SSH-2.0-OpenSSH_8.0"),
+            DetectedProtocol::Ssh
+        );
         assert_eq!(detect_protocol("SSH-1.99-PuTTY"), DetectedProtocol::Ssh);
     }
 

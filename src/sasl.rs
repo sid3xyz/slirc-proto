@@ -26,7 +26,7 @@
 //! assert_eq!(mech, SaslMechanism::Plain);
 //! ```
 
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 
 /// Maximum length of a single SASL message chunk (400 bytes).
 ///
@@ -314,7 +314,10 @@ mod tests {
     #[test]
     fn test_choose_mechanism_prefers_scram_over_plain() {
         let available = vec![SaslMechanism::Plain, SaslMechanism::ScramSha256];
-        assert_eq!(choose_mechanism(&available), Some(SaslMechanism::ScramSha256));
+        assert_eq!(
+            choose_mechanism(&available),
+            Some(SaslMechanism::ScramSha256)
+        );
     }
 
     #[test]
@@ -369,7 +372,10 @@ mod tests {
         assert_eq!(SaslMechanism::parse("PLAIN"), SaslMechanism::Plain);
         assert_eq!(SaslMechanism::parse("plain"), SaslMechanism::Plain);
         assert_eq!(SaslMechanism::parse("EXTERNAL"), SaslMechanism::External);
-        assert_eq!(SaslMechanism::parse("SCRAM-SHA-256"), SaslMechanism::ScramSha256);
+        assert_eq!(
+            SaslMechanism::parse("SCRAM-SHA-256"),
+            SaslMechanism::ScramSha256
+        );
         assert_eq!(
             SaslMechanism::parse("UNKNOWN"),
             SaslMechanism::Unknown("UNKNOWN".to_owned())
