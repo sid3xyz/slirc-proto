@@ -18,6 +18,7 @@ This library is a core component of **STRAYLIGHT**, an experimental IRC ecosyste
 - **Message Parsing & Serialization** — Parse and serialize IRC messages with tags, prefixes, commands, and parameters
 - **IRCv3 Extensions** — Capability negotiation, message tags, batch processing, server-time, and message IDs
 - **Zero-Copy Parsing** — Efficient `MessageRef` and `CommandRef` types for borrowing without allocation
+- **Zero-Copy Transport** — `ZeroCopyTransport` yields `MessageRef<'_>` with zero heap allocations in hot loops
 - **Async Transport** — TCP, TLS (via rustls), and WebSocket connections with Tokio
 - **SASL Authentication** — PLAIN and EXTERNAL mechanism support with chunked encoding
 - **CTCP Handling** — Parse and construct CTCP messages (ACTION, VERSION, PING, etc.)
@@ -107,6 +108,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+```
+
+### Zero-Copy Transport (High Performance)
+
+For high-throughput servers, upgrade from `Transport` to `ZeroCopyTransport` after handshake:
+
+```rust
+use slirc_proto::transport::{Transport, ZeroCopyTransportEnum};
+
+// Use Transport for handshake
+let transport = Transport::tcp(stream);
+// ... perform CAP negotiation ...
+
+// Upgrade to zero-copy for the hot loop (no allocations!)
+let mut zc: ZeroCopyTransportEnum = transport.try_into().expect("TCP/TLS only");
+while let Some(result) = zc.next().await {
+    let msg_ref = result?;  // MessageRef<'_> borrows from buffer
+    println!("Command: {}", msg_ref.command_name());
+    // Process without allocating
 }
 ```
 

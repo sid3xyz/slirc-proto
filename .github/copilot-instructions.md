@@ -33,7 +33,8 @@ cargo bench                   # Run benchmarks
 |-----------|---------|
 | Parsing | `MessageRef<'a>` zero-copy, nom combinators with simple `Error` |
 | Serialization | `write_to(&mut impl fmt::Write)` to avoid allocations |
-| Transport | `Framed<T, IrcCodec>` for async line-based I/O |
+| Transport (owned) | `Framed<T, IrcCodec>` for handshake, returns `Message` |
+| Transport (zero-copy) | `ZeroCopyTransport<S>` for hot loop, yields `MessageRef<'_>` |
 | Errors | `ProtocolError` (transport), `MessageParseError` (parsing) |
 
 ## Testing Requirements
