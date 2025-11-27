@@ -78,35 +78,11 @@ impl FromStr for Message {
 
         // Use the nom parser
         let parsed = ParsedMessage::parse(s).map_err(|parse_err| {
-            // Convert detailed parse error to appropriate message parse error with enhanced context
-            let cause = match parse_err.context {
-                Some("parsing IRCv3 message tags") => MessageParseError::ParseContext {
-                    position: parse_err.position,
-                    context: format!("Invalid IRCv3 message tags format: {:?}", parse_err.kind),
-                    source: None, // We don't store the source to avoid lifetime issues
-                },
-                Some("parsing message prefix") => MessageParseError::ParseContext {
-                    position: parse_err.position,
-                    context: format!("Invalid message prefix format: {:?}", parse_err.kind),
-                    source: None,
-                },
-                Some("parsing IRC command") | Some("parsing required command") => {
-                    MessageParseError::ParseContext {
-                        position: parse_err.position,
-                        context: format!("Invalid or missing IRC command: {:?}", parse_err.kind),
-                        source: None,
-                    }
-                }
-                Some(context) => MessageParseError::ParseContext {
-                    position: parse_err.position,
-                    context: format!("Parse error while {}: {:?}", context, parse_err.kind),
-                    source: None,
-                },
-                None => MessageParseError::ParseContext {
-                    position: parse_err.position,
-                    context: format!("Unknown parsing error: {:?}", parse_err.kind),
-                    source: None,
-                },
+            // Convert detailed parse error to appropriate message parse error
+            let cause = MessageParseError::ParseContext {
+                position: parse_err.position,
+                context: format!("Parse error: {:?}", parse_err.kind),
+                source: None,
             };
             
             ProtocolError::InvalidMessage {

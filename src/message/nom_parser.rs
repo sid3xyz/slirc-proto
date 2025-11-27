@@ -7,35 +7,24 @@ use nom::{
     bytes::complete::{take_until, take_while1},
     character::complete::{char, space0},
     combinator::opt,
-    error::{context, ErrorKind, VerboseError},
+    error::ErrorKind,
     sequence::preceded,
     IResult,
 };
 
-type ParseResult<I, O> = IResult<I, O, VerboseError<I>>;
-
 /// Parse IRCv3 message tags (the part after `@` and before the first space).
-fn parse_tags(input: &str) -> ParseResult<&str, &str> {
-    context(
-        "parsing IRCv3 message tags",
-        preceded(char('@'), take_until(" "))
-    )(input)
+fn parse_tags(input: &str) -> IResult<&str, &str> {
+    preceded(char('@'), take_until(" "))(input)
 }
 
 /// Parse message prefix (the part after `:` and before the first space).
-fn parse_prefix(input: &str) -> ParseResult<&str, &str> {
-    context(
-        "parsing message prefix",
-        preceded(char(':'), take_while1(|c| c != ' '))
-    )(input)
+fn parse_prefix(input: &str) -> IResult<&str, &str> {
+    preceded(char(':'), take_while1(|c| c != ' '))(input)
 }
 
 /// Parse the command name (alphanumeric characters).
-fn parse_command(input: &str) -> ParseResult<&str, &str> {
-    context(
-        "parsing IRC command",
-        take_while1(|c: char| c.is_alphanumeric())
-    )(input)
+fn parse_command(input: &str) -> IResult<&str, &str> {
+    take_while1(|c: char| c.is_alphanumeric())(input)
 }
 
 /// Parse a complete IRC message into its components.
@@ -44,17 +33,17 @@ fn parse_command(input: &str) -> ParseResult<&str, &str> {
 /// ```text
 /// [@tags] [:prefix] <command> [params...] [:trailing]
 /// ```
-pub fn parse_message(input: &str) -> ParseResult<&str, ParsedMessage<'_>> {
+pub fn parse_message(input: &str) -> IResult<&str, ParsedMessage<'_>> {
     // Parse optional tags
-    let (input, tags) = context("parsing optional tags", opt(parse_tags))(input)?;
+    let (input, tags) = opt(parse_tags)(input)?;
     let (input, _) = space0(input)?;
 
     // Parse optional prefix  
-    let (input, prefix) = context("parsing optional prefix", opt(parse_prefix))(input)?;
+    let (input, prefix) = opt(parse_prefix)(input)?;
     let (input, _) = space0(input)?;
 
     // Parse command (required)
-    let (input, command) = context("parsing required command", parse_command)(input)?;
+    let (input, command) = parse_command(input)?;
 
     // Parse parameters (including trailing)
     let mut params: Vec<&str> = Vec::new();
@@ -128,38 +117,17 @@ impl<'a> ParsedMessage<'a> {
         match parse_message(input) {
             Ok((_remaining, msg)) => Ok(msg),
             Err(nom::Err::Error(e)) | Err(nom::Err::Failure(e)) => {
-                // Find the innermost error with context
-                let mut context_info = None;
-                let mut position = input.len();
-                let mut kind = ErrorKind::Tag;
-                
-                for (error_input, error_kind) in &e.errors {
-                    position = input.len() - error_input.len();
-                    match error_kind {
-                        nom::error::VerboseErrorKind::Context(ctx) => {
-                            context_info = Some(*ctx);
-                        }
-                        nom::error::VerboseErrorKind::Nom(ek) => {
-                            kind = *ek;
-                        }
-                        nom::error::VerboseErrorKind::Char(_) => {
-                            kind = ErrorKind::Char;
-                        }
-                    }
-                }
-                
+                let position = input.len() - e.input.len();
                 Err(DetailedParseError {
                     input: input.to_string(),
                     position,
-                    context: context_info,
-                    kind,
+                    kind: e.code,
                 })
             }
             Err(nom::Err::Incomplete(_)) => {
                 Err(DetailedParseError {
                     input: input.to_string(),
                     position: input.len(),
-                    context: Some("incomplete input"),
                     kind: ErrorKind::Eof,
                 })
             }
@@ -167,26 +135,20 @@ impl<'a> ParsedMessage<'a> {
     }
 }
 
-/// Detailed parse error with position and context information.
+/// Detailed parse error with position information.
 #[derive(Debug, Clone)]
 pub struct DetailedParseError {
     /// The original input string that failed to parse.
     pub input: String,
     /// Character position where parsing failed.
     pub position: usize,
-    /// Context about what was being parsed when the error occurred.
-    pub context: Option<&'static str>,
     /// The nom error kind.
     pub kind: ErrorKind,
 }
 
 impl std::fmt::Display for DetailedParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Parse error at position {}", self.position)?;
-        if let Some(ctx) = self.context {
-            write!(f, " while {}", ctx)?;
-        }
-        write!(f, ": {:?}", self.kind)?;
+        write!(f, "Parse error at position {}: {:?}", self.position, self.kind)?;
         
         // Show the error position in the input
         if self.position < self.input.len() {
