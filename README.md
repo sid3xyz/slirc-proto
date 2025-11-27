@@ -1,5 +1,6 @@
 # slirc-proto
 
+[![CI](https://github.com/sid3xyz/slirc-proto/actions/workflows/ci.yml/badge.svg)](https://github.com/sid3xyz/slirc-proto/actions/workflows/ci.yml)
 [![License: Unlicense](https://img.shields.io/badge/License-Unlicense-blue.svg)](LICENSE)
 [![MSRV](https://img.shields.io/badge/MSRV-1.70-blue.svg)](https://blog.rust-lang.org/2023/06/01/Rust-1.70.0.html)
 
