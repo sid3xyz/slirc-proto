@@ -54,4 +54,4 @@ jobs:
         uses: dtolnay/rust-toolchain@1.70.0
 
       - name: Check compilation
-        run: cargo check --all-features
+        run: cargo check --all-features --locked
