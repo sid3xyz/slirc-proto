@@ -154,10 +154,34 @@ impl fmt::Display for Command {
             Command::USERS(None) => write_cmd(f, "USERS", &[]),
             Command::WALLOPS(t) => write_cmd_freeform(f, "WALLOPS", &[t]),
             Command::USERHOST(u) => {
-                write_cmd(f, "USERHOST", &u.iter().map(|s| s.as_str()).collect::<Vec<_>>())
+                // Write directly to avoid Vec allocation
+                f.write_str("USERHOST")?;
+                for (i, nick) in u.iter().enumerate() {
+                    f.write_char(' ')?;
+                    // Last argument needs trailing handling
+                    if i == u.len() - 1
+                        && (nick.is_empty() || nick.contains(' ') || nick.starts_with(':'))
+                    {
+                        f.write_char(':')?;
+                    }
+                    f.write_str(nick)?;
+                }
+                Ok(())
             }
             Command::ISON(u) => {
-                write_cmd(f, "ISON", &u.iter().map(|s| s.as_str()).collect::<Vec<_>>())
+                // Write directly to avoid Vec allocation
+                f.write_str("ISON")?;
+                for (i, nick) in u.iter().enumerate() {
+                    f.write_char(' ')?;
+                    // Last argument needs trailing handling
+                    if i == u.len() - 1
+                        && (nick.is_empty() || nick.contains(' ') || nick.starts_with(':'))
+                    {
+                        f.write_char(':')?;
+                    }
+                    f.write_str(nick)?;
+                }
+                Ok(())
             }
             Command::SAJOIN(n, c) => write_cmd(f, "SAJOIN", &[n, c]),
             Command::SAMODE(t, m, Some(p)) => write_cmd(f, "SAMODE", &[t, m, p]),
@@ -166,7 +190,19 @@ impl fmt::Display for Command {
             Command::SAPART(c, r) => write_cmd(f, "SAPART", &[c, r]),
             Command::SAQUIT(c, r) => write_cmd(f, "SAQUIT", &[c, r]),
             Command::NICKSERV(p) => {
-                write_cmd(f, "NICKSERV", &p.iter().map(|s| s.as_str()).collect::<Vec<_>>())
+                // Write directly to avoid Vec allocation
+                f.write_str("NICKSERV")?;
+                for (i, arg) in p.iter().enumerate() {
+                    f.write_char(' ')?;
+                    // Last argument needs trailing handling
+                    if i == p.len() - 1
+                        && (arg.is_empty() || arg.contains(' ') || arg.starts_with(':'))
+                    {
+                        f.write_char(':')?;
+                    }
+                    f.write_str(arg)?;
+                }
+                Ok(())
             }
             Command::CHANSERV(m) => write_cmd(f, "CHANSERV", &[m]),
             Command::OPERSERV(m) => write_cmd(f, "OPERSERV", &[m]),
@@ -232,7 +268,19 @@ impl fmt::Display for Command {
                 Ok(())
             }
             Command::Raw(c, a) => {
-                write_cmd(f, c, &a.iter().map(|s| s.as_str()).collect::<Vec<_>>())
+                // Write directly to avoid Vec allocation
+                f.write_str(c)?;
+                for (i, arg) in a.iter().enumerate() {
+                    f.write_char(' ')?;
+                    // Last argument needs trailing handling
+                    if i == a.len() - 1
+                        && (arg.is_empty() || arg.contains(' ') || arg.starts_with(':'))
+                    {
+                        f.write_char(':')?;
+                    }
+                    f.write_str(arg)?;
+                }
+                Ok(())
             }
         }
     }
