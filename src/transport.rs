@@ -57,6 +57,7 @@ pub const MAX_IRC_LINE_LEN: usize = 8191;
 
 /// Errors that can occur when reading from a transport.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum TransportReadError {
     /// An I/O error occurred.
     Io(std::io::Error),
@@ -77,6 +78,7 @@ impl From<ProtocolError> for TransportReadError {
 }
 
 #[allow(clippy::large_enum_variant)]
+#[non_exhaustive]
 pub enum Transport {
     Tcp {
         framed: Framed<tokio::net::TcpStream, IrcCodec>,
@@ -621,6 +623,7 @@ impl<S: AsyncRead + Unpin> LendingStream for ZeroCopyTransport<S> {
 /// This provides a unified interface for zero-copy message reading
 /// over TCP and TLS connections.
 #[allow(clippy::large_enum_variant)]
+#[non_exhaustive]
 pub enum ZeroCopyTransportEnum {
     /// TCP zero-copy transport.
     Tcp(ZeroCopyTransport<TcpStream>),

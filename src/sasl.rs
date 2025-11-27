@@ -36,6 +36,7 @@ pub const SASL_CHUNK_SIZE: usize = 400;
 
 /// Supported SASL authentication mechanisms.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum SaslMechanism {
     /// PLAIN mechanism (RFC 4616) - simple username/password.
     Plain,
@@ -236,6 +237,7 @@ pub fn decode_base64(encoded: &str) -> Result<Vec<u8>, base64::DecodeError> {
 
 /// SASL authentication state machine.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum SaslState {
     /// Initial state, not yet started.
     Initial,

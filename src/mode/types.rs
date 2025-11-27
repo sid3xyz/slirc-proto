@@ -26,6 +26,7 @@ pub trait ModeType: fmt::Display + fmt::Debug + Clone + PartialEq {
 /// User modes modify the behavior of how the server and other users
 /// interact with a particular user.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum UserMode {
     /// 'a' - User is away
     Away,
@@ -96,6 +97,7 @@ impl fmt::Display for UserMode {
 ///
 /// Channel modes control channel behavior and user privileges within channels.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ChannelMode {
     // === List modes (always take argument) ===
     /// 'b' - Ban mask

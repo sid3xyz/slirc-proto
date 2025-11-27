@@ -11,6 +11,7 @@ use crate::error::MessageParseError;
 ///
 /// CAP is used to negotiate IRCv3 capabilities between client and server.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum CapSubCommand {
     /// LS - List available capabilities
     LS,

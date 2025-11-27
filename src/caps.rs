@@ -24,6 +24,7 @@ pub struct CapabilityDef {
 
 /// Known IRCv3 capability types.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum Capability {
     /// Show all user prefix modes in NAMES
     MultiPrefix,

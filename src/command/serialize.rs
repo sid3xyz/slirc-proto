@@ -280,6 +280,13 @@ impl fmt::Display for Command {
             Command::BATCH(t, None, None) => write_cmd(f, "BATCH", &[t]),
             Command::CHGHOST(u, h) => write_cmd(f, "CHGHOST", &[u, h]),
             Command::SETNAME(r) => write_cmd_freeform(f, "SETNAME", &[r]),
+            Command::TAGMSG(t) => write_cmd(f, "TAGMSG", &[t]),
+            Command::WEBIRC(pass, gateway, host, ip, Some(opts)) => {
+                write_cmd(f, "WEBIRC", &[pass, gateway, host, ip, opts])
+            }
+            Command::WEBIRC(pass, gateway, host, ip, None) => {
+                write_cmd(f, "WEBIRC", &[pass, gateway, host, ip])
+            }
             Command::FAIL(command, code, context) => {
                 // Write directly to avoid Vec allocation, last arg is freeform (colon-prefixed)
                 f.write_str("FAIL")?;

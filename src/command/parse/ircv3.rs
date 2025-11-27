@@ -99,7 +99,27 @@ pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseE
                 raw(cmd, args)
             }
         }
-        _ => unreachable!("ircv3::parse called with non-ircv3 command: {}", cmd),
+        "TAGMSG" => {
+            if args.len() == 1 {
+                Command::TAGMSG(args[0].to_owned())
+            } else {
+                raw(cmd, args)
+            }
+        }
+        "WEBIRC" => {
+            if args.len() >= 4 {
+                Command::WEBIRC(
+                    args[0].to_owned(),
+                    args[1].to_owned(),
+                    args[2].to_owned(),
+                    args[3].to_owned(),
+                    args.get(4).map(|s| s.to_string()),
+                )
+            } else {
+                raw(cmd, args)
+            }
+        }
+        _ => raw(cmd, args),
     };
 
     Ok(result)

@@ -171,6 +171,10 @@ pub enum Command {
     CHGHOST(String, String),
     /// `SETNAME realname`
     SETNAME(String),
+    /// `TAGMSG target` - IRCv3 message-tags: message with only tags, no text
+    TAGMSG(String),
+    /// `WEBIRC password gateway hostname ip [:options]` - WebIRC/CGI:IRC identification
+    WEBIRC(String, String, String, String, Option<String>),
 
     // === Standard Replies (IRCv3) ===
     /// `FAIL command code [context...] :description`

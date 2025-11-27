@@ -29,6 +29,7 @@ pub const CTCP_DELIM: char = '\x01';
 
 /// Known CTCP command types.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum CtcpKind {
     /// ACTION - describes an action performed by the user.
     /// Commonly triggered by `/me` in IRC clients.

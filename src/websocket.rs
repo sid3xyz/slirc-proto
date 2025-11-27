@@ -52,6 +52,7 @@ impl WebSocketConfig {
 }
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum HandshakeResult {
     Accept {
         subprotocol: Option<String>,
