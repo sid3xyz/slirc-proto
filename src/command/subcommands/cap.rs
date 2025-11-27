@@ -45,7 +45,7 @@ impl CapSubCommand {
             Self::DEL => "DEL",
         }
     }
-    
+
     /// Alias for backward compatibility
     #[inline]
     pub fn to_str(&self) -> &'static str {
@@ -55,7 +55,7 @@ impl CapSubCommand {
 
 impl FromStr for CapSubCommand {
     type Err = MessageParseError;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_uppercase().as_str() {
             "LS" => Ok(Self::LS),
@@ -83,7 +83,7 @@ impl std::fmt::Display for CapSubCommand {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_parse() {
         assert_eq!("LS".parse::<CapSubCommand>().unwrap(), CapSubCommand::LS);
@@ -91,7 +91,7 @@ mod tests {
         assert_eq!("req".parse::<CapSubCommand>().unwrap(), CapSubCommand::REQ);
         assert!("INVALID".parse::<CapSubCommand>().is_err());
     }
-    
+
     #[test]
     fn test_display() {
         assert_eq!(format!("{}", CapSubCommand::LS), "LS");

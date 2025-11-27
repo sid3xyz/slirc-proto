@@ -67,6 +67,7 @@ pub mod ctcp;
 pub mod error;
 #[cfg(feature = "tokio")]
 pub mod irc;
+pub mod isupport;
 #[cfg(feature = "tokio")]
 pub mod line;
 pub mod message;
@@ -74,7 +75,6 @@ pub mod mode;
 pub mod prefix;
 pub mod response;
 pub mod sasl;
-pub mod isupport;
 
 pub use self::caps::{Capability, NegotiationVersion};
 pub use self::chan::ChannelExt;
@@ -85,32 +85,34 @@ pub use self::ctcp::{Ctcp, CtcpKind, CtcpOwned};
 pub use self::command::{CommandRef, CommandRefEnum};
 #[cfg(feature = "tokio")]
 pub use self::irc::IrcCodec;
+pub use self::isupport::{ChanModes, Isupport, IsupportEntry, MaxList, PrefixSpec, TargMax};
+pub use self::message::MessageRef;
 pub use self::message::{Message, Tag};
 pub use self::mode::{ChannelMode, Mode, UserMode};
 pub use self::prefix::Prefix;
 pub use self::prefix::PrefixRef;
-pub use self::message::MessageRef;
 pub use self::response::Response;
-pub use self::sasl::{SaslMechanism, SaslState, encode_plain, encode_external};
-pub use self::isupport::{Isupport, IsupportEntry, PrefixSpec, ChanModes, TargMax, MaxList};
+pub use self::sasl::{encode_external, encode_plain, SaslMechanism, SaslState};
 
 pub mod casemap;
-pub use self::casemap::{irc_to_lower, irc_eq};
+pub use self::casemap::{irc_eq, irc_to_lower};
 
 pub mod ircv3;
-pub use self::ircv3::{generate_msgid, generate_batch_ref, format_server_time, format_timestamp};
+pub use self::ircv3::{format_server_time, format_timestamp, generate_batch_ref, generate_msgid};
 pub mod scanner;
-pub use scanner::{is_non_irc_protocol, detect_protocol, DetectedProtocol};
+pub use scanner::{detect_protocol, is_non_irc_protocol, DetectedProtocol};
 
 #[cfg(feature = "tokio")]
 pub mod transport;
 #[cfg(feature = "tokio")]
 pub use self::transport::{
-    Transport, TransportReadError, MAX_IRC_LINE_LEN,
-    ZeroCopyTransport, ZeroCopyTransportEnum, LendingStream, WebSocketNotSupportedError,
+    LendingStream, Transport, TransportReadError, WebSocketNotSupportedError, ZeroCopyTransport,
+    ZeroCopyTransportEnum, MAX_IRC_LINE_LEN,
 };
 
 #[cfg(feature = "tokio")]
 pub mod websocket;
 #[cfg(feature = "tokio")]
-pub use self::websocket::{WebSocketConfig, HandshakeResult, validate_handshake, build_handshake_response};
+pub use self::websocket::{
+    build_handshake_response, validate_handshake, HandshakeResult, WebSocketConfig,
+};

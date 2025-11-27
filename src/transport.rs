@@ -50,7 +50,7 @@ use crate::Message;
 use futures_util::{SinkExt, StreamExt};
 
 #[cfg(feature = "tokio")]
-use tokio_tungstenite::{WebSocketStream, tungstenite::Message as WsMessage};
+use tokio_tungstenite::{tungstenite::Message as WsMessage, WebSocketStream};
 
 /// Maximum IRC line length (8191 bytes as per modern IRC conventions).
 pub const MAX_IRC_LINE_LEN: usize = 8191;
@@ -85,9 +85,7 @@ pub enum Transport {
         framed: Framed<TlsStream<TcpStream>, IrcCodec>,
     },
     #[cfg(feature = "tokio")]
-    WebSocket {
-        stream: WebSocketStream<TcpStream>,
-    },
+    WebSocket { stream: WebSocketStream<TcpStream> },
     #[cfg(feature = "tokio")]
     WebSocketTls {
         stream: WebSocketStream<TlsStream<TcpStream>>,
@@ -100,16 +98,16 @@ impl Transport {
             warn!("failed to enable TCP keepalive: {}", e);
         }
 
-        let codec = IrcCodec::new("utf-8").expect("Failed to create UTF-8 codec: encoding not supported");
+        let codec =
+            IrcCodec::new("utf-8").expect("Failed to create UTF-8 codec: encoding not supported");
         Self::Tcp {
             framed: Framed::new(stream, codec),
         }
     }
 
     fn enable_keepalive(stream: &TcpStream) -> Result<()> {
-        use std::time::Duration;
         use socket2::{SockRef, TcpKeepalive};
-
+        use std::time::Duration;
 
         let sock = SockRef::from(stream);
         let keepalive = TcpKeepalive::new()
@@ -121,7 +119,8 @@ impl Transport {
     }
 
     pub fn tls(stream: TlsStream<TcpStream>) -> Self {
-        let codec = IrcCodec::new("utf-8").expect("Failed to create UTF-8 codec: encoding not supported");
+        let codec =
+            IrcCodec::new("utf-8").expect("Failed to create UTF-8 codec: encoding not supported");
         Self::Tls {
             framed: Framed::new(stream, codec),
         }
@@ -167,10 +166,11 @@ impl Transport {
             ($stream:expr) => {{
                 let text = read_websocket_message($stream).await?;
                 match text {
-                    Some(s) => s.parse::<Message>()
+                    Some(s) => s
+                        .parse::<Message>()
                         .map(Some)
                         .map_err(TransportReadError::from),
-                    None => Ok(None)
+                    None => Ok(None),
                 }
             }};
         }
@@ -188,7 +188,10 @@ impl Transport {
     pub async fn write_message(&mut self, message: &Message) -> Result<()> {
         macro_rules! write_framed {
             ($framed:expr, $msg:expr) => {
-                $framed.send($msg.clone()).await.map_err(|e| anyhow::anyhow!(e))
+                $framed
+                    .send($msg.clone())
+                    .await
+                    .map_err(|e| anyhow::anyhow!(e))
             };
         }
 
@@ -196,16 +199,21 @@ impl Transport {
             Transport::Tcp { framed } => write_framed!(framed, message),
             Transport::Tls { framed } => write_framed!(framed, message),
             #[cfg(feature = "tokio")]
-            Transport::WebSocket { stream } => write_websocket_message(stream, &message.to_string()).await,
+            Transport::WebSocket { stream } => {
+                write_websocket_message(stream, &message.to_string()).await
+            }
             #[cfg(feature = "tokio")]
-            Transport::WebSocketTls { stream } => write_websocket_message(stream, &message.to_string()).await,
+            Transport::WebSocketTls { stream } => {
+                write_websocket_message(stream, &message.to_string()).await
+            }
         }
     }
 }
 
-
 #[cfg(feature = "tokio")]
-async fn read_websocket_message<S>(stream: &mut WebSocketStream<S>) -> Result<Option<String>, TransportReadError>
+async fn read_websocket_message<S>(
+    stream: &mut WebSocketStream<S>,
+) -> Result<Option<String>, TransportReadError>
 where
     S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
 {
@@ -213,14 +221,18 @@ where
         match stream.next().await {
             Some(Ok(WsMessage::Text(text))) => {
                 if text.len() > MAX_IRC_LINE_LEN {
-                    return Err(TransportReadError::Protocol(ProtocolError::MessageTooLong(text.len())));
+                    return Err(TransportReadError::Protocol(ProtocolError::MessageTooLong(
+                        text.len(),
+                    )));
                 }
 
                 let trimmed = text.trim_end_matches(&['\r', '\n'][..]);
 
                 for ch in trimmed.chars() {
                     if ch == '\0' || (ch.is_control() && ch != '\r' && ch != '\n') {
-                        return Err(TransportReadError::Protocol(ProtocolError::IllegalControlChar(ch)));
+                        return Err(TransportReadError::Protocol(
+                            ProtocolError::IllegalControlChar(ch),
+                        ));
                     }
                 }
 
@@ -255,7 +267,9 @@ where
     S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
 {
     let msg = message.trim_end_matches(&['\r', '\n'][..]);
-    stream.send(WsMessage::Text(msg.to_string())).await
+    stream
+        .send(WsMessage::Text(msg.to_string()))
+        .await
         .map_err(|e| anyhow::anyhow!("WebSocket send error: {}", e))?;
     Ok(())
 }
@@ -276,7 +290,9 @@ where
 /// is tied to the borrow of `self`, not to a separate lifetime parameter.
 pub trait LendingStream {
     /// The item type yielded by this stream, borrowing from `self`.
-    type Item<'a> where Self: 'a;
+    type Item<'a>
+    where
+        Self: 'a;
     /// The error type that can occur when polling.
     type Error;
 
@@ -437,8 +453,7 @@ impl<S: AsyncRead + Unpin> ZeroCopyTransport<S> {
                         // This is safe because:
                         // 1. We take &mut self, preventing concurrent access
                         // 2. We don't advance the buffer until the next call
-                        let line_str: &str =
-                            unsafe { std::mem::transmute::<&str, &str>(line_str) };
+                        let line_str: &str = unsafe { std::mem::transmute::<&str, &str>(line_str) };
 
                         match MessageRef::parse(line_str) {
                             Ok(msg) => return Some(Ok(msg)),
@@ -488,7 +503,10 @@ impl<S: AsyncRead + Unpin> ZeroCopyTransport<S> {
 }
 
 impl<S: AsyncRead + Unpin> LendingStream for ZeroCopyTransport<S> {
-    type Item<'a> = MessageRef<'a> where Self: 'a;
+    type Item<'a>
+        = MessageRef<'a>
+    where
+        Self: 'a;
     type Error = TransportReadError;
 
     fn poll_next(
@@ -510,30 +528,35 @@ impl<S: AsyncRead + Unpin> LendingStream for ZeroCopyTransport<S> {
                     ))));
                 }
 
-                // Validate the line
-                let line_slice = &self.buffer[..line_len];
-                match Self::validate_line(line_slice) {
-                    Ok(line_str) => {
-                        // Mark this line as consumed
-                        self.consumed = line_len;
-
-                        // SAFETY: Same as in next() - buffer won't be modified until next poll
-                        let line_str: &str =
-                            unsafe { std::mem::transmute::<&str, &str>(line_str) };
-
-                        match MessageRef::parse(line_str) {
-                            Ok(msg) => return Poll::Ready(Some(Ok(msg))),
-                            Err(e) => {
-                                return Poll::Ready(Some(Err(TransportReadError::Protocol(
-                                    ProtocolError::InvalidMessage {
-                                        string: line_str.to_string(),
-                                        cause: e,
-                                    },
-                                ))))
-                            }
-                        }
+                // Validate the line first (this borrows buffer temporarily)
+                {
+                    let line_slice = &self.buffer[..line_len];
+                    if let Err(e) = Self::validate_line(line_slice) {
+                        return Poll::Ready(Some(Err(e)));
                     }
-                    Err(e) => return Poll::Ready(Some(Err(e))),
+                }
+
+                // Mark this line as consumed
+                self.consumed = line_len;
+
+                // Now get the line string again and parse it
+                // SAFETY: Same as in next() - buffer won't be modified until next poll
+                let line_str: &str = {
+                    let slice = &self.buffer[..line_len];
+                    let s = std::str::from_utf8(slice).expect("Already validated as UTF-8");
+                    unsafe { std::mem::transmute::<&str, &str>(s) }
+                };
+
+                match MessageRef::parse(line_str) {
+                    Ok(msg) => return Poll::Ready(Some(Ok(msg))),
+                    Err(e) => {
+                        return Poll::Ready(Some(Err(TransportReadError::Protocol(
+                            ProtocolError::InvalidMessage {
+                                string: line_str.to_string(),
+                                cause: e,
+                            },
+                        ))))
+                    }
                 }
             }
 
@@ -622,7 +645,10 @@ impl ZeroCopyTransportEnum {
 }
 
 impl LendingStream for ZeroCopyTransportEnum {
-    type Item<'a> = MessageRef<'a> where Self: 'a;
+    type Item<'a>
+        = MessageRef<'a>
+    where
+        Self: 'a;
     type Error = TransportReadError;
 
     fn poll_next(
@@ -644,8 +670,15 @@ impl LendingStream for ZeroCopyTransportEnum {
 ///
 /// WebSocket transports cannot be converted to zero-copy because the
 /// WebSocket framing protocol requires different handling.
-#[derive(Debug)]
 pub struct WebSocketNotSupportedError(pub Transport);
+
+impl std::fmt::Debug for WebSocketNotSupportedError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WebSocketNotSupportedError")
+            .field("transport_type", &"WebSocket")
+            .finish()
+    }
+}
 
 impl std::fmt::Display for WebSocketNotSupportedError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -674,11 +707,17 @@ impl TryFrom<Transport> for ZeroCopyTransportEnum {
         match transport {
             Transport::Tcp { framed } => {
                 let parts = framed.into_parts();
-                Ok(ZeroCopyTransportEnum::tcp_with_buffer(parts.io, parts.read_buf))
+                Ok(ZeroCopyTransportEnum::tcp_with_buffer(
+                    parts.io,
+                    parts.read_buf,
+                ))
             }
             Transport::Tls { framed } => {
                 let parts = framed.into_parts();
-                Ok(ZeroCopyTransportEnum::tls_with_buffer(parts.io, parts.read_buf))
+                Ok(ZeroCopyTransportEnum::tls_with_buffer(
+                    parts.io,
+                    parts.read_buf,
+                ))
             }
             #[cfg(feature = "tokio")]
             t @ Transport::WebSocket { .. } => Err(WebSocketNotSupportedError(t)),
