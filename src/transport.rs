@@ -141,10 +141,10 @@ impl Transport {
         }
     }
 
-    pub async fn write_message(&mut self, message: Message) -> Result<()> {
+    pub async fn write_message(&mut self, message: &Message) -> Result<()> {
         macro_rules! write_framed {
             ($framed:expr, $msg:expr) => {
-                $framed.send($msg).await.map_err(|e| anyhow::anyhow!(e))
+                $framed.send($msg.clone()).await.map_err(|e| anyhow::anyhow!(e))
             };
         }
 
