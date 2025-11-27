@@ -84,7 +84,7 @@ pub use self::command::{
 };
 pub use self::ctcp::{Ctcp, CtcpKind, CtcpOwned};
 
-pub use self::command::{CommandRef, CommandRefEnum};
+pub use self::command::CommandRef;
 #[cfg(feature = "tokio")]
 pub use self::irc::IrcCodec;
 pub use self::isupport::{ChanModes, Isupport, IsupportEntry, MaxList, PrefixSpec, TargMax};

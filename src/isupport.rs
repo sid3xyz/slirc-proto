@@ -146,6 +146,45 @@ impl<'a> PrefixSpec<'a> {
         }
         None
     }
+
+    /// Returns true if the given character is a prefix mode on this server.
+    ///
+    /// This is useful for disambiguating modes like 'q' which can mean either
+    /// Quiet (a list mode) or Founder/Owner (a prefix mode) depending on the
+    /// IRC network. If `is_prefix_mode('q')` returns true, the server uses 'q'
+    /// for founder/owner status.
+    #[inline]
+    pub fn is_prefix_mode(&self, mode: char) -> bool {
+        self.modes.contains(mode)
+    }
+
+    /// Returns the prefix symbol for a given mode character.
+    ///
+    /// For example, with `PREFIX=(qaohv)~&@%+`:
+    /// - `prefix_for_mode('o')` returns `Some('@')`
+    /// - `prefix_for_mode('q')` returns `Some('~')`
+    /// - `prefix_for_mode('x')` returns `None`
+    #[inline]
+    pub fn prefix_for_mode(&self, mode: char) -> Option<char> {
+        self.modes
+            .chars()
+            .position(|c| c == mode)
+            .and_then(|i| self.prefixes.chars().nth(i))
+    }
+
+    /// Returns the mode character for a given prefix symbol.
+    ///
+    /// For example, with `PREFIX=(qaohv)~&@%+`:
+    /// - `mode_for_prefix('@')` returns `Some('o')`
+    /// - `mode_for_prefix('~')` returns `Some('q')`
+    /// - `mode_for_prefix('!')` returns `None`
+    #[inline]
+    pub fn mode_for_prefix(&self, prefix: char) -> Option<char> {
+        self.prefixes
+            .chars()
+            .position(|c| c == prefix)
+            .and_then(|i| self.modes.chars().nth(i))
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -357,5 +396,64 @@ impl IsupportBuilder {
         }
 
         lines
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prefix_spec_is_prefix_mode() {
+        let spec = PrefixSpec::parse("(qaohv)~&@%+").unwrap();
+
+        // These are prefix modes
+        assert!(spec.is_prefix_mode('q')); // founder/owner
+        assert!(spec.is_prefix_mode('a')); // admin
+        assert!(spec.is_prefix_mode('o')); // operator
+        assert!(spec.is_prefix_mode('h')); // halfop
+        assert!(spec.is_prefix_mode('v')); // voice
+
+        // These are not prefix modes
+        assert!(!spec.is_prefix_mode('b')); // ban
+        assert!(!spec.is_prefix_mode('i')); // invite-only
+        assert!(!spec.is_prefix_mode('x')); // nonexistent
+    }
+
+    #[test]
+    fn prefix_spec_prefix_for_mode() {
+        let spec = PrefixSpec::parse("(qaohv)~&@%+").unwrap();
+
+        assert_eq!(spec.prefix_for_mode('q'), Some('~'));
+        assert_eq!(spec.prefix_for_mode('a'), Some('&'));
+        assert_eq!(spec.prefix_for_mode('o'), Some('@'));
+        assert_eq!(spec.prefix_for_mode('h'), Some('%'));
+        assert_eq!(spec.prefix_for_mode('v'), Some('+'));
+        assert_eq!(spec.prefix_for_mode('x'), None);
+    }
+
+    #[test]
+    fn prefix_spec_mode_for_prefix() {
+        let spec = PrefixSpec::parse("(qaohv)~&@%+").unwrap();
+
+        assert_eq!(spec.mode_for_prefix('~'), Some('q'));
+        assert_eq!(spec.mode_for_prefix('&'), Some('a'));
+        assert_eq!(spec.mode_for_prefix('@'), Some('o'));
+        assert_eq!(spec.mode_for_prefix('%'), Some('h'));
+        assert_eq!(spec.mode_for_prefix('+'), Some('v'));
+        assert_eq!(spec.mode_for_prefix('!'), None);
+    }
+
+    #[test]
+    fn prefix_spec_standard_ov_only() {
+        // Minimal PREFIX=(ov)@+ as seen on many servers
+        let spec = PrefixSpec::parse("(ov)@+").unwrap();
+
+        assert!(spec.is_prefix_mode('o'));
+        assert!(spec.is_prefix_mode('v'));
+        assert!(!spec.is_prefix_mode('q')); // q would be quiet, not founder
+
+        assert_eq!(spec.prefix_for_mode('o'), Some('@'));
+        assert_eq!(spec.prefix_for_mode('v'), Some('+'));
     }
 }
