@@ -56,7 +56,7 @@ impl Transport {
             warn!("failed to enable TCP keepalive: {}", e);
         }
 
-        let codec = IrcCodec::new("utf-8").expect("Failed to create codec");
+        let codec = IrcCodec::new("utf-8").expect("Failed to create UTF-8 codec: encoding not supported");
         Self::Tcp {
             framed: Framed::new(stream, codec),
         }
@@ -77,7 +77,7 @@ impl Transport {
     }
 
     pub fn tls(stream: TlsStream<TcpStream>) -> Self {
-        let codec = IrcCodec::new("utf-8").expect("Failed to create codec");
+        let codec = IrcCodec::new("utf-8").expect("Failed to create UTF-8 codec: encoding not supported");
         Self::Tls {
             framed: Framed::new(stream, codec),
         }
@@ -119,29 +119,25 @@ impl Transport {
             };
         }
 
+        macro_rules! read_websocket {
+            ($stream:expr) => {{
+                let text = read_websocket_message($stream).await?;
+                match text {
+                    Some(s) => s.parse::<Message>()
+                        .map(Some)
+                        .map_err(TransportReadError::from),
+                    None => Ok(None)
+                }
+            }};
+        }
+
         match self {
             Transport::Tcp { framed } => read_framed!(framed),
             Transport::Tls { framed } => read_framed!(framed),
             #[cfg(feature = "tokio")]
-            Transport::WebSocket { stream } => {
-                let text = read_websocket_message(stream).await?;
-                match text {
-                    Some(s) => s.parse::<Message>()
-                        .map(Some)
-                        .map_err(|e| TransportReadError::Io(std::io::Error::new(std::io::ErrorKind::InvalidData, e))),
-                    None => Ok(None)
-                }
-            }
+            Transport::WebSocket { stream } => read_websocket!(stream),
             #[cfg(feature = "tokio")]
-            Transport::WebSocketTls { stream } => {
-                let text = read_websocket_message(stream).await?;
-                match text {
-                    Some(s) => s.parse::<Message>()
-                        .map(Some)
-                        .map_err(|e| TransportReadError::Io(std::io::Error::new(std::io::ErrorKind::InvalidData, e))),
-                    None => Ok(None)
-                }
-            }
+            Transport::WebSocketTls { stream } => read_websocket!(stream),
         }
     }
 
