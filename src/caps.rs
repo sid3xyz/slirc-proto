@@ -307,7 +307,7 @@ pub fn get_cap_list(version: u32, tls_port: Option<u16>) -> String {
             }
         })
         .collect();
-    
+
     caps.join(" ")
 }
 
@@ -327,7 +327,7 @@ pub fn get_all_names() -> Vec<&'static str> {
 pub fn parse_request(requested: &str) -> (Vec<String>, Vec<String>) {
     let mut accepted = Vec::new();
     let mut rejected = Vec::new();
-    
+
     for cap in requested.split_whitespace() {
         // Check for removal prefix
         let (is_removal, cap_name) = if let Some(name) = cap.strip_prefix('-') {
@@ -335,10 +335,10 @@ pub fn parse_request(requested: &str) -> (Vec<String>, Vec<String>) {
         } else {
             (false, cap)
         };
-        
+
         // Strip any value suffix (cap=value)
         let cap_base = cap_name.split('=').next().unwrap_or(cap_name);
-        
+
         if is_supported(cap_base) {
             accepted.push(if is_removal {
                 format!("-{}", cap_base)
@@ -349,7 +349,7 @@ pub fn parse_request(requested: &str) -> (Vec<String>, Vec<String>) {
             rejected.push(cap_base.to_string());
         }
     }
-    
+
     (accepted, rejected)
 }
 
@@ -359,7 +359,7 @@ pub fn parse_request(requested: &str) -> (Vec<String>, Vec<String>) {
 /// Returns true if any changes were made.
 pub fn apply_changes(capabilities: &mut HashSet<String>, changes: &[String]) -> bool {
     let mut modified = false;
-    
+
     for change in changes {
         if let Some(cap_name) = change.strip_prefix('-') {
             if capabilities.remove(cap_name) {
@@ -369,30 +369,40 @@ pub fn apply_changes(capabilities: &mut HashSet<String>, changes: &[String]) -> 
             modified = true;
         }
     }
-    
+
     modified
 }
 
 /// Format a CAP NEW message for notifying clients of new capabilities.
 pub fn format_cap_new(nickname: &str, server_name: &str, new_caps: &[&str]) -> String {
-    format!(":{} CAP {} NEW :{}", server_name, nickname, new_caps.join(" "))
+    format!(
+        ":{} CAP {} NEW :{}",
+        server_name,
+        nickname,
+        new_caps.join(" ")
+    )
 }
 
 /// Format a CAP DEL message for notifying clients of removed capabilities.
 pub fn format_cap_del(nickname: &str, server_name: &str, removed_caps: &[&str]) -> String {
-    format!(":{} CAP {} DEL :{}", server_name, nickname, removed_caps.join(" "))
+    format!(
+        ":{} CAP {} DEL :{}",
+        server_name,
+        nickname,
+        removed_caps.join(" ")
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_capability_as_ref() {
         assert_eq!(Capability::MultiPrefix.as_ref(), "multi-prefix");
         assert_eq!(Capability::Sasl.as_ref(), "sasl");
     }
-    
+
     #[test]
     fn test_capability_from_str() {
         assert_eq!(Capability::from("multi-prefix"), Capability::MultiPrefix);
@@ -402,14 +412,14 @@ mod tests {
             Capability::Custom("unknown-cap".to_string())
         );
     }
-    
+
     #[test]
     fn test_is_supported() {
         assert!(is_supported("multi-prefix"));
         assert!(is_supported("sasl"));
         assert!(!is_supported("unknown-capability"));
     }
-    
+
     #[test]
     fn test_parse_request() {
         let (accepted, rejected) = parse_request("multi-prefix sasl unknown-cap");
@@ -417,27 +427,27 @@ mod tests {
         assert!(accepted.contains(&"sasl".to_string()));
         assert!(rejected.contains(&"unknown-cap".to_string()));
     }
-    
+
     #[test]
     fn test_parse_request_removal() {
         let (accepted, _) = parse_request("-multi-prefix");
         assert!(accepted.contains(&"-multi-prefix".to_string()));
     }
-    
+
     #[test]
     fn test_apply_changes() {
         let mut caps = HashSet::new();
-        
+
         let changes = vec!["multi-prefix".to_string(), "sasl".to_string()];
         assert!(apply_changes(&mut caps, &changes));
         assert!(caps.contains("multi-prefix"));
         assert!(caps.contains("sasl"));
-        
+
         let removal = vec!["-sasl".to_string()];
         assert!(apply_changes(&mut caps, &removal));
         assert!(!caps.contains("sasl"));
     }
-    
+
     #[test]
     fn test_cap_list_v301() {
         let list = get_cap_list(301, None);
@@ -445,7 +455,7 @@ mod tests {
         assert!(!list.contains("echo-message")); // v302 only
         assert!(!list.contains("sts")); // needs TLS port
     }
-    
+
     #[test]
     fn test_cap_list_v302() {
         let list = get_cap_list(302, Some(6697));
@@ -454,4 +464,3 @@ mod tests {
         assert!(list.contains("sts=port=6697"));
     }
 }
-

@@ -40,7 +40,7 @@ pub enum Response {
     RPL_YOURID = 42,
 
     // === Command Responses (200-399) ===
-    
+
     // Trace replies
     /// 200 - Trace link
     RPL_TRACELINK = 200,
@@ -64,7 +64,7 @@ pub enum Response {
     RPL_TRACECLASS = 209,
     /// 210 - Trace reconnect
     RPL_TRACERECONNECT = 210,
-    
+
     // Stats replies
     /// 211 - Stats link info
     RPL_STATSLINKINFO = 211,
@@ -100,7 +100,7 @@ pub enum Response {
     RPL_LUSERCHANNELS = 254,
     /// 255 - Luser local info
     RPL_LUSERME = 255,
-    
+
     // Admin replies
     /// 256 - Admin info start
     RPL_ADMINME = 256,
@@ -110,7 +110,7 @@ pub enum Response {
     RPL_ADMINLOC2 = 258,
     /// 259 - Admin email
     RPL_ADMINEMAIL = 259,
-    
+
     // Trace/stats end
     /// 261 - Trace log
     RPL_TRACELOG = 261,
@@ -118,7 +118,7 @@ pub enum Response {
     RPL_TRACEEND = 262,
     /// 263 - Try again later
     RPL_TRYAGAIN = 263,
-    
+
     // Local/global users
     /// 265 - Local users
     RPL_LOCALUSERS = 265,
@@ -126,7 +126,7 @@ pub enum Response {
     RPL_GLOBALUSERS = 266,
     /// 276 - WHOIS certificate fingerprint
     RPL_WHOISCERTFP = 276,
-    
+
     // Misc
     /// 300 - None (dummy placeholder)
     RPL_NONE = 300,
@@ -140,7 +140,7 @@ pub enum Response {
     RPL_UNAWAY = 305,
     /// 306 - You have been marked as away
     RPL_NOWAWAY = 306,
-    
+
     // WHOIS replies
     /// 311 - WHOIS user info
     RPL_WHOISUSER = 311,
@@ -158,7 +158,7 @@ pub enum Response {
     RPL_ENDOFWHOIS = 318,
     /// 319 - WHOIS channels
     RPL_WHOISCHANNELS = 319,
-    
+
     // Channel/list replies
     /// 321 - List start
     RPL_LISTSTART = 321,
@@ -206,7 +206,7 @@ pub enum Response {
     RPL_NAMREPLY = 353,
     /// 354 - WHOX reply
     RPL_WHOSPCRPL = 354,
-    
+
     // Links/info
     /// 364 - Links entry
     RPL_LINKS = 364,
@@ -234,7 +234,7 @@ pub enum Response {
     RPL_WHOISHOST = 378,
     /// 379 - WHOIS modes
     RPL_WHOISMODES = 379,
-    
+
     // Oper/rehash
     /// 381 - You are now an operator
     RPL_YOUREOPER = 381,
@@ -412,7 +412,7 @@ pub enum Response {
     RPL_QUIETLIST = 728,
     /// 729 - End of quiet list
     RPL_ENDOFQUIETLIST = 729,
-    
+
     // Monitor
     /// 730 - Monitor online
     RPL_MONONLINE = 730,
@@ -424,7 +424,7 @@ pub enum Response {
     RPL_ENDOFMONLIST = 733,
     /// 734 - Monitor list full
     ERR_MONLISTFULL = 734,
-    
+
     // Metadata
     /// 760 - WHOIS key/value
     RPL_WHOISKEYVALUE = 760,
@@ -440,7 +440,7 @@ pub enum Response {
     ERR_KEYNOTSET = 768,
     /// 769 - Key no permission
     ERR_KEYNOPERMISSION = 769,
-    
+
     // SASL (IRCv3)
     /// 900 - Logged in
     RPL_LOGGEDIN = 900,
@@ -468,7 +468,7 @@ impl Response {
     pub fn code(&self) -> u16 {
         *self as u16
     }
-    
+
     /// Creates a Response from a numeric code
     pub fn from_code(code: u16) -> Option<Response> {
         Some(match code {
@@ -676,81 +676,107 @@ impl Response {
             _ => return None,
         })
     }
-    
+
     /// Check if this is an error response (4xx, 5xx, or specific error codes)
     #[inline]
     pub fn is_error(&self) -> bool {
         let code = self.code();
-        (400..600).contains(&code) 
-            || code == 723 
-            || code == 734 
+        (400..600).contains(&code)
+            || code == 723
+            || code == 734
             || (765..=769).contains(&code)
             || (902..=907).contains(&code)
     }
-    
+
     /// Check if this is a success/informational response
     #[inline]
     pub fn is_success(&self) -> bool {
         !self.is_error()
     }
-    
+
     /// Check if this is a connection registration response (001-099)
     #[inline]
     pub fn is_registration(&self) -> bool {
         self.code() < 100
     }
-    
+
     /// Check if this is a command reply (200-399)
     #[inline]
     pub fn is_reply(&self) -> bool {
         let code = self.code();
         (200..400).contains(&code)
     }
-    
+
     /// Check if this is a SASL-related response (900-908)
     #[inline]
     pub fn is_sasl(&self) -> bool {
         let code = self.code();
         (900..=908).contains(&code)
     }
-    
+
     /// Check if this is a channel-related response
     #[inline]
     pub fn is_channel_related(&self) -> bool {
-        matches!(self,
-            Response::RPL_TOPIC | Response::RPL_NOTOPIC | Response::RPL_TOPICWHOTIME |
-            Response::RPL_NAMREPLY | Response::RPL_ENDOFNAMES |
-            Response::RPL_CHANNELMODEIS | Response::RPL_CREATIONTIME |
-            Response::RPL_BANLIST | Response::RPL_ENDOFBANLIST |
-            Response::RPL_EXCEPTLIST | Response::RPL_ENDOFEXCEPTLIST |
-            Response::RPL_INVITELIST | Response::RPL_ENDOFINVITELIST |
-            Response::RPL_QUIETLIST | Response::RPL_ENDOFQUIETLIST |
-            Response::ERR_NOSUCHCHANNEL | Response::ERR_CANNOTSENDTOCHAN |
-            Response::ERR_TOOMANYCHANNELS | Response::ERR_CHANNELISFULL |
-            Response::ERR_INVITEONLYCHAN | Response::ERR_BANNEDFROMCHAN |
-            Response::ERR_BADCHANNELKEY | Response::ERR_BADCHANMASK |
-            Response::ERR_BADCHANNAME | Response::ERR_CHANOPRIVSNEEDED |
-            Response::ERR_NOTONCHANNEL | Response::ERR_USERNOTINCHANNEL |
-            Response::ERR_USERONCHANNEL | Response::ERR_NEEDREGGEDNICK |
-            Response::ERR_BANLISTFULL | Response::ERR_SECUREONLYCHAN
+        matches!(
+            self,
+            Response::RPL_TOPIC
+                | Response::RPL_NOTOPIC
+                | Response::RPL_TOPICWHOTIME
+                | Response::RPL_NAMREPLY
+                | Response::RPL_ENDOFNAMES
+                | Response::RPL_CHANNELMODEIS
+                | Response::RPL_CREATIONTIME
+                | Response::RPL_BANLIST
+                | Response::RPL_ENDOFBANLIST
+                | Response::RPL_EXCEPTLIST
+                | Response::RPL_ENDOFEXCEPTLIST
+                | Response::RPL_INVITELIST
+                | Response::RPL_ENDOFINVITELIST
+                | Response::RPL_QUIETLIST
+                | Response::RPL_ENDOFQUIETLIST
+                | Response::ERR_NOSUCHCHANNEL
+                | Response::ERR_CANNOTSENDTOCHAN
+                | Response::ERR_TOOMANYCHANNELS
+                | Response::ERR_CHANNELISFULL
+                | Response::ERR_INVITEONLYCHAN
+                | Response::ERR_BANNEDFROMCHAN
+                | Response::ERR_BADCHANNELKEY
+                | Response::ERR_BADCHANMASK
+                | Response::ERR_BADCHANNAME
+                | Response::ERR_CHANOPRIVSNEEDED
+                | Response::ERR_NOTONCHANNEL
+                | Response::ERR_USERNOTINCHANNEL
+                | Response::ERR_USERONCHANNEL
+                | Response::ERR_NEEDREGGEDNICK
+                | Response::ERR_BANLISTFULL
+                | Response::ERR_SECUREONLYCHAN
         )
     }
-    
+
     /// Check if this is a WHOIS/WHOWAS-related response
     #[inline]
     pub fn is_whois_related(&self) -> bool {
-        matches!(self,
-            Response::RPL_WHOISUSER | Response::RPL_WHOISSERVER |
-            Response::RPL_WHOISOPERATOR | Response::RPL_WHOISIDLE |
-            Response::RPL_ENDOFWHOIS | Response::RPL_WHOISCHANNELS |
-            Response::RPL_WHOISACCOUNT | Response::RPL_WHOISBOT |
-            Response::RPL_WHOISACTUALLY | Response::RPL_WHOISHOST |
-            Response::RPL_WHOISMODES | Response::RPL_WHOISCERTFP |
-            Response::RPL_WHOISSECURE | Response::RPL_WHOISKEYVALUE |
-            Response::RPL_WHOWASUSER | Response::RPL_ENDOFWHOWAS
+        matches!(
+            self,
+            Response::RPL_WHOISUSER
+                | Response::RPL_WHOISSERVER
+                | Response::RPL_WHOISOPERATOR
+                | Response::RPL_WHOISIDLE
+                | Response::RPL_ENDOFWHOIS
+                | Response::RPL_WHOISCHANNELS
+                | Response::RPL_WHOISACCOUNT
+                | Response::RPL_WHOISBOT
+                | Response::RPL_WHOISACTUALLY
+                | Response::RPL_WHOISHOST
+                | Response::RPL_WHOISMODES
+                | Response::RPL_WHOISCERTFP
+                | Response::RPL_WHOISSECURE
+                | Response::RPL_WHOISKEYVALUE
+                | Response::RPL_WHOWASUSER
+                | Response::RPL_ENDOFWHOWAS
         )
     }
-    
+
     /// Returns the RFC 2812 category name for this response
     pub fn category(&self) -> &'static str {
         let code = self.code();
@@ -770,7 +796,7 @@ impl Response {
 
 impl FromStr for Response {
     type Err = ParseResponseError;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let code: u16 = s.parse().map_err(|_| ParseResponseError::InvalidFormat)?;
         Response::from_code(code).ok_or(ParseResponseError::UnknownCode(code))
@@ -806,41 +832,44 @@ impl std::error::Error for ParseResponseError {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_response_code() {
         assert_eq!(Response::RPL_WELCOME.code(), 1);
         assert_eq!(Response::ERR_NICKNAMEINUSE.code(), 433);
         assert_eq!(Response::RPL_ENDOFMOTD.code(), 376);
     }
-    
+
     #[test]
     fn test_from_code() {
         assert_eq!(Response::from_code(1), Some(Response::RPL_WELCOME));
         assert_eq!(Response::from_code(433), Some(Response::ERR_NICKNAMEINUSE));
         assert_eq!(Response::from_code(9999), None);
     }
-    
+
     #[test]
     fn test_is_error() {
         assert!(!Response::RPL_WELCOME.is_error());
         assert!(Response::ERR_NICKNAMEINUSE.is_error());
         assert!(Response::ERR_NOSUCHNICK.is_error());
     }
-    
+
     #[test]
     fn test_parse() {
         assert_eq!("001".parse::<Response>().unwrap(), Response::RPL_WELCOME);
-        assert_eq!("433".parse::<Response>().unwrap(), Response::ERR_NICKNAMEINUSE);
+        assert_eq!(
+            "433".parse::<Response>().unwrap(),
+            Response::ERR_NICKNAMEINUSE
+        );
         assert!("abc".parse::<Response>().is_err());
     }
-    
+
     #[test]
     fn test_display() {
         assert_eq!(format!("{}", Response::RPL_WELCOME), "001");
         assert_eq!(format!("{}", Response::ERR_NICKNAMEINUSE), "433");
     }
-    
+
     #[test]
     fn test_is_reply() {
         assert!(Response::RPL_AWAY.is_reply());
@@ -848,7 +877,7 @@ mod tests {
         assert!(!Response::RPL_WELCOME.is_reply());
         assert!(!Response::ERR_NOSUCHNICK.is_reply());
     }
-    
+
     #[test]
     fn test_is_sasl() {
         assert!(Response::RPL_LOGGEDIN.is_sasl());
@@ -856,7 +885,7 @@ mod tests {
         assert!(Response::ERR_SASLFAIL.is_sasl());
         assert!(!Response::RPL_WELCOME.is_sasl());
     }
-    
+
     #[test]
     fn test_is_channel_related() {
         assert!(Response::RPL_TOPIC.is_channel_related());
@@ -864,21 +893,26 @@ mod tests {
         assert!(Response::ERR_NOSUCHCHANNEL.is_channel_related());
         assert!(!Response::RPL_WELCOME.is_channel_related());
     }
-    
+
     #[test]
     fn test_is_whois_related() {
         assert!(Response::RPL_WHOISUSER.is_whois_related());
         assert!(Response::RPL_ENDOFWHOIS.is_whois_related());
         assert!(!Response::RPL_WELCOME.is_whois_related());
     }
-    
+
     #[test]
     fn test_category() {
         assert_eq!(Response::RPL_WELCOME.category(), "Connection Registration");
-        assert_eq!(Response::RPL_TRACELINK.category(), "Command Replies (Trace/Stats)");
-        assert_eq!(Response::RPL_TOPIC.category(), "Command Replies (User/Channel)");
+        assert_eq!(
+            Response::RPL_TRACELINK.category(),
+            "Command Replies (Trace/Stats)"
+        );
+        assert_eq!(
+            Response::RPL_TOPIC.category(),
+            "Command Replies (User/Channel)"
+        );
         assert_eq!(Response::ERR_NOSUCHNICK.category(), "Error Replies");
         assert_eq!(Response::RPL_SASLSUCCESS.category(), "SASL/Account");
     }
 }
-

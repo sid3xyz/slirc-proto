@@ -1,4 +1,3 @@
-
 use crate::error::MessageParseError;
 
 use super::types::{ChannelMode, Mode, ModeType, UserMode};
@@ -9,13 +8,11 @@ enum PlusMinus {
     NoPrefix,
 }
 
-
 impl Mode<UserMode> {
     pub fn as_user_modes(pieces: &[&str]) -> Result<Vec<Mode<UserMode>>, MessageParseError> {
         parse_modes(pieces)
     }
 }
-
 
 impl Mode<ChannelMode> {
     pub fn as_channel_modes(pieces: &[&str]) -> Result<Vec<Mode<ChannelMode>>, MessageParseError> {
@@ -39,12 +36,10 @@ where
             Some('+') => Plus,
             Some('-') => Minus,
             Some(_) => {
-
                 modes = first.chars();
                 NoPrefix
             }
             None => {
-
                 return Ok(res);
             }
         };
@@ -76,7 +71,6 @@ where
                 }
             }
         }
-
 
         if args.peek().is_some() {
             return Err(MessageParseError::InvalidModeArg(
