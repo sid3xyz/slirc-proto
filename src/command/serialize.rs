@@ -1,250 +1,238 @@
+use std::fmt::{self, Write};
 
 use super::types::Command;
 
-fn stringify(cmd: &str, args: &[&str]) -> String {
+/// Write a command with arguments directly to a formatter.
+/// The last argument is treated as trailing and gets a `:` prefix if needed.
+fn write_cmd(f: &mut fmt::Formatter<'_>, cmd: &str, args: &[&str]) -> fmt::Result {
     if args.is_empty() {
-        return cmd.to_string();
+        return f.write_str(cmd);
     }
-
 
     let (middle_params, trailing) = args.split_at(args.len() - 1);
     let trailing = trailing[0];
 
-
-    let mut result = String::with_capacity(512);
-    result.push_str(cmd);
+    f.write_str(cmd)?;
 
     for param in middle_params {
-        result.push(' ');
-        result.push_str(param);
+        f.write_char(' ')?;
+        f.write_str(param)?;
     }
 
+    f.write_char(' ')?;
 
-    result.push(' ');
-
-
-
-
-
-
-
+    // Add colon prefix if trailing is empty, contains a space, or starts with ':'
     if trailing.is_empty() || trailing.contains(' ') || trailing.starts_with(':') {
-        result.push(':');
+        f.write_char(':')?;
     }
 
-    result.push_str(trailing);
-    result
+    f.write_str(trailing)
 }
 
-fn stringify_freeform(cmd: &str, args: &[&str]) -> String {
+/// Write a command with a freeform (always colon-prefixed) trailing argument.
+fn write_cmd_freeform(f: &mut fmt::Formatter<'_>, cmd: &str, args: &[&str]) -> fmt::Result {
     match args.split_last() {
-        Some((suffix, args)) => {
-            let args = args.join(" ");
-            let sp = if args.is_empty() { "" } else { " " };
-
-            format!("{}{}{} :{}", cmd, sp, args, suffix)
+        Some((suffix, middle)) => {
+            f.write_str(cmd)?;
+            for arg in middle {
+                f.write_char(' ')?;
+                f.write_str(arg)?;
+            }
+            f.write_str(" :")?;
+            f.write_str(suffix)
         }
-        None => cmd.to_string(),
+        None => f.write_str(cmd),
     }
 }
 
-impl<'a> From<&'a Command> for String {
-    fn from(cmd: &'a Command) -> String {
-        
-        
-        
-        
-        
-        
-        
-        match *cmd {
-            Command::PASS(ref p) => stringify("PASS", &[p]),
-            Command::NICK(ref n) => stringify("NICK", &[n]),
-            Command::USER(ref u, ref m, ref r) => stringify_freeform("USER", &[u, m, "*", r]),
-            Command::OPER(ref u, ref p) => stringify("OPER", &[u, p]),
-            Command::UserMODE(ref u, ref m) => {
-                
-                m.iter().fold(format!("MODE {u} "), |mut acc, m| {
-                    acc.push_str(&m.flag());
-                    acc
-                })
+impl fmt::Display for Command {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Command::PASS(p) => write_cmd(f, "PASS", &[p]),
+            Command::NICK(n) => write_cmd(f, "NICK", &[n]),
+            Command::USER(u, m, r) => write_cmd_freeform(f, "USER", &[u, m, "*", r]),
+            Command::OPER(u, p) => write_cmd(f, "OPER", &[u, p]),
+            Command::UserMODE(u, modes) => {
+                f.write_str("MODE ")?;
+                f.write_str(u)?;
+                f.write_char(' ')?;
+                for m in modes {
+                    write!(f, "{}", m.flag())?;
+                }
+                Ok(())
             }
-            Command::SERVICE(ref nick, ref r0, ref dist, ref typ, ref r1, ref info) => {
-                stringify_freeform("SERVICE", &[nick, r0, dist, typ, r1, info])
+            Command::SERVICE(nick, r0, dist, typ, r1, info) => {
+                write_cmd_freeform(f, "SERVICE", &[nick, r0, dist, typ, r1, info])
             }
-            Command::QUIT(Some(ref m)) => stringify("QUIT", &[m]),
-            Command::QUIT(None) => stringify("QUIT", &[]),
-            Command::SQUIT(ref s, ref c) => stringify_freeform("SQUIT", &[s, c]),
-            Command::JOIN(ref c, Some(ref k), Some(ref n)) => stringify("JOIN", &[c, k, n]),
-            Command::JOIN(ref c, Some(ref k), None) => stringify("JOIN", &[c, k]),
-            Command::JOIN(ref c, None, Some(ref n)) => stringify("JOIN", &[c, n]),
-            Command::JOIN(ref c, None, None) => stringify("JOIN", &[c]),
-            Command::PART(ref c, Some(ref m)) => stringify_freeform("PART", &[c, m]),
-            Command::PART(ref c, None) => stringify("PART", &[c]),
-            Command::ChannelMODE(ref c, ref m) => {
-                let cmd = m.iter().fold(format!("MODE {c} "), |mut acc, m| {
-                    acc.push_str(&m.flag());
-                    acc
-                });
-                m.iter().filter_map(|m| m.arg()).fold(cmd, |mut acc, arg| {
-                    acc.push(' ');
-                    acc.push_str(arg);
-                    acc
-                })
+            Command::QUIT(Some(m)) => write_cmd(f, "QUIT", &[m]),
+            Command::QUIT(None) => write_cmd(f, "QUIT", &[]),
+            Command::SQUIT(s, c) => write_cmd_freeform(f, "SQUIT", &[s, c]),
+            Command::JOIN(c, Some(k), Some(n)) => write_cmd(f, "JOIN", &[c, k, n]),
+            Command::JOIN(c, Some(k), None) => write_cmd(f, "JOIN", &[c, k]),
+            Command::JOIN(c, None, Some(n)) => write_cmd(f, "JOIN", &[c, n]),
+            Command::JOIN(c, None, None) => write_cmd(f, "JOIN", &[c]),
+            Command::PART(c, Some(m)) => write_cmd_freeform(f, "PART", &[c, m]),
+            Command::PART(c, None) => write_cmd(f, "PART", &[c]),
+            Command::ChannelMODE(c, modes) => {
+                f.write_str("MODE ")?;
+                f.write_str(c)?;
+                f.write_char(' ')?;
+                for m in modes {
+                    write!(f, "{}", m.flag())?;
+                }
+                for m in modes {
+                    if let Some(arg) = m.arg() {
+                        f.write_char(' ')?;
+                        f.write_str(arg)?;
+                    }
+                }
+                Ok(())
             }
-            Command::TOPIC(ref c, Some(ref t)) => stringify_freeform("TOPIC", &[c, t]),
-            Command::TOPIC(ref c, None) => stringify("TOPIC", &[c]),
-            Command::NAMES(Some(ref c), Some(ref t)) => stringify("NAMES", &[c, t]),
-            Command::NAMES(Some(ref c), None) => stringify("NAMES", &[c]),
-            Command::NAMES(None, _) => stringify("NAMES", &[]),
-            Command::LIST(Some(ref c), Some(ref t)) => stringify("LIST", &[c, t]),
-            Command::LIST(Some(ref c), None) => stringify("LIST", &[c]),
-            Command::LIST(None, _) => stringify("LIST", &[]),
-            Command::INVITE(ref n, ref c) => stringify_freeform("INVITE", &[n, c]),
-            Command::KICK(ref c, ref n, Some(ref r)) => stringify_freeform("KICK", &[c, n, r]),
-            Command::KICK(ref c, ref n, None) => stringify("KICK", &[c, n]),
-            Command::PRIVMSG(ref t, ref m) => stringify_freeform("PRIVMSG", &[t, m]),
-            Command::NOTICE(ref t, ref m) => stringify_freeform("NOTICE", &[t, m]),
-            Command::MOTD(Some(ref t)) => stringify("MOTD", &[t]),
-            Command::MOTD(None) => stringify("MOTD", &[]),
-            Command::LUSERS(Some(ref m), Some(ref t)) => stringify("LUSERS", &[m, t]),
-            Command::LUSERS(Some(ref m), None) => stringify("LUSERS", &[m]),
-            Command::LUSERS(None, _) => stringify("LUSERS", &[]),
-            Command::VERSION(Some(ref t)) => stringify("VERSION", &[t]),
-            Command::VERSION(None) => stringify("VERSION", &[]),
-            Command::STATS(Some(ref q), Some(ref t)) => stringify("STATS", &[q, t]),
-            Command::STATS(Some(ref q), None) => stringify("STATS", &[q]),
-            Command::STATS(None, _) => stringify("STATS", &[]),
-            Command::LINKS(Some(ref r), Some(ref s)) => stringify("LINKS", &[r, s]),
-            Command::LINKS(None, Some(ref s)) => stringify("LINKS", &[s]),
-            Command::LINKS(_, None) => stringify("LINKS", &[]),
-            Command::TIME(Some(ref t)) => stringify("TIME", &[t]),
-            Command::TIME(None) => stringify("TIME", &[]),
-            Command::CONNECT(ref t, ref p, Some(ref r)) => stringify("CONNECT", &[t, p, r]),
-            Command::CONNECT(ref t, ref p, None) => stringify("CONNECT", &[t, p]),
-            Command::TRACE(Some(ref t)) => stringify("TRACE", &[t]),
-            Command::TRACE(None) => stringify("TRACE", &[]),
-            Command::ADMIN(Some(ref t)) => stringify("ADMIN", &[t]),
-            Command::ADMIN(None) => stringify("ADMIN", &[]),
-            Command::INFO(Some(ref t)) => stringify("INFO", &[t]),
-            Command::INFO(None) => stringify("INFO", &[]),
-            Command::SERVLIST(Some(ref m), Some(ref t)) => stringify("SERVLIST", &[m, t]),
-            Command::SERVLIST(Some(ref m), None) => stringify("SERVLIST", &[m]),
-            Command::SERVLIST(None, _) => stringify("SERVLIST", &[]),
-            Command::SQUERY(ref s, ref t) => stringify_freeform("SQUERY", &[s, t]),
-            Command::WHO(Some(ref s), Some(true)) => stringify("WHO", &[s, "o"]),
-            Command::WHO(Some(ref s), _) => stringify("WHO", &[s]),
-            Command::WHO(None, _) => stringify("WHO", &[]),
-            Command::WHOIS(Some(ref t), ref m) => stringify("WHOIS", &[t, m]),
-            Command::WHOIS(None, ref m) => stringify("WHOIS", &[m]),
-            Command::WHOWAS(ref n, Some(ref c), Some(ref t)) => stringify("WHOWAS", &[n, c, t]),
-            Command::WHOWAS(ref n, Some(ref c), None) => stringify("WHOWAS", &[n, c]),
-            Command::WHOWAS(ref n, None, _) => stringify("WHOWAS", &[n]),
-            Command::KILL(ref n, ref c) => stringify_freeform("KILL", &[n, c]),
-            Command::PING(ref s, Some(ref t)) => stringify("PING", &[s, t]),
-            Command::PING(ref s, None) => stringify("PING", &[s]),
-            Command::PONG(ref s, Some(ref t)) => stringify("PONG", &[s, t]),
-            Command::PONG(ref s, None) => stringify("PONG", &[s]),
-            Command::ERROR(ref m) => stringify_freeform("ERROR", &[m]),
-            Command::AWAY(Some(ref m)) => stringify_freeform("AWAY", &[m]),
-            Command::AWAY(None) => stringify("AWAY", &[]),
-            Command::REHASH => stringify("REHASH", &[]),
-            Command::DIE => stringify("DIE", &[]),
-            Command::RESTART => stringify("RESTART", &[]),
-            Command::SUMMON(ref u, Some(ref t), Some(ref c)) => stringify("SUMMON", &[u, t, c]),
-            Command::SUMMON(ref u, Some(ref t), None) => stringify("SUMMON", &[u, t]),
-            Command::SUMMON(ref u, None, _) => stringify("SUMMON", &[u]),
-            Command::USERS(Some(ref t)) => stringify("USERS", &[t]),
-            Command::USERS(None) => stringify("USERS", &[]),
-            Command::WALLOPS(ref t) => stringify_freeform("WALLOPS", &[t]),
-            Command::USERHOST(ref u) => {
-                stringify("USERHOST", &u.iter().map(|s| &s[..]).collect::<Vec<_>>())
+            Command::TOPIC(c, Some(t)) => write_cmd_freeform(f, "TOPIC", &[c, t]),
+            Command::TOPIC(c, None) => write_cmd(f, "TOPIC", &[c]),
+            Command::NAMES(Some(c), Some(t)) => write_cmd(f, "NAMES", &[c, t]),
+            Command::NAMES(Some(c), None) => write_cmd(f, "NAMES", &[c]),
+            Command::NAMES(None, _) => write_cmd(f, "NAMES", &[]),
+            Command::LIST(Some(c), Some(t)) => write_cmd(f, "LIST", &[c, t]),
+            Command::LIST(Some(c), None) => write_cmd(f, "LIST", &[c]),
+            Command::LIST(None, _) => write_cmd(f, "LIST", &[]),
+            Command::INVITE(n, c) => write_cmd_freeform(f, "INVITE", &[n, c]),
+            Command::KICK(c, n, Some(r)) => write_cmd_freeform(f, "KICK", &[c, n, r]),
+            Command::KICK(c, n, None) => write_cmd(f, "KICK", &[c, n]),
+            Command::PRIVMSG(t, m) => write_cmd_freeform(f, "PRIVMSG", &[t, m]),
+            Command::NOTICE(t, m) => write_cmd_freeform(f, "NOTICE", &[t, m]),
+            Command::MOTD(Some(t)) => write_cmd(f, "MOTD", &[t]),
+            Command::MOTD(None) => write_cmd(f, "MOTD", &[]),
+            Command::LUSERS(Some(m), Some(t)) => write_cmd(f, "LUSERS", &[m, t]),
+            Command::LUSERS(Some(m), None) => write_cmd(f, "LUSERS", &[m]),
+            Command::LUSERS(None, _) => write_cmd(f, "LUSERS", &[]),
+            Command::VERSION(Some(t)) => write_cmd(f, "VERSION", &[t]),
+            Command::VERSION(None) => write_cmd(f, "VERSION", &[]),
+            Command::STATS(Some(q), Some(t)) => write_cmd(f, "STATS", &[q, t]),
+            Command::STATS(Some(q), None) => write_cmd(f, "STATS", &[q]),
+            Command::STATS(None, _) => write_cmd(f, "STATS", &[]),
+            Command::LINKS(Some(r), Some(s)) => write_cmd(f, "LINKS", &[r, s]),
+            Command::LINKS(None, Some(s)) => write_cmd(f, "LINKS", &[s]),
+            Command::LINKS(_, None) => write_cmd(f, "LINKS", &[]),
+            Command::TIME(Some(t)) => write_cmd(f, "TIME", &[t]),
+            Command::TIME(None) => write_cmd(f, "TIME", &[]),
+            Command::CONNECT(t, p, Some(r)) => write_cmd(f, "CONNECT", &[t, p, r]),
+            Command::CONNECT(t, p, None) => write_cmd(f, "CONNECT", &[t, p]),
+            Command::TRACE(Some(t)) => write_cmd(f, "TRACE", &[t]),
+            Command::TRACE(None) => write_cmd(f, "TRACE", &[]),
+            Command::ADMIN(Some(t)) => write_cmd(f, "ADMIN", &[t]),
+            Command::ADMIN(None) => write_cmd(f, "ADMIN", &[]),
+            Command::INFO(Some(t)) => write_cmd(f, "INFO", &[t]),
+            Command::INFO(None) => write_cmd(f, "INFO", &[]),
+            Command::SERVLIST(Some(m), Some(t)) => write_cmd(f, "SERVLIST", &[m, t]),
+            Command::SERVLIST(Some(m), None) => write_cmd(f, "SERVLIST", &[m]),
+            Command::SERVLIST(None, _) => write_cmd(f, "SERVLIST", &[]),
+            Command::SQUERY(s, t) => write_cmd_freeform(f, "SQUERY", &[s, t]),
+            Command::WHO(Some(s), Some(true)) => write_cmd(f, "WHO", &[s, "o"]),
+            Command::WHO(Some(s), _) => write_cmd(f, "WHO", &[s]),
+            Command::WHO(None, _) => write_cmd(f, "WHO", &[]),
+            Command::WHOIS(Some(t), m) => write_cmd(f, "WHOIS", &[t, m]),
+            Command::WHOIS(None, m) => write_cmd(f, "WHOIS", &[m]),
+            Command::WHOWAS(n, Some(c), Some(t)) => write_cmd(f, "WHOWAS", &[n, c, t]),
+            Command::WHOWAS(n, Some(c), None) => write_cmd(f, "WHOWAS", &[n, c]),
+            Command::WHOWAS(n, None, _) => write_cmd(f, "WHOWAS", &[n]),
+            Command::KILL(n, c) => write_cmd_freeform(f, "KILL", &[n, c]),
+            Command::PING(s, Some(t)) => write_cmd(f, "PING", &[s, t]),
+            Command::PING(s, None) => write_cmd(f, "PING", &[s]),
+            Command::PONG(s, Some(t)) => write_cmd(f, "PONG", &[s, t]),
+            Command::PONG(s, None) => write_cmd(f, "PONG", &[s]),
+            Command::ERROR(m) => write_cmd_freeform(f, "ERROR", &[m]),
+            Command::AWAY(Some(m)) => write_cmd_freeform(f, "AWAY", &[m]),
+            Command::AWAY(None) => write_cmd(f, "AWAY", &[]),
+            Command::REHASH => write_cmd(f, "REHASH", &[]),
+            Command::DIE => write_cmd(f, "DIE", &[]),
+            Command::RESTART => write_cmd(f, "RESTART", &[]),
+            Command::SUMMON(u, Some(t), Some(c)) => write_cmd(f, "SUMMON", &[u, t, c]),
+            Command::SUMMON(u, Some(t), None) => write_cmd(f, "SUMMON", &[u, t]),
+            Command::SUMMON(u, None, _) => write_cmd(f, "SUMMON", &[u]),
+            Command::USERS(Some(t)) => write_cmd(f, "USERS", &[t]),
+            Command::USERS(None) => write_cmd(f, "USERS", &[]),
+            Command::WALLOPS(t) => write_cmd_freeform(f, "WALLOPS", &[t]),
+            Command::USERHOST(u) => {
+                write_cmd(f, "USERHOST", &u.iter().map(|s| s.as_str()).collect::<Vec<_>>())
             }
-            Command::ISON(ref u) => {
-                stringify("ISON", &u.iter().map(|s| &s[..]).collect::<Vec<_>>())
+            Command::ISON(u) => {
+                write_cmd(f, "ISON", &u.iter().map(|s| s.as_str()).collect::<Vec<_>>())
             }
-
-            Command::SAJOIN(ref n, ref c) => stringify("SAJOIN", &[n, c]),
-            Command::SAMODE(ref t, ref m, Some(ref p)) => stringify("SAMODE", &[t, m, p]),
-            Command::SAMODE(ref t, ref m, None) => stringify("SAMODE", &[t, m]),
-            Command::SANICK(ref o, ref n) => stringify("SANICK", &[o, n]),
-            Command::SAPART(ref c, ref r) => stringify("SAPART", &[c, r]),
-            Command::SAQUIT(ref c, ref r) => stringify("SAQUIT", &[c, r]),
-
-            Command::NICKSERV(ref p) => {
-                stringify("NICKSERV", &p.iter().map(|s| &s[..]).collect::<Vec<_>>())
+            Command::SAJOIN(n, c) => write_cmd(f, "SAJOIN", &[n, c]),
+            Command::SAMODE(t, m, Some(p)) => write_cmd(f, "SAMODE", &[t, m, p]),
+            Command::SAMODE(t, m, None) => write_cmd(f, "SAMODE", &[t, m]),
+            Command::SANICK(o, n) => write_cmd(f, "SANICK", &[o, n]),
+            Command::SAPART(c, r) => write_cmd(f, "SAPART", &[c, r]),
+            Command::SAQUIT(c, r) => write_cmd(f, "SAQUIT", &[c, r]),
+            Command::NICKSERV(p) => {
+                write_cmd(f, "NICKSERV", &p.iter().map(|s| s.as_str()).collect::<Vec<_>>())
             }
-            Command::CHANSERV(ref m) => stringify("CHANSERV", &[m]),
-            Command::OPERSERV(ref m) => stringify("OPERSERV", &[m]),
-            Command::BOTSERV(ref m) => stringify("BOTSERV", &[m]),
-            Command::HOSTSERV(ref m) => stringify("HOSTSERV", &[m]),
-            Command::MEMOSERV(ref m) => stringify("MEMOSERV", &[m]),
-
-            Command::CAP(None, ref s, None, Some(ref p)) => stringify("CAP", &[s.to_str(), p]),
-            Command::CAP(None, ref s, None, None) => stringify("CAP", &[s.to_str()]),
-            Command::CAP(Some(ref k), ref s, None, Some(ref p)) => {
-                stringify("CAP", &[k, s.to_str(), p])
+            Command::CHANSERV(m) => write_cmd(f, "CHANSERV", &[m]),
+            Command::OPERSERV(m) => write_cmd(f, "OPERSERV", &[m]),
+            Command::BOTSERV(m) => write_cmd(f, "BOTSERV", &[m]),
+            Command::HOSTSERV(m) => write_cmd(f, "HOSTSERV", &[m]),
+            Command::MEMOSERV(m) => write_cmd(f, "MEMOSERV", &[m]),
+            Command::CAP(None, s, None, Some(p)) => write_cmd(f, "CAP", &[s.to_str(), p]),
+            Command::CAP(None, s, None, None) => write_cmd(f, "CAP", &[s.to_str()]),
+            Command::CAP(Some(k), s, None, Some(p)) => write_cmd(f, "CAP", &[k, s.to_str(), p]),
+            Command::CAP(Some(k), s, None, None) => write_cmd(f, "CAP", &[k, s.to_str()]),
+            Command::CAP(None, s, Some(c), Some(p)) => write_cmd(f, "CAP", &[s.to_str(), c, p]),
+            Command::CAP(None, s, Some(c), None) => write_cmd(f, "CAP", &[s.to_str(), c]),
+            Command::CAP(Some(k), s, Some(c), Some(p)) => {
+                write_cmd(f, "CAP", &[k, s.to_str(), c, p])
             }
-            Command::CAP(Some(ref k), ref s, None, None) => stringify("CAP", &[k, s.to_str()]),
-            Command::CAP(None, ref s, Some(ref c), Some(ref p)) => {
-                stringify("CAP", &[s.to_str(), c, p])
+            Command::CAP(Some(k), s, Some(c), None) => write_cmd(f, "CAP", &[k, s.to_str(), c]),
+            Command::AUTHENTICATE(d) => write_cmd(f, "AUTHENTICATE", &[d]),
+            Command::ACCOUNT(a) => write_cmd(f, "ACCOUNT", &[a]),
+            Command::MONITOR(c, Some(t)) => write_cmd(f, "MONITOR", &[c, t]),
+            Command::MONITOR(c, None) => write_cmd(f, "MONITOR", &[c]),
+            Command::BATCH(t, Some(c), Some(a)) => {
+                let mut args: Vec<&str> = vec![t, c.to_str()];
+                args.extend(a.iter().map(|s| s.as_str()));
+                write_cmd(f, "BATCH", &args)
             }
-            Command::CAP(None, ref s, Some(ref c), None) => stringify("CAP", &[s.to_str(), c]),
-            Command::CAP(Some(ref k), ref s, Some(ref c), Some(ref p)) => {
-                stringify("CAP", &[k, s.to_str(), c, p])
+            Command::BATCH(t, Some(c), None) => write_cmd(f, "BATCH", &[t, c.to_str()]),
+            Command::BATCH(t, None, Some(a)) => {
+                let mut args: Vec<&str> = vec![t];
+                args.extend(a.iter().map(|s| s.as_str()));
+                write_cmd(f, "BATCH", &args)
             }
-            Command::CAP(Some(ref k), ref s, Some(ref c), None) => {
-                stringify("CAP", &[k, s.to_str(), c])
-            }
-
-            Command::AUTHENTICATE(ref d) => stringify("AUTHENTICATE", &[d]),
-            Command::ACCOUNT(ref a) => stringify("ACCOUNT", &[a]),
-
-            Command::MONITOR(ref c, Some(ref t)) => stringify("MONITOR", &[c, t]),
-            Command::MONITOR(ref c, None) => stringify("MONITOR", &[c]),
-            Command::BATCH(ref t, Some(ref c), Some(ref a)) => stringify(
-                "BATCH",
-                &[t, &c.to_str().to_owned()]
-                    .iter()
-                    .map(|s| &s[..])
-                    .chain(a.iter().map(|s| &s[..]))
-                    .collect::<Vec<_>>(),
-            ),
-            Command::BATCH(ref t, Some(ref c), None) => stringify("BATCH", &[t, c.to_str()]),
-            Command::BATCH(ref t, None, Some(ref a)) => stringify(
-                "BATCH",
-                &[t].iter()
-                    .map(|s| &s[..])
-                    .chain(a.iter().map(|s| &s[..]))
-                    .collect::<Vec<_>>(),
-            ),
-            Command::BATCH(ref t, None, None) => stringify("BATCH", &[t]),
-            Command::CHGHOST(ref u, ref h) => stringify("CHGHOST", &[u, h]),
-            Command::SETNAME(ref r) => stringify_freeform("SETNAME", &[r]),
-
-
-            Command::FAIL(ref command, ref code, ref context) => {
-                let mut args = vec![command.as_str(), code.as_str()];
+            Command::BATCH(t, None, None) => write_cmd(f, "BATCH", &[t]),
+            Command::CHGHOST(u, h) => write_cmd(f, "CHGHOST", &[u, h]),
+            Command::SETNAME(r) => write_cmd_freeform(f, "SETNAME", &[r]),
+            Command::FAIL(command, code, context) => {
+                let mut args: Vec<&str> = vec![command.as_str(), code.as_str()];
                 args.extend(context.iter().map(|s| s.as_str()));
-                stringify_freeform("FAIL", &args)
+                write_cmd_freeform(f, "FAIL", &args)
             }
-            Command::WARN(ref command, ref code, ref context) => {
-                let mut args = vec![command.as_str(), code.as_str()];
+            Command::WARN(command, code, context) => {
+                let mut args: Vec<&str> = vec![command.as_str(), code.as_str()];
                 args.extend(context.iter().map(|s| s.as_str()));
-                stringify_freeform("WARN", &args)
+                write_cmd_freeform(f, "WARN", &args)
             }
-            Command::NOTE(ref command, ref code, ref context) => {
-                let mut args = vec![command.as_str(), code.as_str()];
+            Command::NOTE(command, code, context) => {
+                let mut args: Vec<&str> = vec![command.as_str(), code.as_str()];
                 args.extend(context.iter().map(|s| s.as_str()));
-                stringify_freeform("NOTE", &args)
+                write_cmd_freeform(f, "NOTE", &args)
             }
-
-            Command::Response(ref resp, ref a) => stringify(
-                &format!("{:03}", *resp as u16),
-                &a.iter().map(|s| &s[..]).collect::<Vec<_>>(),
-            ),
-            Command::Raw(ref c, ref a) => {
-                stringify(c, &a.iter().map(|s| &s[..]).collect::<Vec<_>>())
+            Command::Response(resp, a) => {
+                write!(f, "{:03}", *resp as u16)?;
+                for arg in a.iter().take(a.len().saturating_sub(1)) {
+                    f.write_char(' ')?;
+                    f.write_str(arg)?;
+                }
+                if let Some(last) = a.last() {
+                    f.write_char(' ')?;
+                    if last.is_empty() || last.contains(' ') || last.starts_with(':') {
+                        f.write_char(':')?;
+                    }
+                    f.write_str(last)?;
+                }
+                Ok(())
+            }
+            Command::Raw(c, a) => {
+                write_cmd(f, c, &a.iter().map(|s| s.as_str()).collect::<Vec<_>>())
             }
         }
     }

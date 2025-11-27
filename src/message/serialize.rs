@@ -29,6 +29,6 @@ impl Display for Message {
             write!(f, ":{} ", prefix)?;
         }
 
-        write!(f, "{}\r\n", String::from(&self.command))
+        write!(f, "{}\r\n", self.command)
     }
 }
