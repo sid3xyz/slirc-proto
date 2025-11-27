@@ -1,7 +1,7 @@
 //! Benchmarks for IRC message parsing and serialization.
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use slirc_proto::{Message, prefix::Prefix};
+use slirc_proto::{Message, MessageRef, prefix::Prefix};
 
 /// Simple PING message
 const SIMPLE_MESSAGE: &str = "PING :irc.example.com";
@@ -52,6 +52,47 @@ fn benchmark_parsing(c: &mut Criterion) {
     group.bench_function("numeric_response", |b| {
         b.iter(|| {
             let msg: Message = black_box(NUMERIC_RESPONSE).parse().unwrap();
+            black_box(msg)
+        })
+    });
+    
+    group.finish();
+}
+
+fn benchmark_zero_copy_parsing(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Zero-Copy Parsing");
+    
+    group.bench_function("simple_ping", |b| {
+        b.iter(|| {
+            let msg = MessageRef::parse(black_box(SIMPLE_MESSAGE)).unwrap();
+            black_box(msg)
+        })
+    });
+    
+    group.bench_function("with_prefix", |b| {
+        b.iter(|| {
+            let msg = MessageRef::parse(black_box(PREFIX_MESSAGE)).unwrap();
+            black_box(msg)
+        })
+    });
+    
+    group.bench_function("with_tags", |b| {
+        b.iter(|| {
+            let msg = MessageRef::parse(black_box(TAGGED_MESSAGE)).unwrap();
+            black_box(msg)
+        })
+    });
+    
+    group.bench_function("complex_tags", |b| {
+        b.iter(|| {
+            let msg = MessageRef::parse(black_box(COMPLEX_TAGS)).unwrap();
+            black_box(msg)
+        })
+    });
+    
+    group.bench_function("numeric_response", |b| {
+        b.iter(|| {
+            let msg = MessageRef::parse(black_box(NUMERIC_RESPONSE)).unwrap();
             black_box(msg)
         })
     });
@@ -154,12 +195,53 @@ fn benchmark_round_trip(c: &mut Criterion) {
     group.finish();
 }
 
+fn benchmark_zero_copy_batch(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Zero-Copy Batch");
+    
+    // Simulate a batch of 100 messages
+    let messages: Vec<String> = (0..100)
+        .map(|i| format!("PING :server{}\r\n", i))
+        .collect();
+    let batch: String = messages.concat();
+    
+    group.bench_function("parse_100_messages", |b| {
+        b.iter(|| {
+            let mut count = 0;
+            for line in black_box(&batch).lines() {
+                if let Ok(msg) = MessageRef::parse(line) {
+                    count += 1;
+                    black_box(msg);
+                }
+            }
+            black_box(count)
+        })
+    });
+    
+    // Compare with owned parsing
+    group.bench_function("parse_100_messages_owned", |b| {
+        b.iter(|| {
+            let mut count = 0;
+            for line in black_box(&batch).lines() {
+                if let Ok(msg) = line.parse::<Message>() {
+                    count += 1;
+                    black_box(msg);
+                }
+            }
+            black_box(count)
+        })
+    });
+    
+    group.finish();
+}
+
 criterion_group!(
     benches,
     benchmark_parsing,
+    benchmark_zero_copy_parsing,
     benchmark_serialization,
     benchmark_construction,
     benchmark_round_trip,
+    benchmark_zero_copy_batch,
 );
 
 criterion_main!(benches);

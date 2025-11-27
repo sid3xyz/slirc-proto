@@ -265,3 +265,84 @@ fn test_concurrent_message_parsing() {
         handle.join().expect("Thread should complete successfully");
     }
 }
+
+// =============================================================================
+// Zero-Copy Transport Tests
+// =============================================================================
+
+mod zero_copy_tests {
+    use slirc_proto::message::MessageRef;
+
+    #[test]
+    fn test_zero_copy_message_ref_parse() {
+        // Test basic parsing
+        let raw = "PING :server";
+        let msg = MessageRef::parse(raw).expect("Should parse");
+        assert_eq!(msg.command_name(), "PING");
+        assert_eq!(msg.args(), &["server"]);
+    }
+
+    #[test]
+    fn test_zero_copy_with_tags() {
+        let raw = "@time=2023-01-01;msgid=abc :nick!user@host PRIVMSG #channel :Hello";
+        let msg = MessageRef::parse(raw).expect("Should parse");
+        
+        assert_eq!(msg.command_name(), "PRIVMSG");
+        assert_eq!(msg.tag_value("time"), Some("2023-01-01"));
+        assert_eq!(msg.tag_value("msgid"), Some("abc"));
+        assert_eq!(msg.source_nickname(), Some("nick"));
+        assert_eq!(msg.args(), &["#channel", "Hello"]);
+    }
+
+    #[test]
+    fn test_zero_copy_to_owned_round_trip() {
+        let raw = "@time=2023-01-01 :nick!user@host PRIVMSG #channel :Hello, world!";
+        let msg_ref = MessageRef::parse(raw).expect("Should parse");
+        
+        // Convert to owned
+        let msg_owned = msg_ref.to_owned();
+        
+        // Serialize and reparse
+        let serialized = msg_owned.to_string();
+        let reparsed: slirc_proto::Message = serialized.parse().expect("Should reparse");
+        
+        assert_eq!(msg_owned, reparsed);
+    }
+
+    #[test]
+    fn test_zero_copy_numeric_detection() {
+        let raw = ":server 001 nick :Welcome";
+        let msg = MessageRef::parse(raw).expect("Should parse");
+        
+        assert!(msg.is_numeric());
+        assert_eq!(msg.numeric_code(), Some(1));
+    }
+
+    #[test]
+    fn test_zero_copy_privmsg_detection() {
+        let raw = ":nick PRIVMSG #channel :Hello";
+        let msg = MessageRef::parse(raw).expect("Should parse");
+        
+        assert!(msg.is_privmsg());
+        assert!(!msg.is_notice());
+    }
+
+    #[test]
+    fn test_zero_copy_tags_iter() {
+        let raw = "@a=1;b=2;c PING";
+        let msg = MessageRef::parse(raw).expect("Should parse");
+        
+        let tags: Vec<_> = msg.tags_iter().collect();
+        assert_eq!(tags, vec![("a", "1"), ("b", "2"), ("c", "")]);
+    }
+
+    #[test]
+    fn test_zero_copy_has_tag() {
+        let raw = "@time=2023;msgid PING";
+        let msg = MessageRef::parse(raw).expect("Should parse");
+        
+        assert!(msg.has_tag("time"));
+        assert!(msg.has_tag("msgid"));
+        assert!(!msg.has_tag("nonexistent"));
+    }
+}

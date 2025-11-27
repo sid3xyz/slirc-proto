@@ -105,7 +105,10 @@ pub use scanner::{is_non_irc_protocol, detect_protocol, DetectedProtocol};
 #[cfg(feature = "tokio")]
 pub mod transport;
 #[cfg(feature = "tokio")]
-pub use self::transport::{Transport, TransportReadError, MAX_IRC_LINE_LEN};
+pub use self::transport::{
+    Transport, TransportReadError, MAX_IRC_LINE_LEN,
+    ZeroCopyTransport, ZeroCopyTransportEnum, LendingStream, WebSocketNotSupportedError,
+};
 
 #[cfg(feature = "tokio")]
 pub mod websocket;

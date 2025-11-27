@@ -1,4 +1,43 @@
+//! IRC transport layer for async I/O.
+//!
+//! This module provides transport types for reading and writing IRC messages
+//! over TCP, TLS, and WebSocket connections.
+//!
+//! # Features
+//!
+//! - [`Transport`]: High-level transport using `Framed` codec for owned [`Message`] types
+//! - [`ZeroCopyTransport`]: Zero-allocation transport yielding borrowed [`MessageRef`] types
+//! - [`LendingStream`]: Trait for streams that yield borrowed data
+//!
+//! # Usage
+//!
+//! Use [`Transport`] during connection handshake and capability negotiation,
+//! then upgrade to [`ZeroCopyTransport`] for the hot loop:
+//!
+//! ```ignore
+//! use slirc_proto::transport::{Transport, ZeroCopyTransportEnum};
+//!
+//! // Use Transport during handshake
+//! let transport = Transport::tcp(stream);
+//! // ... perform CAP negotiation ...
+//!
+//! // Upgrade to zero-copy for the hot loop
+//! let mut zero_copy: ZeroCopyTransportEnum = transport.try_into()?;
+//! while let Some(result) = zero_copy.next().await {
+//!     let msg_ref = result?;
+//!     // Process MessageRef without allocations
+//! }
+//! ```
+//!
+//! [`Message`]: crate::Message
+//! [`MessageRef`]: crate::MessageRef
+
+use std::pin::Pin;
+use std::task::{Context, Poll};
+
 use anyhow::Result;
+use bytes::{Buf, BytesMut};
+use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::net::TcpStream;
 use tokio_rustls::server::TlsStream;
 use tokio_util::codec::Framed;
@@ -6,17 +45,22 @@ use tracing::warn;
 
 use crate::error::ProtocolError;
 use crate::irc::IrcCodec;
+use crate::message::MessageRef;
 use crate::Message;
 use futures_util::{SinkExt, StreamExt};
 
 #[cfg(feature = "tokio")]
 use tokio_tungstenite::{WebSocketStream, tungstenite::Message as WsMessage};
 
+/// Maximum IRC line length (8191 bytes as per modern IRC conventions).
 pub const MAX_IRC_LINE_LEN: usize = 8191;
 
+/// Errors that can occur when reading from a transport.
 #[derive(Debug)]
 pub enum TransportReadError {
+    /// An I/O error occurred.
     Io(std::io::Error),
+    /// A protocol error occurred.
     Protocol(ProtocolError),
 }
 
@@ -216,3 +260,629 @@ where
     Ok(())
 }
 
+// =============================================================================
+// LendingStream Trait
+// =============================================================================
+
+/// A lending stream trait for zero-copy iteration.
+///
+/// Unlike `futures::Stream`, this trait allows yielding borrowed data
+/// that references the stream's internal buffer. This enables true
+/// zero-copy parsing without heap allocations.
+///
+/// # Generic Associated Types
+///
+/// This trait uses GATs to express that the lifetime of yielded items
+/// is tied to the borrow of `self`, not to a separate lifetime parameter.
+pub trait LendingStream {
+    /// The item type yielded by this stream, borrowing from `self`.
+    type Item<'a> where Self: 'a;
+    /// The error type that can occur when polling.
+    type Error;
+
+    /// Poll the stream for the next item.
+    ///
+    /// This works similarly to `futures::Stream::poll_next`, but the
+    /// returned item borrows from `self`.
+    fn poll_next(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<Self::Item<'_>, Self::Error>>>;
+}
+
+// =============================================================================
+// ZeroCopyTransport
+// =============================================================================
+
+/// Zero-copy transport that yields `MessageRef<'_>` without allocations.
+///
+/// This transport maintains an internal buffer and parses messages directly
+/// from the buffer bytes, yielding borrowed `MessageRef` values that reference
+/// the buffer data.
+///
+/// # Performance
+///
+/// This transport is designed for hot loops where allocations are expensive:
+/// - No heap allocations per message
+/// - Minimal buffer management overhead
+/// - Direct parsing from byte buffer
+///
+/// # Usage
+///
+/// ```ignore
+/// let mut transport = ZeroCopyTransport::new(tcp_stream);
+/// while let Some(result) = transport.next().await {
+///     let msg_ref = result?;
+///     // Process msg_ref - it borrows from transport's buffer
+/// }
+/// ```
+pub struct ZeroCopyTransport<S> {
+    stream: S,
+    buffer: BytesMut,
+    consumed: usize,
+    max_line_len: usize,
+}
+
+impl<S> ZeroCopyTransport<S> {
+    /// Create a new zero-copy transport wrapping the given stream.
+    pub fn new(stream: S) -> Self {
+        Self {
+            stream,
+            buffer: BytesMut::with_capacity(8192),
+            consumed: 0,
+            max_line_len: MAX_IRC_LINE_LEN,
+        }
+    }
+
+    /// Create a new zero-copy transport with an existing buffer.
+    ///
+    /// This is useful when upgrading from a `Transport` that has buffered
+    /// data that hasn't been processed yet.
+    pub fn with_buffer(stream: S, buffer: BytesMut) -> Self {
+        Self {
+            stream,
+            buffer,
+            consumed: 0,
+            max_line_len: MAX_IRC_LINE_LEN,
+        }
+    }
+
+    /// Create a new zero-copy transport with a custom maximum line length.
+    pub fn with_max_line_len(stream: S, max_len: usize) -> Self {
+        Self {
+            stream,
+            buffer: BytesMut::with_capacity(max_len.min(65536)),
+            consumed: 0,
+            max_line_len: max_len,
+        }
+    }
+
+    /// Advance the buffer by the consumed amount.
+    fn advance_consumed(&mut self) {
+        if self.consumed > 0 {
+            self.buffer.advance(self.consumed);
+            self.consumed = 0;
+        }
+    }
+
+    /// Find the position of the next line ending (LF) in the buffer.
+    fn find_line_end(&self) -> Option<usize> {
+        self.buffer.iter().position(|&b| b == b'\n')
+    }
+
+    /// Validate a line slice as valid UTF-8 and check for control characters.
+    fn validate_line(slice: &[u8]) -> Result<&str, TransportReadError> {
+        let s = std::str::from_utf8(slice).map_err(|e| {
+            TransportReadError::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Invalid UTF-8: {}", e),
+            ))
+        })?;
+
+        // Trim CRLF for validation
+        let trimmed = s.trim_end_matches(['\r', '\n']);
+
+        // Check for NUL and other illegal control characters
+        for ch in trimmed.chars() {
+            if ch == '\0' || (ch.is_control() && ch != '\r' && ch != '\n') {
+                return Err(TransportReadError::Protocol(
+                    ProtocolError::IllegalControlChar(ch),
+                ));
+            }
+        }
+
+        Ok(s)
+    }
+}
+
+impl<S: AsyncRead + Unpin> ZeroCopyTransport<S> {
+    /// Read the next message from the transport.
+    ///
+    /// Returns `None` when the stream is closed.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// while let Some(result) = transport.next().await {
+    ///     let msg_ref = result?;
+    ///     println!("Command: {}", msg_ref.command_name());
+    /// }
+    /// ```
+    pub async fn next(&mut self) -> Option<Result<MessageRef<'_>, TransportReadError>> {
+        // Advance past any previously consumed data
+        self.advance_consumed();
+
+        loop {
+            // Check if we have a complete line in the buffer
+            if let Some(newline_pos) = self.find_line_end() {
+                let line_len = newline_pos + 1;
+
+                // Check line length limit
+                if line_len > self.max_line_len {
+                    return Some(Err(TransportReadError::Protocol(
+                        ProtocolError::MessageTooLong(line_len),
+                    )));
+                }
+
+                // Validate the line
+                let line_slice = &self.buffer[..line_len];
+                match Self::validate_line(line_slice) {
+                    Ok(line_str) => {
+                        // Mark this line as consumed (will be advanced on next call)
+                        self.consumed = line_len;
+
+                        // Parse the message
+                        // SAFETY: We need to extend the lifetime here because we know
+                        // the buffer won't be modified until the next call to `next()`.
+                        // This is safe because:
+                        // 1. We take &mut self, preventing concurrent access
+                        // 2. We don't advance the buffer until the next call
+                        let line_str: &str =
+                            unsafe { std::mem::transmute::<&str, &str>(line_str) };
+
+                        match MessageRef::parse(line_str) {
+                            Ok(msg) => return Some(Ok(msg)),
+                            Err(e) => {
+                                return Some(Err(TransportReadError::Protocol(
+                                    ProtocolError::InvalidMessage {
+                                        string: line_str.to_string(),
+                                        cause: e,
+                                    },
+                                )))
+                            }
+                        }
+                    }
+                    Err(e) => return Some(Err(e)),
+                }
+            }
+
+            // Check if buffer is getting too large without a complete line
+            if self.buffer.len() > self.max_line_len {
+                return Some(Err(TransportReadError::Protocol(
+                    ProtocolError::MessageTooLong(self.buffer.len()),
+                )));
+            }
+
+            // Need more data - read from stream
+            let mut temp = [0u8; 4096];
+            match self.stream.read(&mut temp).await {
+                Ok(0) => {
+                    // EOF - stream closed
+                    if self.buffer.is_empty() {
+                        return None;
+                    } else {
+                        // Incomplete message at EOF
+                        return Some(Err(TransportReadError::Io(std::io::Error::new(
+                            std::io::ErrorKind::UnexpectedEof,
+                            "Stream closed with incomplete message",
+                        ))));
+                    }
+                }
+                Ok(n) => {
+                    self.buffer.extend_from_slice(&temp[..n]);
+                }
+                Err(e) => return Some(Err(TransportReadError::Io(e))),
+            }
+        }
+    }
+}
+
+impl<S: AsyncRead + Unpin> LendingStream for ZeroCopyTransport<S> {
+    type Item<'a> = MessageRef<'a> where Self: 'a;
+    type Error = TransportReadError;
+
+    fn poll_next(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<Self::Item<'_>, Self::Error>>> {
+        // Advance past any previously consumed data
+        self.advance_consumed();
+
+        loop {
+            // Check if we have a complete line in the buffer
+            if let Some(newline_pos) = self.find_line_end() {
+                let line_len = newline_pos + 1;
+
+                // Check line length limit
+                if line_len > self.max_line_len {
+                    return Poll::Ready(Some(Err(TransportReadError::Protocol(
+                        ProtocolError::MessageTooLong(line_len),
+                    ))));
+                }
+
+                // Validate the line
+                let line_slice = &self.buffer[..line_len];
+                match Self::validate_line(line_slice) {
+                    Ok(line_str) => {
+                        // Mark this line as consumed
+                        self.consumed = line_len;
+
+                        // SAFETY: Same as in next() - buffer won't be modified until next poll
+                        let line_str: &str =
+                            unsafe { std::mem::transmute::<&str, &str>(line_str) };
+
+                        match MessageRef::parse(line_str) {
+                            Ok(msg) => return Poll::Ready(Some(Ok(msg))),
+                            Err(e) => {
+                                return Poll::Ready(Some(Err(TransportReadError::Protocol(
+                                    ProtocolError::InvalidMessage {
+                                        string: line_str.to_string(),
+                                        cause: e,
+                                    },
+                                ))))
+                            }
+                        }
+                    }
+                    Err(e) => return Poll::Ready(Some(Err(e))),
+                }
+            }
+
+            // Check if buffer is getting too large
+            if self.buffer.len() > self.max_line_len {
+                return Poll::Ready(Some(Err(TransportReadError::Protocol(
+                    ProtocolError::MessageTooLong(self.buffer.len()),
+                ))));
+            }
+
+            // Need more data - try to read from stream
+            let this = self.as_mut().get_mut();
+            let mut read_buf = [0u8; 4096];
+            let mut read_buf_slice = tokio::io::ReadBuf::new(&mut read_buf);
+
+            match Pin::new(&mut this.stream).poll_read(cx, &mut read_buf_slice) {
+                Poll::Ready(Ok(())) => {
+                    let n = read_buf_slice.filled().len();
+                    if n == 0 {
+                        // EOF
+                        if this.buffer.is_empty() {
+                            return Poll::Ready(None);
+                        } else {
+                            return Poll::Ready(Some(Err(TransportReadError::Io(
+                                std::io::Error::new(
+                                    std::io::ErrorKind::UnexpectedEof,
+                                    "Stream closed with incomplete message",
+                                ),
+                            ))));
+                        }
+                    }
+                    this.buffer.extend_from_slice(read_buf_slice.filled());
+                    // Loop to check buffer again
+                }
+                Poll::Ready(Err(e)) => return Poll::Ready(Some(Err(TransportReadError::Io(e)))),
+                Poll::Pending => return Poll::Pending,
+            }
+        }
+    }
+}
+
+// =============================================================================
+// ZeroCopyTransportEnum
+// =============================================================================
+
+/// Enum wrapper for zero-copy transports over different stream types.
+///
+/// This provides a unified interface for zero-copy message reading
+/// over TCP and TLS connections.
+#[allow(clippy::large_enum_variant)]
+pub enum ZeroCopyTransportEnum {
+    /// TCP zero-copy transport.
+    Tcp(ZeroCopyTransport<TcpStream>),
+    /// TLS zero-copy transport.
+    Tls(ZeroCopyTransport<TlsStream<TcpStream>>),
+}
+
+impl ZeroCopyTransportEnum {
+    /// Create a new TCP zero-copy transport.
+    pub fn tcp(stream: TcpStream) -> Self {
+        Self::Tcp(ZeroCopyTransport::new(stream))
+    }
+
+    /// Create a new TCP zero-copy transport with an existing buffer.
+    pub fn tcp_with_buffer(stream: TcpStream, buffer: BytesMut) -> Self {
+        Self::Tcp(ZeroCopyTransport::with_buffer(stream, buffer))
+    }
+
+    /// Create a new TLS zero-copy transport.
+    pub fn tls(stream: TlsStream<TcpStream>) -> Self {
+        Self::Tls(ZeroCopyTransport::new(stream))
+    }
+
+    /// Create a new TLS zero-copy transport with an existing buffer.
+    pub fn tls_with_buffer(stream: TlsStream<TcpStream>, buffer: BytesMut) -> Self {
+        Self::Tls(ZeroCopyTransport::with_buffer(stream, buffer))
+    }
+
+    /// Read the next message from the transport.
+    pub async fn next(&mut self) -> Option<Result<MessageRef<'_>, TransportReadError>> {
+        match self {
+            Self::Tcp(t) => t.next().await,
+            Self::Tls(t) => t.next().await,
+        }
+    }
+}
+
+impl LendingStream for ZeroCopyTransportEnum {
+    type Item<'a> = MessageRef<'a> where Self: 'a;
+    type Error = TransportReadError;
+
+    fn poll_next(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<Self::Item<'_>, Self::Error>>> {
+        match self.get_mut() {
+            Self::Tcp(t) => Pin::new(t).poll_next(cx),
+            Self::Tls(t) => Pin::new(t).poll_next(cx),
+        }
+    }
+}
+
+// =============================================================================
+// TryFrom<Transport> for ZeroCopyTransportEnum
+// =============================================================================
+
+/// Error returned when converting a WebSocket transport to zero-copy.
+///
+/// WebSocket transports cannot be converted to zero-copy because the
+/// WebSocket framing protocol requires different handling.
+#[derive(Debug)]
+pub struct WebSocketNotSupportedError(pub Transport);
+
+impl std::fmt::Display for WebSocketNotSupportedError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "WebSocket transport cannot be converted to zero-copy transport"
+        )
+    }
+}
+
+impl std::error::Error for WebSocketNotSupportedError {}
+
+impl TryFrom<Transport> for ZeroCopyTransportEnum {
+    type Error = WebSocketNotSupportedError;
+
+    /// Convert a `Transport` to a `ZeroCopyTransportEnum`.
+    ///
+    /// This performs a buffer handover from the `Framed` codec to the
+    /// zero-copy transport, ensuring no data is lost during the upgrade.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err(WebSocketNotSupportedError)` if the transport is a
+    /// WebSocket variant, as WebSocket requires different framing.
+    fn try_from(transport: Transport) -> Result<Self, Self::Error> {
+        match transport {
+            Transport::Tcp { framed } => {
+                let parts = framed.into_parts();
+                Ok(ZeroCopyTransportEnum::tcp_with_buffer(parts.io, parts.read_buf))
+            }
+            Transport::Tls { framed } => {
+                let parts = framed.into_parts();
+                Ok(ZeroCopyTransportEnum::tls_with_buffer(parts.io, parts.read_buf))
+            }
+            #[cfg(feature = "tokio")]
+            t @ Transport::WebSocket { .. } => Err(WebSocketNotSupportedError(t)),
+            #[cfg(feature = "tokio")]
+            t @ Transport::WebSocketTls { .. } => Err(WebSocketNotSupportedError(t)),
+        }
+    }
+}
+
+// =============================================================================
+// Tests
+// =============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bytes::BytesMut;
+    use std::io::Cursor;
+    use tokio::io::AsyncRead;
+
+    /// A mock async reader that returns data from a byte slice.
+    struct MockReader {
+        data: Cursor<Vec<u8>>,
+    }
+
+    impl MockReader {
+        fn new(data: &[u8]) -> Self {
+            Self {
+                data: Cursor::new(data.to_vec()),
+            }
+        }
+    }
+
+    impl AsyncRead for MockReader {
+        fn poll_read(
+            mut self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &mut tokio::io::ReadBuf<'_>,
+        ) -> Poll<std::io::Result<()>> {
+            let pos = self.data.position() as usize;
+            let data = self.data.get_ref();
+            if pos >= data.len() {
+                return Poll::Ready(Ok(()));
+            }
+            let to_read = (data.len() - pos).min(buf.remaining());
+            buf.put_slice(&data[pos..pos + to_read]);
+            self.data.set_position((pos + to_read) as u64);
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    impl Unpin for MockReader {}
+
+    #[tokio::test]
+    async fn test_zero_copy_simple() {
+        let data = b"PING :server\r\n";
+        let reader = MockReader::new(data);
+        let mut transport = ZeroCopyTransport::new(reader);
+
+        let result = transport.next().await;
+        assert!(result.is_some());
+        let msg = result.unwrap().unwrap();
+        assert_eq!(msg.command_name(), "PING");
+        assert_eq!(msg.args(), &["server"]);
+    }
+
+    #[tokio::test]
+    async fn test_zero_copy_multiple_messages() {
+        let data = b"PING :server1\r\nPING :server2\r\n";
+        let reader = MockReader::new(data);
+        let mut transport = ZeroCopyTransport::new(reader);
+
+        let msg1 = transport.next().await.unwrap().unwrap();
+        assert_eq!(msg1.args(), &["server1"]);
+
+        let msg2 = transport.next().await.unwrap().unwrap();
+        assert_eq!(msg2.args(), &["server2"]);
+
+        let msg3 = transport.next().await;
+        assert!(msg3.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_zero_copy_with_tags() {
+        let data = b"@time=2023-01-01;msgid=abc :nick!user@host PRIVMSG #channel :Hello\r\n";
+        let reader = MockReader::new(data);
+        let mut transport = ZeroCopyTransport::new(reader);
+
+        let msg = transport.next().await.unwrap().unwrap();
+        assert_eq!(msg.command_name(), "PRIVMSG");
+        assert_eq!(msg.tag_value("time"), Some("2023-01-01"));
+        assert_eq!(msg.tag_value("msgid"), Some("abc"));
+        assert_eq!(msg.source_nickname(), Some("nick"));
+    }
+
+    #[tokio::test]
+    async fn test_zero_copy_oversized() {
+        // Create a line that exceeds the max length
+        let long_line = format!("PRIVMSG #channel :{}\r\n", "A".repeat(MAX_IRC_LINE_LEN));
+        let reader = MockReader::new(long_line.as_bytes());
+        let mut transport = ZeroCopyTransport::new(reader);
+
+        let result = transport.next().await;
+        assert!(result.is_some());
+        match result.unwrap() {
+            Err(TransportReadError::Protocol(ProtocolError::MessageTooLong(_))) => {}
+            other => panic!("Expected MessageTooLong error, got {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_zero_copy_with_buffer() {
+        // Simulate upgrading from Transport with buffered data
+        let mut buffer = BytesMut::new();
+        buffer.extend_from_slice(b"PING :buffered\r\n");
+
+        let reader = MockReader::new(b"PING :fresh\r\n");
+        let mut transport = ZeroCopyTransport::with_buffer(reader, buffer);
+
+        // Should get buffered message first
+        let msg1 = transport.next().await.unwrap().unwrap();
+        assert_eq!(msg1.args(), &["buffered"]);
+
+        // Then fresh data
+        let msg2 = transport.next().await.unwrap().unwrap();
+        assert_eq!(msg2.args(), &["fresh"]);
+    }
+
+    #[tokio::test]
+    async fn test_zero_copy_lf_only() {
+        // IRC also accepts LF without CR
+        let data = b"PING :server\n";
+        let reader = MockReader::new(data);
+        let mut transport = ZeroCopyTransport::new(reader);
+
+        let msg = transport.next().await.unwrap().unwrap();
+        assert_eq!(msg.command_name(), "PING");
+    }
+
+    #[tokio::test]
+    async fn test_zero_copy_invalid_utf8() {
+        let data = [b'P', b'I', b'N', b'G', b' ', 0xFF, 0xFE, b'\r', b'\n'];
+        let reader = MockReader::new(&data);
+        let mut transport = ZeroCopyTransport::new(reader);
+
+        let result = transport.next().await;
+        assert!(result.is_some());
+        match result.unwrap() {
+            Err(TransportReadError::Io(e)) => {
+                assert!(e.to_string().contains("UTF-8"));
+            }
+            other => panic!("Expected UTF-8 error, got {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_zero_copy_control_char() {
+        // NUL character should be rejected
+        let data = b"PING :server\x00test\r\n";
+        let reader = MockReader::new(data);
+        let mut transport = ZeroCopyTransport::new(reader);
+
+        let result = transport.next().await;
+        assert!(result.is_some());
+        match result.unwrap() {
+            Err(TransportReadError::Protocol(ProtocolError::IllegalControlChar('\0'))) => {}
+            other => panic!("Expected IllegalControlChar error, got {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_zero_copy_fragmented() {
+        // Simulate data arriving in small chunks
+        // For this test, we use a reader that gives all data at once,
+        // but we verify parsing works correctly with various message types
+        let data = b":server 001 nick :Welcome\r\n:server 002 nick :Your host\r\n";
+        let reader = MockReader::new(data);
+        let mut transport = ZeroCopyTransport::new(reader);
+
+        let msg1 = transport.next().await.unwrap().unwrap();
+        assert!(msg1.is_numeric());
+        assert_eq!(msg1.numeric_code(), Some(1));
+
+        let msg2 = transport.next().await.unwrap().unwrap();
+        assert!(msg2.is_numeric());
+        assert_eq!(msg2.numeric_code(), Some(2));
+
+        assert!(transport.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_zero_copy_eof_incomplete() {
+        // Data with no newline - should error on EOF
+        let data = b"PING :incomplete";
+        let reader = MockReader::new(data);
+        let mut transport = ZeroCopyTransport::new(reader);
+
+        let result = transport.next().await;
+        assert!(result.is_some());
+        match result.unwrap() {
+            Err(TransportReadError::Io(e)) => {
+                assert_eq!(e.kind(), std::io::ErrorKind::UnexpectedEof);
+            }
+            other => panic!("Expected UnexpectedEof error, got {:?}", other),
+        }
+    }
+}
