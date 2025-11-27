@@ -322,7 +322,7 @@ impl SaslClient {
             prefix: None,
             command,
         };
-        self.transport.write_message(message).await?;
+        self.transport.write_message(&message).await?;
         Ok(())
     }
 
