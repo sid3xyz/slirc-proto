@@ -453,29 +453,10 @@ impl<S: AsyncRead + Unpin> ZeroCopyTransport<S> {
                         // Mark this line as consumed (will be advanced on next call)
                         self.consumed = line_len;
 
-                        // Parse the message
-                        //
-                        // SAFETY: Lifetime extension via transmute
-                        //
-                        // We extend the lifetime of `line_str` from the buffer's borrow to the
-                        // return lifetime. This is safe because:
-                        //
-                        // 1. **Exclusive access**: We take `&mut self`, preventing any concurrent
-                        //    access or modification to the buffer while the `MessageRef` is live.
-                        //
-                        // 2. **Deferred advancement**: The buffer is not advanced (via `advance_consumed`)
-                        //    until the *next* call to `next()`. The current message data remains valid
-                        //    in the buffer until then.
-                        //
-                        // 3. **Return semantics**: The returned `MessageRef` borrows from `self`,
-                        //    and Rust's borrow checker ensures the caller cannot call `next()` again
-                        //    while holding the `MessageRef`, as that would require `&mut self`.
-                        //
-                        // 4. **Buffer stability**: `BytesMut` does not reallocate when data is only
-                        //    being read, and we don't modify the buffer between returning and the
-                        //    next call.
-                        let line_str: &str = unsafe { std::mem::transmute::<&str, &str>(line_str) };
-
+                        // Parse the message - no unsafe needed here because:
+                        // - The `&mut self` borrow prevents calling `next()` again while MessageRef is live
+                        // - Buffer advancement is deferred until the next call to `next()`
+                        // - The returned MessageRef lifetime is tied to `self` via function signature
                         match MessageRef::parse(line_str) {
                             Ok(msg) => return Some(Ok(msg)),
                             Err(e) => {
@@ -560,19 +541,24 @@ impl<S: AsyncRead + Unpin> LendingStream for ZeroCopyTransport<S> {
                 // Mark this line as consumed
                 self.consumed = line_len;
 
-                // Now get the line string again and parse it
+                // Get the line string and parse it.
                 //
-                // SAFETY: Lifetime extension via transmute (see `next()` for detailed rationale)
+                // SAFETY: We need to extend the lifetime of the reference to match Self::Item<'_>.
                 //
-                // This is safe because:
-                // 1. We have exclusive access via `Pin<&mut Self>`
-                // 2. Buffer advancement is deferred until next `poll_next` call
-                // 3. The `LendingStream` trait signature ensures the returned `MessageRef`
-                //    borrows from `self`, preventing concurrent modification
-                let line_str: &str = {
+                // This is sound because:
+                // 1. The `Pin<&mut Self>` borrow prevents calling `poll_next` again while
+                //    the returned MessageRef exists (it would require another &mut borrow)
+                // 2. Buffer advancement (`advance_consumed`) is deferred until the next
+                //    `poll_next` call, so the data remains valid
+                // 3. We don't reallocate or modify the buffer before returning
+                //
+                // The transmute extends the local borrow's lifetime to match the GAT's
+                // `Item<'_>` which is tied to the self borrow via the trait bound `Self: 'a`.
+                let line_str: &str = unsafe {
                     let slice = &self.buffer[..line_len];
                     let s = std::str::from_utf8(slice).expect("Already validated as UTF-8");
-                    unsafe { std::mem::transmute::<&str, &str>(s) }
+                    // Extend lifetime from local scope to match Pin<&mut Self>
+                    std::mem::transmute::<&str, &str>(s)
                 };
 
                 match MessageRef::parse(line_str) {
