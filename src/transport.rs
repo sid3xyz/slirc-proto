@@ -286,8 +286,14 @@ where
 ///
 /// # Generic Associated Types
 ///
-/// This trait uses GATs to express that the lifetime of yielded items
-/// is tied to the borrow of `self`, not to a separate lifetime parameter.
+/// This trait uses GATs (Generic Associated Types) to express that the lifetime
+/// of yielded items is tied to the borrow of `self`, not to a separate lifetime
+/// parameter. GATs were stabilized in Rust 1.65.
+///
+/// # Stability
+///
+/// This trait is considered stable for use. The API may evolve in future
+/// versions following semver guidelines.
 pub trait LendingStream {
     /// The item type yielded by this stream, borrowing from `self`.
     type Item<'a>
@@ -448,11 +454,26 @@ impl<S: AsyncRead + Unpin> ZeroCopyTransport<S> {
                         self.consumed = line_len;
 
                         // Parse the message
-                        // SAFETY: We need to extend the lifetime here because we know
-                        // the buffer won't be modified until the next call to `next()`.
-                        // This is safe because:
-                        // 1. We take &mut self, preventing concurrent access
-                        // 2. We don't advance the buffer until the next call
+                        //
+                        // SAFETY: Lifetime extension via transmute
+                        //
+                        // We extend the lifetime of `line_str` from the buffer's borrow to the
+                        // return lifetime. This is safe because:
+                        //
+                        // 1. **Exclusive access**: We take `&mut self`, preventing any concurrent
+                        //    access or modification to the buffer while the `MessageRef` is live.
+                        //
+                        // 2. **Deferred advancement**: The buffer is not advanced (via `advance_consumed`)
+                        //    until the *next* call to `next()`. The current message data remains valid
+                        //    in the buffer until then.
+                        //
+                        // 3. **Return semantics**: The returned `MessageRef` borrows from `self`,
+                        //    and Rust's borrow checker ensures the caller cannot call `next()` again
+                        //    while holding the `MessageRef`, as that would require `&mut self`.
+                        //
+                        // 4. **Buffer stability**: `BytesMut` does not reallocate when data is only
+                        //    being read, and we don't modify the buffer between returning and the
+                        //    next call.
                         let line_str: &str = unsafe { std::mem::transmute::<&str, &str>(line_str) };
 
                         match MessageRef::parse(line_str) {
@@ -540,7 +561,14 @@ impl<S: AsyncRead + Unpin> LendingStream for ZeroCopyTransport<S> {
                 self.consumed = line_len;
 
                 // Now get the line string again and parse it
-                // SAFETY: Same as in next() - buffer won't be modified until next poll
+                //
+                // SAFETY: Lifetime extension via transmute (see `next()` for detailed rationale)
+                //
+                // This is safe because:
+                // 1. We have exclusive access via `Pin<&mut Self>`
+                // 2. Buffer advancement is deferred until next `poll_next` call
+                // 3. The `LendingStream` trait signature ensures the returned `MessageRef`
+                //    borrows from `self`, preventing concurrent modification
                 let line_str: &str = {
                     let slice = &self.buffer[..line_len];
                     let s = std::str::from_utf8(slice).expect("Already validated as UTF-8");
