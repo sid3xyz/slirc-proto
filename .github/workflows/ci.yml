@@ -53,5 +53,7 @@ jobs:
       - name: Install Rust 1.70
         uses: dtolnay/rust-toolchain@1.70.0
 
-      - name: Check compilation
-        run: cargo check --all-features --locked
+      # Only check core parsing without tokio feature.
+      # Async transport deps (tokio-tungstenite, icu_*) require newer Rust.
+      - name: Check compilation (no default features)
+        run: cargo check --no-default-features --locked
