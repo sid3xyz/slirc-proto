@@ -79,7 +79,9 @@ pub mod sasl;
 pub use self::caps::{Capability, NegotiationVersion};
 pub use self::chan::ChannelExt;
 pub use self::colors::FormattedStringExt;
-pub use self::command::{BatchSubCommand, CapSubCommand, ChatHistorySubCommand, Command, MessageReference};
+pub use self::command::{
+    BatchSubCommand, CapSubCommand, ChatHistorySubCommand, Command, MessageReference,
+};
 pub use self::ctcp::{Ctcp, CtcpKind, CtcpOwned};
 
 pub use self::command::{CommandRef, CommandRefEnum};

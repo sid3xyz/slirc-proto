@@ -134,7 +134,8 @@ pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseE
                     if args.len() < 4 {
                         return Ok(raw(cmd, args));
                     }
-                    let msg_ref1 = MessageReference::parse(args[1]).unwrap_or(MessageReference::Timestamp(args[1].to_owned()));
+                    let msg_ref1 = MessageReference::parse(args[1])
+                        .unwrap_or(MessageReference::Timestamp(args[1].to_owned()));
                     let msg_ref2 = MessageReference::parse(args[2]).ok();
                     let limit = args[3].parse::<u32>().unwrap_or(50);
                     Command::CHATHISTORY {
