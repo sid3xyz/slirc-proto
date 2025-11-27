@@ -296,6 +296,27 @@ impl<'a> PrefixRef<'a> {
     pub fn is_server(&self) -> bool {
         self.nick.is_none() && self.user.is_none() && self.host.is_some()
     }
+
+    /// Get the nickname if this is a user prefix.
+    ///
+    /// Returns `None` if this is a server name prefix.
+    #[inline]
+    pub fn nickname(&self) -> Option<&'a str> {
+        self.nick
+    }
+
+    /// Convert to an owned Prefix.
+    pub fn to_owned(&self) -> Prefix {
+        if self.is_server() {
+            Prefix::ServerName(self.host.unwrap_or("").to_string())
+        } else {
+            Prefix::Nickname(
+                self.nick.unwrap_or("").to_string(),
+                self.user.unwrap_or("").to_string(),
+                self.host.unwrap_or("").to_string(),
+            )
+        }
+    }
 }
 
 #[cfg(test)]
