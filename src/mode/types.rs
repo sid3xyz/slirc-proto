@@ -16,7 +16,7 @@ use std::fmt;
 pub trait ModeType: fmt::Display + fmt::Debug + Clone + PartialEq {
     /// Returns true if this mode takes an argument when set.
     fn takes_arg(&self) -> bool;
-    
+
     /// Parse a mode character into its typed representation.
     fn from_char(c: char) -> Self;
 }
@@ -55,7 +55,7 @@ impl ModeType for UserMode {
     fn takes_arg(&self) -> bool {
         false // User modes don't take arguments
     }
-    
+
     fn from_char(c: char) -> Self {
         match c {
             'a' => Self::Away,
@@ -106,13 +106,13 @@ pub enum ChannelMode {
     InviteException,
     /// 'q' - Quiet mask (prevents talking but allows joining)
     Quiet,
-    
+
     // === Modes that take argument when set ===
     /// 'l' - User limit (takes number when set)
     Limit,
     /// 'k' - Channel key/password
     Key,
-    
+
     // === Modes without arguments ===
     /// 'i' - Invite only
     InviteOnly,
@@ -126,7 +126,7 @@ pub enum ChannelMode {
     Secret,
     /// 't' - Only ops can change topic
     ProtectedTopic,
-    
+
     // === Prefix modes (grant channel privileges) ===
     /// 'q' - Channel founder (~) - note: conflicts with Quiet on some servers
     Founder,
@@ -138,7 +138,7 @@ pub enum ChannelMode {
     Halfop,
     /// 'v' - Voice (+)
     Voice,
-    
+
     /// Unknown mode character
     Unknown(char),
 }
@@ -160,7 +160,7 @@ impl ModeType for ChannelMode {
                 | Self::Voice
         )
     }
-    
+
     fn from_char(c: char) -> Self {
         match c {
             'b' => Self::Ban,
@@ -229,17 +229,17 @@ impl<T: ModeType> Mode<T> {
     pub fn plus(mode: T, arg: Option<&str>) -> Self {
         Self::Plus(mode, arg.map(String::from))
     }
-    
+
     /// Create a mode removal with optional argument.
     pub fn minus(mode: T, arg: Option<&str>) -> Self {
         Self::Minus(mode, arg.map(String::from))
     }
-    
+
     /// Create a mode without prefix.
     pub fn no_prefix(mode: T) -> Self {
         Self::NoPrefix(mode)
     }
-    
+
     /// Get the mode flag string (e.g., "+o", "-v")
     pub fn flag(&self) -> String {
         match self {
@@ -248,7 +248,7 @@ impl<T: ModeType> Mode<T> {
             Self::NoPrefix(m) => m.to_string(),
         }
     }
-    
+
     /// Get the argument if present.
     pub fn arg(&self) -> Option<&str> {
         match self {
@@ -256,19 +256,19 @@ impl<T: ModeType> Mode<T> {
             Self::NoPrefix(_) => None,
         }
     }
-    
+
     /// Get a reference to the inner mode type.
     pub fn mode(&self) -> &T {
         match self {
             Self::Plus(m, _) | Self::Minus(m, _) | Self::NoPrefix(m) => m,
         }
     }
-    
+
     /// Returns true if this is adding a mode (+)
     pub fn is_plus(&self) -> bool {
         matches!(self, Self::Plus(..))
     }
-    
+
     /// Returns true if this is removing a mode (-)
     pub fn is_minus(&self) -> bool {
         matches!(self, Self::Minus(..))
@@ -289,28 +289,28 @@ impl<T: ModeType> fmt::Display for Mode<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_user_mode_display() {
         assert_eq!(format!("{}", UserMode::Invisible), "i");
         assert_eq!(format!("{}", UserMode::Oper), "o");
         assert_eq!(format!("{}", UserMode::Unknown('z')), "z");
     }
-    
+
     #[test]
     fn test_user_mode_from_char() {
         assert_eq!(UserMode::from_char('i'), UserMode::Invisible);
         assert_eq!(UserMode::from_char('o'), UserMode::Oper);
         assert_eq!(UserMode::from_char('z'), UserMode::Unknown('z'));
     }
-    
+
     #[test]
     fn test_channel_mode_display() {
         assert_eq!(format!("{}", ChannelMode::Oper), "o");
         assert_eq!(format!("{}", ChannelMode::Voice), "v");
         assert_eq!(format!("{}", ChannelMode::Ban), "b");
     }
-    
+
     #[test]
     fn test_channel_mode_takes_arg() {
         assert!(ChannelMode::Ban.takes_arg());
@@ -319,24 +319,24 @@ mod tests {
         assert!(!ChannelMode::Secret.takes_arg());
         assert!(!ChannelMode::InviteOnly.takes_arg());
     }
-    
+
     #[test]
     fn test_mode_operations() {
         let mode = Mode::plus(ChannelMode::Oper, Some("nick"));
         assert_eq!(mode.flag(), "+o");
         assert_eq!(mode.arg(), Some("nick"));
         assert!(mode.is_plus());
-        
+
         let mode = Mode::minus(ChannelMode::Voice, Some("user"));
         assert_eq!(mode.flag(), "-v");
         assert!(mode.is_minus());
     }
-    
+
     #[test]
     fn test_mode_display() {
         let mode = Mode::plus(ChannelMode::Oper, Some("nick"));
         assert_eq!(format!("{}", mode), "+o nick");
-        
+
         let mode = Mode::minus(UserMode::Invisible, None);
         assert_eq!(format!("{}", mode), "-i");
     }

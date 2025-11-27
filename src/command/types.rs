@@ -183,7 +183,7 @@ pub enum Command {
     // === Numeric Response ===
     /// Numeric response from server
     Response(Response, Vec<String>),
-    
+
     // === Unknown/Raw Commands ===
     /// Unknown command captured as raw
     Raw(String, Vec<String>),
@@ -205,15 +205,14 @@ impl<'a> CommandRef<'a> {
     pub fn new(name: &'a str, args: Vec<&'a str>) -> Self {
         Self { name, args }
     }
-    
+
     /// Convert this reference to an owned raw command string.
     pub fn to_raw_string(&self) -> String {
         if self.args.is_empty() {
             self.name.to_string()
         } else {
-            let capacity = self.name.len() 
-                + 1 
-                + self.args.iter().map(|a| a.len() + 1).sum::<usize>();
+            let capacity =
+                self.name.len() + 1 + self.args.iter().map(|a| a.len() + 1).sum::<usize>();
             let mut s = String::with_capacity(capacity);
             s.push_str(self.name);
             s.push(' ');
@@ -226,22 +225,22 @@ impl<'a> CommandRef<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_command_ref_to_raw_string() {
         let cmd = CommandRef::new("PRIVMSG", vec!["#channel", "hello"]);
         assert_eq!(cmd.to_raw_string(), "PRIVMSG #channel hello");
-        
+
         let cmd = CommandRef::new("PING", vec![]);
         assert_eq!(cmd.to_raw_string(), "PING");
     }
-    
+
     #[test]
     fn test_command_equality() {
         let cmd1 = Command::NICK("test".to_string());
         let cmd2 = Command::NICK("test".to_string());
         assert_eq!(cmd1, cmd2);
-        
+
         let cmd3 = Command::NICK("other".to_string());
         assert_ne!(cmd1, cmd3);
     }

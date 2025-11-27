@@ -129,7 +129,14 @@ impl<'a> Ctcp<'a> {
         let (command, params) = match text.find(' ') {
             Some(pos) => {
                 let params = &text[pos + 1..];
-                (&text[..pos], if params.is_empty() { None } else { Some(params) })
+                (
+                    &text[..pos],
+                    if params.is_empty() {
+                        None
+                    } else {
+                        Some(params)
+                    },
+                )
             }
             None => (text, None),
         };

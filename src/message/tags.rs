@@ -1,4 +1,3 @@
-
 use std::fmt::{Result as FmtResult, Write};
 
 pub fn escape_tag_value(f: &mut dyn Write, value: &str) -> FmtResult {

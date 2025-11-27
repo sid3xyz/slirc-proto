@@ -25,7 +25,7 @@ impl IrcCodec {
     pub fn new(label: &str) -> error::Result<Self> {
         LineCodec::new(label).map(|codec| Self { inner: codec })
     }
-    
+
     /// Create a new codec with custom max line length.
     ///
     /// # Arguments
@@ -34,7 +34,7 @@ impl IrcCodec {
     pub fn with_max_len(label: &str, max_len: usize) -> error::Result<Self> {
         LineCodec::with_max_len(label, max_len).map(|codec| Self { inner: codec })
     }
-    
+
     /// Sanitize outgoing message data.
     ///
     /// - Truncates at first line ending
@@ -48,14 +48,14 @@ impl IrcCodec {
         {
             data.truncate(pos + len);
         }
-        
+
         // Reject illegal control characters
         for ch in data.chars() {
             if ch == '\0' || (ch.is_control() && ch != '\r' && ch != '\n') {
                 return Err(error::ProtocolError::IllegalControlChar(ch));
             }
         }
-        
+
         Ok(data)
     }
 }
@@ -63,7 +63,7 @@ impl IrcCodec {
 impl Decoder for IrcCodec {
     type Item = Message;
     type Error = error::ProtocolError;
-    
+
     fn decode(&mut self, src: &mut BytesMut) -> error::Result<Option<Message>> {
         self.inner
             .decode(src)
@@ -73,7 +73,7 @@ impl Decoder for IrcCodec {
 
 impl Encoder<Message> for IrcCodec {
     type Error = error::ProtocolError;
-    
+
     fn encode(&mut self, msg: Message, dst: &mut BytesMut) -> error::Result<()> {
         let sanitized = Self::sanitize(msg.to_string())?;
         self.inner.encode(sanitized, dst)
@@ -83,19 +83,19 @@ impl Encoder<Message> for IrcCodec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_sanitize_truncates_newline() {
         let result = IrcCodec::sanitize("PRIVMSG #test :hello\r\nworld".to_string());
         assert_eq!(result.unwrap(), "PRIVMSG #test :hello\r\n");
     }
-    
+
     #[test]
     fn test_sanitize_rejects_nul() {
         let result = IrcCodec::sanitize("PRIVMSG #test :hel\0lo".to_string());
         assert!(result.is_err());
     }
-    
+
     #[test]
     fn test_sanitize_clean() {
         let result = IrcCodec::sanitize("PRIVMSG #test :hello".to_string());

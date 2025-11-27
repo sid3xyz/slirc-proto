@@ -1,9 +1,9 @@
 //! Integration tests for the IRC transport layer and connection handling
 //!
-//! These tests verify that the transport components work correctly with 
+//! These tests verify that the transport components work correctly with
 //! real-world scenarios and interact properly with each other.
 
-use slirc_proto::{Message, Command};
+use slirc_proto::{Command, Message};
 
 #[test]
 fn test_connection_message_flow() {
@@ -16,17 +16,19 @@ fn test_connection_message_flow() {
         "PRIVMSG #testchannel :Hello, integration test!",
         "QUIT :Goodbye",
     ];
-    
+
     // Verify all messages parse correctly
     for msg_str in &messages {
-        let message: Message = msg_str.parse()
+        let message: Message = msg_str
+            .parse()
             .unwrap_or_else(|e| panic!("Failed to parse '{}': {}", msg_str, e));
-        
+
         // Verify they serialize back correctly
         let serialized = message.to_string();
-        let reparsed: Message = serialized.parse()
+        let reparsed: Message = serialized
+            .parse()
             .unwrap_or_else(|e| panic!("Failed to reparse '{}': {}", serialized, e));
-        
+
         assert_eq!(message, reparsed);
     }
 }
@@ -34,7 +36,7 @@ fn test_connection_message_flow() {
 #[test]
 fn test_connection_state_transitions() {
     // Test that we can construct messages for various connection states
-    
+
     // Registration phase
     let nick_msg = Message {
         tags: None,
@@ -44,12 +46,16 @@ fn test_connection_state_transitions() {
     let user_msg = Message {
         tags: None,
         prefix: None,
-        command: Command::USER("testuser".to_string(), "0".to_string(), "Test User".to_string()),
+        command: Command::USER(
+            "testuser".to_string(),
+            "0".to_string(),
+            "Test User".to_string(),
+        ),
     };
-    
+
     assert!(nick_msg.to_string().contains("NICK testnick"));
     assert!(user_msg.to_string().contains("USER testuser 0"));
-    
+
     // Channel operations
     let join_msg = Message {
         tags: None,
@@ -61,10 +67,10 @@ fn test_connection_state_transitions() {
         prefix: None,
         command: Command::PRIVMSG("#test".to_string(), "Hello!".to_string()),
     };
-    
+
     assert!(join_msg.to_string().contains("JOIN #test"));
     assert!(privmsg_msg.to_string().contains("PRIVMSG #test"));
-    
+
     // Connection termination
     let quit_msg = Message {
         tags: None,
@@ -79,7 +85,7 @@ fn test_ping_pong_handling() {
     // Test PING/PONG message handling
     let ping_raw = "PING :server.example.com";
     let ping_msg: Message = ping_raw.parse().expect("Failed to parse PING");
-    
+
     // Create appropriate PONG response
     let pong_response = match &ping_msg.command {
         Command::PING(server, _) => Message {
@@ -89,9 +95,9 @@ fn test_ping_pong_handling() {
         },
         _ => panic!("Expected PING command"),
     };
-    
+
     assert!(pong_response.to_string().contains("PONG"));
-    
+
     // Test round-trip
     let pong_str = pong_response.to_string();
     let pong_parsed: Message = pong_str.parse().expect("Failed to parse PONG");
@@ -108,40 +114,49 @@ fn test_numeric_response_handling() {
         (":server 366 nick #channel :End of names", "366"),
         (":server 422 nick :MOTD File is missing", "422"),
     ];
-    
+
     for (response_str, expected_code) in test_responses {
-        let message: Message = response_str.parse()
+        let message: Message = response_str
+            .parse()
             .unwrap_or_else(|e| panic!("Failed to parse '{}': {}", response_str, e));
-        
+
         match &message.command {
             Command::Raw(code, _params) => {
-                assert_eq!(code, expected_code, "Unexpected numeric code for '{}'", response_str);
-            },
+                assert_eq!(
+                    code, expected_code,
+                    "Unexpected numeric code for '{}'",
+                    response_str
+                );
+            }
             _ => {
                 // Some numeric responses might parse as other command types
-                println!("Message '{}' parsed as: {:?}", response_str, message.command);
+                println!(
+                    "Message '{}' parsed as: {:?}",
+                    response_str, message.command
+                );
             }
         }
-        
+
         // Verify round-trip
         let serialized = message.to_string();
-        let reparsed: Message = serialized.parse()
+        let reparsed: Message = serialized
+            .parse()
             .unwrap_or_else(|e| panic!("Failed to reparse '{}': {}", serialized, e));
         assert_eq!(message, reparsed);
     }
 }
 
-#[test] 
+#[test]
 fn test_error_handling_scenarios() {
     // Test various malformed messages
     let invalid_messages = vec![
-        "",  // Empty message
-        "   ",  // Whitespace only
-        "COMMAND",  // Command without required parameters
-        "@invalid-tag-format COMMAND",  // Malformed tags
-        ":invalid:prefix:format COMMAND",  // Malformed prefix
+        "",                               // Empty message
+        "   ",                            // Whitespace only
+        "COMMAND",                        // Command without required parameters
+        "@invalid-tag-format COMMAND",    // Malformed tags
+        ":invalid:prefix:format COMMAND", // Malformed prefix
     ];
-    
+
     for invalid_msg in invalid_messages {
         let result = invalid_msg.parse::<Message>();
         match result {
@@ -150,9 +165,9 @@ fn test_error_handling_scenarios() {
                 // In that case, verify they round-trip correctly
                 let message: Message = invalid_msg.parse().unwrap();
                 let serialized = message.to_string();
-                let _reparsed: Message = serialized.parse()
-                    .expect("Valid message should round-trip");
-            },
+                let _reparsed: Message =
+                    serialized.parse().expect("Valid message should round-trip");
+            }
             Err(parse_err) => {
                 // This is expected for truly invalid messages
                 // Verify the error provides useful information
@@ -173,17 +188,23 @@ fn test_capability_negotiation_flow() {
         ":server CAP * ACK :batch message-tags",
         "CAP END",
     ];
-    
+
     for msg_str in cap_messages {
-        let message: Message = msg_str.parse()
+        let message: Message = msg_str
+            .parse()
             .unwrap_or_else(|e| panic!("Failed to parse CAP message '{}': {}", msg_str, e));
-        
+
         // Verify round-trip
         let serialized = message.to_string();
-        let reparsed: Message = serialized.parse()
+        let reparsed: Message = serialized
+            .parse()
             .unwrap_or_else(|e| panic!("Failed to reparse CAP message '{}': {}", serialized, e));
-        
-        assert_eq!(message, reparsed, "CAP message round-trip failed for '{}'", msg_str);
+
+        assert_eq!(
+            message, reparsed,
+            "CAP message round-trip failed for '{}'",
+            msg_str
+        );
     }
 }
 
@@ -197,36 +218,46 @@ fn test_ircv3_tags_integration() {
         "@account=userAccount :nick!user@host PRIVMSG #channel :Identified user",
         "@+custom-tag=value :server NOTICE #channel :Custom tag message",
     ];
-    
+
     for msg_str in tagged_messages {
-        let message: Message = msg_str.parse()
+        let message: Message = msg_str
+            .parse()
             .unwrap_or_else(|e| panic!("Failed to parse tagged message '{}': {}", msg_str, e));
-        
+
         // Verify tags are present
-        assert!(message.tags.is_some(), "Tags should be present for '{}'", msg_str);
-        
+        assert!(
+            message.tags.is_some(),
+            "Tags should be present for '{}'",
+            msg_str
+        );
+
         // Verify round-trip
         let serialized = message.to_string();
-        let reparsed: Message = serialized.parse()
+        let reparsed: Message = serialized
+            .parse()
             .unwrap_or_else(|e| panic!("Failed to reparse tagged message '{}': {}", serialized, e));
-        
-        assert_eq!(message, reparsed, "Tagged message round-trip failed for '{}'", msg_str);
+
+        assert_eq!(
+            message, reparsed,
+            "Tagged message round-trip failed for '{}'",
+            msg_str
+        );
     }
 }
 
 #[test]
 fn test_message_size_limits() {
     // Test handling of very long messages (close to IRC limits)
-    let long_message = "A".repeat(400);  // Approaching 512 byte limit
+    let long_message = "A".repeat(400); // Approaching 512 byte limit
     let msg_str = format!("PRIVMSG #channel :{}", long_message);
-    
-    let message: Message = msg_str.parse()
+
+    let message: Message = msg_str
+        .parse()
         .expect("Should handle long messages within limits");
-    
+
     let serialized = message.to_string();
-    let reparsed: Message = serialized.parse()
-        .expect("Long message should round-trip");
-    
+    let reparsed: Message = serialized.parse().expect("Long message should round-trip");
+
     assert_eq!(message, reparsed);
 }
 
@@ -234,34 +265,117 @@ fn test_message_size_limits() {
 fn test_concurrent_message_parsing() {
     use std::sync::Arc;
     use std::thread;
-    
+
     let messages = Arc::new(vec![
         "PING :server1",
-        "PING :server2", 
+        "PING :server2",
         "PING :server3",
         ":nick1 PRIVMSG #channel :Message 1",
         ":nick2 PRIVMSG #channel :Message 2",
         ":nick3 PRIVMSG #channel :Message 3",
     ]);
-    
+
     let mut handles = vec![];
-    
+
     for i in 0..3 {
         let messages_clone = Arc::clone(&messages);
         let handle = thread::spawn(move || {
             for msg_str in messages_clone.iter() {
-                let message: Message = msg_str.parse()
-                    .unwrap_or_else(|e| panic!("Thread {} failed to parse '{}': {}", i, msg_str, e));
-                
+                let message: Message = msg_str.parse().unwrap_or_else(|e| {
+                    panic!("Thread {} failed to parse '{}': {}", i, msg_str, e)
+                });
+
                 let serialized = message.to_string();
-                let _reparsed: Message = serialized.parse()
-                    .unwrap_or_else(|e| panic!("Thread {} failed to reparse '{}': {}", i, serialized, e));
+                let _reparsed: Message = serialized.parse().unwrap_or_else(|e| {
+                    panic!("Thread {} failed to reparse '{}': {}", i, serialized, e)
+                });
             }
         });
         handles.push(handle);
     }
-    
+
     for handle in handles {
         handle.join().expect("Thread should complete successfully");
+    }
+}
+
+// =============================================================================
+// Zero-Copy Transport Tests
+// =============================================================================
+
+mod zero_copy_tests {
+    use slirc_proto::message::MessageRef;
+
+    #[test]
+    fn test_zero_copy_message_ref_parse() {
+        // Test basic parsing
+        let raw = "PING :server";
+        let msg = MessageRef::parse(raw).expect("Should parse");
+        assert_eq!(msg.command_name(), "PING");
+        assert_eq!(msg.args(), &["server"]);
+    }
+
+    #[test]
+    fn test_zero_copy_with_tags() {
+        let raw = "@time=2023-01-01;msgid=abc :nick!user@host PRIVMSG #channel :Hello";
+        let msg = MessageRef::parse(raw).expect("Should parse");
+
+        assert_eq!(msg.command_name(), "PRIVMSG");
+        assert_eq!(msg.tag_value("time"), Some("2023-01-01"));
+        assert_eq!(msg.tag_value("msgid"), Some("abc"));
+        assert_eq!(msg.source_nickname(), Some("nick"));
+        assert_eq!(msg.args(), &["#channel", "Hello"]);
+    }
+
+    #[test]
+    fn test_zero_copy_to_owned_round_trip() {
+        let raw = "@time=2023-01-01 :nick!user@host PRIVMSG #channel :Hello, world!";
+        let msg_ref = MessageRef::parse(raw).expect("Should parse");
+
+        // Convert to owned
+        let msg_owned = msg_ref.to_owned();
+
+        // Serialize and reparse
+        let serialized = msg_owned.to_string();
+        let reparsed: slirc_proto::Message = serialized.parse().expect("Should reparse");
+
+        assert_eq!(msg_owned, reparsed);
+    }
+
+    #[test]
+    fn test_zero_copy_numeric_detection() {
+        let raw = ":server 001 nick :Welcome";
+        let msg = MessageRef::parse(raw).expect("Should parse");
+
+        assert!(msg.is_numeric());
+        assert_eq!(msg.numeric_code(), Some(1));
+    }
+
+    #[test]
+    fn test_zero_copy_privmsg_detection() {
+        let raw = ":nick PRIVMSG #channel :Hello";
+        let msg = MessageRef::parse(raw).expect("Should parse");
+
+        assert!(msg.is_privmsg());
+        assert!(!msg.is_notice());
+    }
+
+    #[test]
+    fn test_zero_copy_tags_iter() {
+        let raw = "@a=1;b=2;c PING";
+        let msg = MessageRef::parse(raw).expect("Should parse");
+
+        let tags: Vec<_> = msg.tags_iter().collect();
+        assert_eq!(tags, vec![("a", "1"), ("b", "2"), ("c", "")]);
+    }
+
+    #[test]
+    fn test_zero_copy_has_tag() {
+        let raw = "@time=2023;msgid PING";
+        let msg = MessageRef::parse(raw).expect("Should parse");
+
+        assert!(msg.has_tag("time"));
+        assert!(msg.has_tag("msgid"));
+        assert!(!msg.has_tag("nonexistent"));
     }
 }
