@@ -1,9 +1,8 @@
-
+use std::fmt;
 #[cfg(feature = "tokio")]
-use tokio_tungstenite::tungstenite::handshake::server::{Request, Response, ErrorResponse};
+use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request, Response};
 #[cfg(feature = "tokio")]
 use tokio_tungstenite::tungstenite::http::StatusCode;
-use std::fmt;
 
 #[derive(Debug, Clone)]
 pub struct WebSocketConfig {
@@ -67,7 +66,10 @@ pub enum HandshakeResult {
 impl fmt::Display for HandshakeResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            HandshakeResult::Accept { subprotocol, origin } => {
+            HandshakeResult::Accept {
+                subprotocol,
+                origin,
+            } => {
                 write!(f, "Accept")?;
                 if let Some(proto) = subprotocol {
                     write!(f, " (protocol: {})", proto)?;
@@ -86,13 +88,12 @@ impl fmt::Display for HandshakeResult {
 
 #[cfg(feature = "tokio")]
 pub fn validate_handshake(req: &Request, config: &WebSocketConfig) -> HandshakeResult {
-    
-    let origin = req.headers()
+    let origin = req
+        .headers()
         .get("Origin")
         .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string());
 
-    
     if config.require_origin && origin.is_none() {
         return HandshakeResult::Reject {
             status: 403,
@@ -100,10 +101,13 @@ pub fn validate_handshake(req: &Request, config: &WebSocketConfig) -> HandshakeR
         };
     }
 
-    
     if !config.allowed_origins.is_empty() {
         if let Some(ref origin_value) = origin {
-            if !config.allowed_origins.iter().any(|allowed| allowed == origin_value) {
+            if !config
+                .allowed_origins
+                .iter()
+                .any(|allowed| allowed == origin_value)
+            {
                 return HandshakeResult::Reject {
                     status: 403,
                     reason: format!("Origin '{}' not allowed", origin_value),
@@ -112,10 +116,9 @@ pub fn validate_handshake(req: &Request, config: &WebSocketConfig) -> HandshakeR
         }
     }
 
-    
     let selected_protocol = if let Some(ref advertised_proto) = config.subprotocol {
-        
-        let requested_protocols = req.headers()
+        let requested_protocols = req
+            .headers()
             .get_all("Sec-WebSocket-Protocol")
             .iter()
             .filter_map(|v| v.to_str().ok());
@@ -150,32 +153,37 @@ pub fn build_handshake_response(
     config: &WebSocketConfig,
 ) -> Result<Response, ErrorResponse> {
     match result {
-        HandshakeResult::Accept { subprotocol, origin } => {
-            let mut builder = Response::builder()
-                .status(StatusCode::SWITCHING_PROTOCOLS);
+        HandshakeResult::Accept {
+            subprotocol,
+            origin,
+        } => {
+            let mut builder = Response::builder().status(StatusCode::SWITCHING_PROTOCOLS);
 
-            
             if config.enable_cors {
                 if let Some(ref origin_value) = origin {
                     builder = builder
                         .header("Access-Control-Allow-Origin", origin_value.as_str())
                         .header("Access-Control-Allow-Credentials", "true")
                         .header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-                        .header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+                        .header(
+                            "Access-Control-Allow-Headers",
+                            "Content-Type, Authorization",
+                        );
                 }
             }
 
-            
             if let Some(ref proto) = subprotocol {
                 builder = builder.header("Sec-WebSocket-Protocol", proto.as_str());
             }
 
-            builder.body(())
+            builder
+                .body(())
                 .map_err(|e| ErrorResponse::new(Some(format!("Failed to build response: {}", e))))
         }
-        HandshakeResult::Reject { status, reason } => {
-            Err(ErrorResponse::new(Some(format!("HTTP {}: {}", status, reason))))
-        }
+        HandshakeResult::Reject { status, reason } => Err(ErrorResponse::new(Some(format!(
+            "HTTP {}: {}",
+            status, reason
+        )))),
     }
 }
 
@@ -219,7 +227,10 @@ mod tests {
         let result = validate_handshake(&req, &config);
 
         match result {
-            HandshakeResult::Accept { subprotocol, origin } => {
+            HandshakeResult::Accept {
+                subprotocol,
+                origin,
+            } => {
                 assert_eq!(subprotocol, Some("irc".to_string()));
                 assert_eq!(origin, Some("https://example.com".to_string()));
             }
@@ -295,7 +306,6 @@ mod tests {
             enable_cors: true,
         };
 
-        
         let req = mock_request(None, Some("irc, xmpp"));
         let result = validate_handshake(&req, &config);
 
@@ -312,7 +322,7 @@ mod tests {
         let config = WebSocketConfig {
             allowed_origins: Vec::new(),
             require_origin: false,
-            subprotocol: None, 
+            subprotocol: None,
             enable_cors: true,
         };
 

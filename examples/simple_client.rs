@@ -7,16 +7,14 @@ use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 
-use slirc_proto::{
-    Command, Message, Transport,
-};
+use slirc_proto::{Command, Message, Transport};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Connect to an IRC server
     let stream = TcpStream::connect("irc.libera.chat:6667").await?;
     let mut transport = Transport::tcp(stream);
-    
+
     // Send NICK and USER commands for registration
     let nick_msg = Message {
         tags: None,
@@ -29,7 +27,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let user_msg = Message {
         tags: None,
         prefix: None,
-        command: Command::USER("example".to_string(), "0".to_string(), "Example Bot".to_string()),
+        command: Command::USER(
+            "example".to_string(),
+            "0".to_string(),
+            "Example Bot".to_string(),
+        ),
     };
     println!("→ {}", user_msg);
     transport.write_message(&user_msg).await?;
@@ -39,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         match timeout(Duration::from_secs(30), transport.read_message()).await {
             Ok(Ok(Some(message))) => {
                 println!("← {}", message);
-                
+
                 match &message.command {
                     Command::Response(code, _) if code.code() == 1 => {
                         println!("✓ Registration successful!");
@@ -96,12 +98,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Listen for messages
     println!("\n--- Listening for messages (Ctrl+C to exit) ---");
-    
+
     loop {
         match timeout(Duration::from_secs(300), transport.read_message()).await {
             Ok(Ok(Some(message))) => {
                 println!("← {}", message);
-                
+
                 match &message.command {
                     Command::PING(server, _) => {
                         // Always respond to PING

@@ -48,14 +48,14 @@ impl LineCodec {
             max_len: 512,
         })
     }
-    
+
     /// Create a new codec with custom max line length.
     pub fn with_max_len(label: &str, max_len: usize) -> error::Result<Self> {
         let mut codec = Self::new(label)?;
         codec.max_len = max_len;
         Ok(codec)
     }
-    
+
     /// Validate that a string contains no illegal control characters.
     fn validate_line(s: &str) -> error::Result<()> {
         let trimmed = s.trim_end_matches(&['\r', '\n'][..]);
@@ -71,42 +71,42 @@ impl LineCodec {
 impl Decoder for LineCodec {
     type Item = String;
     type Error = error::ProtocolError;
-    
+
     fn decode(&mut self, src: &mut BytesMut) -> error::Result<Option<String>> {
         // Look for newline starting from where we left off
         if let Some(offset) = src[self.next_index..].iter().position(|b| *b == b'\n') {
             // Found a line - extract it
             let line = src.split_to(self.next_index + offset + 1);
             self.next_index = 0;
-            
+
             // Check length limit
             if line.len() > self.max_len {
                 return Err(error::ProtocolError::MessageTooLong(line.len()));
             }
-            
+
             // Decode bytes to string
             #[cfg(feature = "encoding")]
             let data = {
                 let (cow, _enc, _had_errors) = self.encoding.decode(line.as_ref());
                 cow.into_owned()
             };
-            
+
             #[cfg(not(feature = "encoding"))]
             let data = String::from_utf8(line.to_vec())?;
-            
+
             // Validate no illegal control characters
             Self::validate_line(&data)?;
-            
+
             Ok(Some(data))
         } else {
             // No complete line yet - remember where we stopped
             self.next_index = src.len();
-            
+
             // Check if partial line already exceeds limit
             if src.len() > self.max_len {
                 return Err(error::ProtocolError::MessageTooLong(src.len()));
             }
-            
+
             Ok(None)
         }
     }
@@ -114,7 +114,7 @@ impl Decoder for LineCodec {
 
 impl Encoder<String> for LineCodec {
     type Error = error::ProtocolError;
-    
+
     fn encode(&mut self, msg: String, dst: &mut BytesMut) -> error::Result<()> {
         #[cfg(feature = "encoding")]
         {
@@ -124,12 +124,12 @@ impl Encoder<String> for LineCodec {
                 Cow::Owned(v) => dst.extend_from_slice(&v),
             }
         }
-        
+
         #[cfg(not(feature = "encoding"))]
         {
             dst.extend(msg.into_bytes());
         }
-        
+
         Ok(())
     }
 }
@@ -137,41 +137,46 @@ impl Encoder<String> for LineCodec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_decode_complete_line() {
         let mut codec = LineCodec::new("utf-8").unwrap();
         let mut buf = BytesMut::from("PING :test\r\n");
-        
+
         let result = codec.decode(&mut buf).unwrap();
         assert_eq!(result, Some("PING :test\r\n".to_string()));
         assert!(buf.is_empty());
     }
-    
+
     #[test]
     fn test_decode_partial_line() {
         let mut codec = LineCodec::new("utf-8").unwrap();
         let mut buf = BytesMut::from("PING :");
-        
+
         let result = codec.decode(&mut buf).unwrap();
         assert_eq!(result, None);
     }
-    
+
     #[test]
     fn test_decode_too_long() {
         let mut codec = LineCodec::with_max_len("utf-8", 10).unwrap();
         let mut buf = BytesMut::from("this is way too long\n");
-        
+
         let result = codec.decode(&mut buf);
-        assert!(matches!(result, Err(error::ProtocolError::MessageTooLong(_))));
+        assert!(matches!(
+            result,
+            Err(error::ProtocolError::MessageTooLong(_))
+        ));
     }
-    
+
     #[test]
     fn test_encode() {
         let mut codec = LineCodec::new("utf-8").unwrap();
         let mut buf = BytesMut::new();
-        
-        codec.encode("PONG :test\r\n".to_string(), &mut buf).unwrap();
+
+        codec
+            .encode("PONG :test\r\n".to_string(), &mut buf)
+            .unwrap();
         assert_eq!(&buf[..], b"PONG :test\r\n");
     }
 }

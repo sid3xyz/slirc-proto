@@ -24,19 +24,19 @@ fn intern_tag_key(key: &str) -> Cow<'static, str> {
         "batch" => Cow::Borrowed("batch"),
         "account" => Cow::Borrowed("account"),
         "label" => Cow::Borrowed("label"),
-        
+
         // Capability tags
         "echo-message" => Cow::Borrowed("echo-message"),
         "message-tags" => Cow::Borrowed("message-tags"),
-        
+
         // Typing indicators
         "+typing" => Cow::Borrowed("+typing"),
         "+draft/typing" => Cow::Borrowed("+draft/typing"),
-        
+
         // Reply tags
         "+draft/reply" => Cow::Borrowed("+draft/reply"),
         "+draft/react" => Cow::Borrowed("+draft/react"),
-        
+
         // Other common tags
         _ => Cow::Owned(key.to_owned()),
     }
@@ -53,13 +53,13 @@ fn parse_tags_string(tags_str: &str) -> Vec<Tag> {
             let mut iter = tag.splitn(2, '=');
             let key = iter.next().unwrap_or("");
             let value = iter.next().map(unescape_tag_value);
-            
+
             let interned_key = if key.is_empty() {
                 Cow::Owned(String::new())
             } else {
                 intern_tag_key(key)
             };
-            
+
             Tag(interned_key, value)
         })
         .collect()
@@ -84,7 +84,7 @@ impl FromStr for Message {
                 context: format!("Parse error: {:?}", parse_err.kind),
                 source: None,
             };
-            
+
             ProtocolError::InvalidMessage {
                 string: s.to_owned(),
                 cause,
@@ -95,11 +95,12 @@ impl FromStr for Message {
         let tags = parsed.tags.map(parse_tags_string);
 
         // Build the owned Message
-        Message::with_tags(tags, parsed.prefix, parsed.command, parsed.params)
-            .map_err(|cause| ProtocolError::InvalidMessage {
+        Message::with_tags(tags, parsed.prefix, parsed.command, parsed.params).map_err(|cause| {
+            ProtocolError::InvalidMessage {
                 string: s.to_owned(),
                 cause,
-            })
+            }
+        })
     }
 }
 
@@ -116,7 +117,9 @@ mod tests {
 
     #[test]
     fn test_parse_privmsg() {
-        let msg: Message = ":nick!user@host PRIVMSG #channel :Hello, world!\r\n".parse().unwrap();
+        let msg: Message = ":nick!user@host PRIVMSG #channel :Hello, world!\r\n"
+            .parse()
+            .unwrap();
         assert!(matches!(msg.command, Command::PRIVMSG(_, _)));
         assert!(msg.prefix.is_some());
     }
@@ -126,11 +129,11 @@ mod tests {
         let msg: Message = "@time=2023-01-01T00:00:00Z;msgid=abc123 :nick PRIVMSG #ch :Hi\r\n"
             .parse()
             .unwrap();
-        
+
         assert!(msg.tags.is_some());
         let tags = msg.tags.as_ref().unwrap();
         assert_eq!(tags.len(), 2);
-        
+
         // Check tag values
         assert_eq!(msg.tag_value("time"), Some("2023-01-01T00:00:00Z"));
         assert_eq!(msg.tag_value("msgid"), Some("abc123"));
@@ -178,10 +181,10 @@ mod tests {
         // Verify that common tags are interned (borrowed, not owned)
         let key = intern_tag_key("msgid");
         assert!(matches!(key, Cow::Borrowed(_)));
-        
+
         let key = intern_tag_key("time");
         assert!(matches!(key, Cow::Borrowed(_)));
-        
+
         let key = intern_tag_key("unknown-tag");
         assert!(matches!(key, Cow::Owned(_)));
     }

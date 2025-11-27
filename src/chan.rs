@@ -19,30 +19,30 @@ pub trait ChannelExt {
 impl ChannelExt for &str {
     fn is_channel_name(&self) -> bool {
         let mut chars = self.chars();
-        
+
         // Must have a valid prefix
         let first = match chars.next() {
             Some(c) => c,
             None => return false,
         };
-        
+
         match first {
             '#' | '&' | '+' | '!' => {}
             _ => return false,
         }
-        
+
         // Length limit (RFC 2812 says 50 chars including prefix)
         if self.chars().count() > 50 {
             return false;
         }
-        
+
         // Check for invalid characters
         for c in chars {
             if c == ' ' || c == ',' || c == '\x07' || c == '\0' || c.is_control() {
                 return false;
             }
         }
-        
+
         true
     }
 }
@@ -56,7 +56,7 @@ impl ChannelExt for String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_valid_channels() {
         assert!("#channel".is_channel_name());
@@ -64,7 +64,7 @@ mod tests {
         assert!("+modeless".is_channel_name());
         assert!("!safe12345".is_channel_name());
     }
-    
+
     #[test]
     fn test_invalid_channels() {
         assert!(!"channel".is_channel_name()); // no prefix

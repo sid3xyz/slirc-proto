@@ -1,4 +1,3 @@
-
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -12,4 +11,3 @@ pub fn generate_msgid() -> String {
     let counter = MSGID_COUNTER.fetch_add(1, Ordering::Relaxed);
     format!("{}-{}", timestamp, counter)
 }
-

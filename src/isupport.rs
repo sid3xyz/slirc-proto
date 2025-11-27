@@ -1,4 +1,3 @@
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct IsupportEntry<'a> {
     pub key: &'a str,
@@ -7,15 +6,19 @@ pub struct IsupportEntry<'a> {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Isupport<'a> {
-    entries: Vec<IsupportEntry<'a>>, 
+    entries: Vec<IsupportEntry<'a>>,
 }
 
 impl<'a> Isupport<'a> {
     pub fn parse_params(params: &[&'a str]) -> Self {
         let mut entries = Vec::with_capacity(params.len());
         for &p in params {
-            if p.starts_with(':') { break; }
-            if p.is_empty() { continue; }
+            if p.starts_with(':') {
+                break;
+            }
+            if p.is_empty() {
+                continue;
+            }
             let (k, v) = if let Some(eq) = p.find('=') {
                 (&p[..eq], Some(&p[eq + 1..]))
             } else {
@@ -31,11 +34,13 @@ impl<'a> Isupport<'a> {
         if args.is_empty() {
             return None;
         }
-        
+
         let mut tokens = &args[1..];
-        
+
         if let Some(last) = tokens.last() {
-            if last.contains(' ') { tokens = &tokens[..tokens.len().saturating_sub(1)]; }
+            if last.contains(' ') {
+                tokens = &tokens[..tokens.len().saturating_sub(1)];
+            }
         }
         Some(Self::parse_params(tokens))
     }
@@ -71,13 +76,17 @@ impl<'a> Isupport<'a> {
             .map(|e| e.value)
     }
 
+    pub fn casemapping(&self) -> Option<&'a str> {
+        self.get("CASEMAPPING").flatten()
+    }
 
+    pub fn chantypes(&self) -> Option<&'a str> {
+        self.get("CHANTYPES").flatten()
+    }
 
-    pub fn casemapping(&self) -> Option<&'a str> { self.get("CASEMAPPING").flatten() }
-
-    pub fn chantypes(&self) -> Option<&'a str> { self.get("CHANTYPES").flatten() }
-
-    pub fn network(&self) -> Option<&'a str> { self.get("NETWORK").flatten() }
+    pub fn network(&self) -> Option<&'a str> {
+        self.get("NETWORK").flatten()
+    }
 
     pub fn prefix(&self) -> Option<PrefixSpec<'a>> {
         self.get("PREFIX").flatten().and_then(PrefixSpec::parse)
@@ -87,13 +96,17 @@ impl<'a> Isupport<'a> {
         self.get("CHANMODES").flatten().and_then(ChanModes::parse)
     }
 
-    pub fn has_excepts(&self) -> bool { self.get("EXCEPTS").is_some() }
+    pub fn has_excepts(&self) -> bool {
+        self.get("EXCEPTS").is_some()
+    }
 
     pub fn excepts_mode(&self) -> Option<char> {
         self.get("EXCEPTS").flatten().and_then(|s| s.chars().next())
     }
 
-    pub fn has_invex(&self) -> bool { self.get("INVEX").is_some() }
+    pub fn has_invex(&self) -> bool {
+        self.get("INVEX").is_some()
+    }
 
     pub fn invex_mode(&self) -> Option<char> {
         self.get("INVEX").flatten().and_then(|s| s.chars().next())
@@ -116,16 +129,20 @@ pub struct PrefixSpec<'a> {
 
 impl<'a> PrefixSpec<'a> {
     pub fn parse(s: &'a str) -> Option<Self> {
-
         if let Some(open) = s.find('(') {
             if let Some(close) = s[open + 1..].find(')') {
                 let close = open + 1 + close;
                 let modes = &s[open + 1..close];
                 let prefixes = &s[close + 1..];
-                if !modes.is_empty() && !prefixes.is_empty() { return Some(PrefixSpec { modes, prefixes }); }
+                if !modes.is_empty() && !prefixes.is_empty() {
+                    return Some(PrefixSpec { modes, prefixes });
+                }
             }
         } else if !s.is_empty() {
-            return Some(PrefixSpec { modes: "", prefixes: s });
+            return Some(PrefixSpec {
+                modes: "",
+                prefixes: s,
+            });
         }
         None
     }
@@ -142,7 +159,7 @@ pub struct ChanModes<'a> {
 impl<'a> ChanModes<'a> {
     pub fn parse(s: &'a str) -> Option<Self> {
         let mut parts = s.splitn(4, ',');
-        let (a,b,c,d) = (parts.next()?, parts.next()?, parts.next()?, parts.next()?);
+        let (a, b, c, d) = (parts.next()?, parts.next()?, parts.next()?, parts.next()?);
         Some(ChanModes { a, b, c, d })
     }
 }
@@ -154,16 +171,23 @@ pub struct TargMax<'a> {
 
 impl<'a> TargMax<'a> {
     pub fn parse(s: &'a str) -> Option<Self> {
-        if s.is_empty() { return Some(TargMax { entries: Vec::new() }); }
+        if s.is_empty() {
+            return Some(TargMax {
+                entries: Vec::new(),
+            });
+        }
         let mut entries = Vec::new();
         for part in s.split(',') {
-            if part.is_empty() { continue; }
+            if part.is_empty() {
+                continue;
+            }
             if let Some(colon) = part.find(':') {
-                let (cmd, num) = (&part[..colon], &part[colon+1..]);
+                let (cmd, num) = (&part[..colon], &part[colon + 1..]);
                 let val = num.parse::<usize>().ok();
-                if !cmd.is_empty() { entries.push((cmd, val)); }
+                if !cmd.is_empty() {
+                    entries.push((cmd, val));
+                }
             } else {
-                
                 entries.push((part, None));
             }
         }
@@ -171,7 +195,10 @@ impl<'a> TargMax<'a> {
     }
 
     pub fn get(&self, cmd: &str) -> Option<Option<usize>> {
-        self.entries.iter().find(|(k, _)| k.eq_ignore_ascii_case(cmd)).map(|(_, v)| *v)
+        self.entries
+            .iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case(cmd))
+            .map(|(_, v)| *v)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&'a str, Option<usize>)> + '_ {
@@ -186,16 +213,23 @@ pub struct MaxList {
 
 impl MaxList {
     pub fn parse(s: &str) -> Option<Self> {
-        if s.is_empty() { return Some(MaxList { entries: Vec::new() }); }
+        if s.is_empty() {
+            return Some(MaxList {
+                entries: Vec::new(),
+            });
+        }
         let mut entries: Vec<(char, usize)> = Vec::new();
         for part in s.split(',') {
-            if part.is_empty() { continue; }
+            if part.is_empty() {
+                continue;
+            }
             let (modes, limit_str) = part.split_once(':')?;
 
-
-            let limit: usize = match limit_str.parse() { Ok(n) => n, Err(_) => continue };
+            let limit: usize = match limit_str.parse() {
+                Ok(n) => n,
+                Err(_) => continue,
+            };
             for ch in modes.chars() {
-                
                 entries.retain(|(c, _)| *c != ch);
                 entries.push((ch, limit));
             }
@@ -204,19 +238,17 @@ impl MaxList {
     }
 
     pub fn limit_for(&self, mode: char) -> Option<usize> {
-        self.entries.iter().rev().find(|(c, _)| *c == mode).map(|(_, n)| *n)
+        self.entries
+            .iter()
+            .rev()
+            .find(|(c, _)| *c == mode)
+            .map(|(_, n)| *n)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (char, usize)> + '_ {
         self.entries.iter().copied()
     }
 }
-
-
-
-
-
-
 
 #[derive(Debug, Clone, Default)]
 pub struct IsupportBuilder {
@@ -244,7 +276,7 @@ impl IsupportBuilder {
     }
 
     pub fn prefix(mut self, symbols: &str, letters: &str) -> Self {
-        self.tokens.push(format!("PREFIX=({}){}",letters, symbols));
+        self.tokens.push(format!("PREFIX=({}){}", letters, symbols));
         self
     }
 
@@ -267,7 +299,6 @@ impl IsupportBuilder {
         self.tokens.push(format!("TOPICLEN={}", len));
         self
     }
-
 
     pub fn modes_count(mut self, count: u32) -> Self {
         self.tokens.push(format!("MODES={}", count));

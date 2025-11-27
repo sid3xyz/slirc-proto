@@ -1,4 +1,3 @@
-
 use crate::mode::{ChannelMode, Mode, UserMode};
 use crate::response::Response;
 
@@ -6,7 +5,6 @@ use crate::command::subcommands::{BatchSubCommand, CapSubCommand};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CommandRefEnum<'a> {
-    
     PASS(&'a str),
     NICK(&'a str),
     USER(&'a str, &'a str, &'a str),
@@ -15,7 +13,6 @@ pub enum CommandRefEnum<'a> {
     SERVICE(&'a str, &'a str, &'a str, &'a str, &'a str, &'a str),
     QUIT(Option<&'a str>),
     SQUIT(&'a str, &'a str),
-
 
     JOIN(&'a str, Option<&'a str>, Option<&'a str>),
     PART(&'a str, Option<&'a str>),
@@ -26,11 +23,9 @@ pub enum CommandRefEnum<'a> {
     INVITE(&'a str, &'a str),
     KICK(&'a str, &'a str, Option<&'a str>),
 
-    
     PRIVMSG(&'a str, &'a str),
     NOTICE(&'a str, &'a str),
 
-    
     MOTD(Option<&'a str>),
     LUSERS(Option<&'a str>, Option<&'a str>),
     VERSION(Option<&'a str>),
@@ -42,22 +37,18 @@ pub enum CommandRefEnum<'a> {
     ADMIN(Option<&'a str>),
     INFO(Option<&'a str>),
 
-
     SERVLIST(Option<&'a str>, Option<&'a str>),
     SQUERY(&'a str, &'a str),
-
 
     WHO(Option<&'a str>, Option<bool>),
     WHOIS(Option<&'a str>, &'a str),
     WHOWAS(&'a str, Option<&'a str>, Option<&'a str>),
-
 
     KILL(&'a str, &'a str),
     PING(&'a str, Option<&'a str>),
     PONG(&'a str, Option<&'a str>),
     ERROR(&'a str),
 
-    
     AWAY(Option<&'a str>),
     REHASH,
     DIE,
@@ -68,7 +59,6 @@ pub enum CommandRefEnum<'a> {
     USERHOST(Vec<&'a str>),
     ISON(Vec<&'a str>),
 
-    
     SAJOIN(&'a str, &'a str),
     SAMODE(&'a str, &'a str, Option<&'a str>),
     SANICK(&'a str, &'a str),
@@ -81,7 +71,6 @@ pub enum CommandRefEnum<'a> {
     HOSTSERV(&'a str),
     MEMOSERV(&'a str),
 
-
     CAP(
         Option<&'a str>,
         CapSubCommand,
@@ -89,16 +78,13 @@ pub enum CommandRefEnum<'a> {
         Option<&'a str>,
     ),
 
-    
     AUTHENTICATE(&'a str),
     ACCOUNT(&'a str),
 
-    
     MONITOR(&'a str, Option<&'a str>),
     BATCH(&'a str, Option<BatchSubCommand>, Option<Vec<&'a str>>),
     CHGHOST(&'a str, &'a str),
     SETNAME(&'a str),
-
 
     Response(Response, Vec<&'a str>),
     Raw(&'a str, Vec<&'a str>),
@@ -114,27 +100,25 @@ impl<'a> CommandRefEnum<'a> {
             Self::USER(u, m, r) => Command::USER(u.to_string(), m.to_string(), r.to_string()),
             Self::OPER(n, p) => Command::OPER(n.to_string(), p.to_string()),
             Self::UserMODE(n, modes) => Command::UserMODE(n.to_string(), modes.clone()),
-            Self::SERVICE(n, r1, d, t, r2, i) => {
-                Command::SERVICE(
-                    n.to_string(),
-                    r1.to_string(),
-                    d.to_string(),
-                    t.to_string(),
-                    r2.to_string(),
-                    i.to_string(),
-                )
-            }
+            Self::SERVICE(n, r1, d, t, r2, i) => Command::SERVICE(
+                n.to_string(),
+                r1.to_string(),
+                d.to_string(),
+                t.to_string(),
+                r2.to_string(),
+                i.to_string(),
+            ),
             Self::QUIT(c) => Command::QUIT(c.map(|s| s.to_string())),
             Self::SQUIT(s, c) => Command::SQUIT(s.to_string(), c.to_string()),
-            Self::JOIN(c, k, r) => {
-                Command::JOIN(c.to_string(), k.map(|s| s.to_string()), r.map(|s| s.to_string()))
-            }
+            Self::JOIN(c, k, r) => Command::JOIN(
+                c.to_string(),
+                k.map(|s| s.to_string()),
+                r.map(|s| s.to_string()),
+            ),
             Self::PART(c, m) => Command::PART(c.to_string(), m.map(|s| s.to_string())),
             Self::ChannelMODE(c, modes) => Command::ChannelMODE(c.to_string(), modes.clone()),
             Self::TOPIC(c, t) => Command::TOPIC(c.to_string(), t.map(|s| s.to_string())),
-            Self::NAMES(c, t) => {
-                Command::NAMES(c.map(|s| s.to_string()), t.map(|s| s.to_string()))
-            }
+            Self::NAMES(c, t) => Command::NAMES(c.map(|s| s.to_string()), t.map(|s| s.to_string())),
             Self::LIST(c, t) => Command::LIST(c.map(|s| s.to_string()), t.map(|s| s.to_string())),
             Self::INVITE(n, c) => Command::INVITE(n.to_string(), c.to_string()),
             Self::KICK(c, u, m) => {
@@ -147,12 +131,8 @@ impl<'a> CommandRefEnum<'a> {
                 Command::LUSERS(m.map(|s| s.to_string()), t.map(|s| s.to_string()))
             }
             Self::VERSION(t) => Command::VERSION(t.map(|s| s.to_string())),
-            Self::STATS(q, t) => {
-                Command::STATS(q.map(|s| s.to_string()), t.map(|s| s.to_string()))
-            }
-            Self::LINKS(r, s) => {
-                Command::LINKS(r.map(|s| s.to_string()), s.map(|s| s.to_string()))
-            }
+            Self::STATS(q, t) => Command::STATS(q.map(|s| s.to_string()), t.map(|s| s.to_string())),
+            Self::LINKS(r, s) => Command::LINKS(r.map(|s| s.to_string()), s.map(|s| s.to_string())),
             Self::TIME(t) => Command::TIME(t.map(|s| s.to_string())),
             Self::CONNECT(t, s, r) => {
                 Command::CONNECT(t.to_string(), s.to_string(), r.map(|s| s.to_string()))
@@ -166,9 +146,11 @@ impl<'a> CommandRefEnum<'a> {
             Self::SQUERY(s, t) => Command::SQUERY(s.to_string(), t.to_string()),
             Self::WHO(m, o) => Command::WHO(m.map(|s| s.to_string()), *o),
             Self::WHOIS(t, m) => Command::WHOIS(t.map(|s| s.to_string()), m.to_string()),
-            Self::WHOWAS(n, c, t) => {
-                Command::WHOWAS(n.to_string(), c.map(|s| s.to_string()), t.map(|s| s.to_string()))
-            }
+            Self::WHOWAS(n, c, t) => Command::WHOWAS(
+                n.to_string(),
+                c.map(|s| s.to_string()),
+                t.map(|s| s.to_string()),
+            ),
             Self::KILL(n, c) => Command::KILL(n.to_string(), c.to_string()),
             Self::PING(s1, s2) => Command::PING(s1.to_string(), s2.map(|s| s.to_string())),
             Self::PONG(s1, s2) => Command::PONG(s1.to_string(), s2.map(|s| s.to_string())),
@@ -177,9 +159,11 @@ impl<'a> CommandRefEnum<'a> {
             Self::REHASH => Command::REHASH,
             Self::DIE => Command::DIE,
             Self::RESTART => Command::RESTART,
-            Self::SUMMON(u, t, c) => {
-                Command::SUMMON(u.to_string(), t.map(|s| s.to_string()), c.map(|s| s.to_string()))
-            }
+            Self::SUMMON(u, t, c) => Command::SUMMON(
+                u.to_string(),
+                t.map(|s| s.to_string()),
+                c.map(|s| s.to_string()),
+            ),
             Self::USERS(t) => Command::USERS(t.map(|s| s.to_string())),
             Self::WALLOPS(t) => Command::WALLOPS(t.to_string()),
             Self::USERHOST(list) => Command::USERHOST(list.iter().map(|s| s.to_string()).collect()),
@@ -197,30 +181,31 @@ impl<'a> CommandRefEnum<'a> {
             Self::BOTSERV(m) => Command::BOTSERV(m.to_string()),
             Self::HOSTSERV(m) => Command::HOSTSERV(m.to_string()),
             Self::MEMOSERV(m) => Command::MEMOSERV(m.to_string()),
-            Self::CAP(a, sc, b, c) => {
-                Command::CAP(
-                    a.map(|s| s.to_string()),
-                    *sc,
-                    b.map(|s| s.to_string()),
-                    c.map(|s| s.to_string()),
-                )
-            }
+            Self::CAP(a, sc, b, c) => Command::CAP(
+                a.map(|s| s.to_string()),
+                *sc,
+                b.map(|s| s.to_string()),
+                c.map(|s| s.to_string()),
+            ),
             Self::AUTHENTICATE(d) => Command::AUTHENTICATE(d.to_string()),
             Self::ACCOUNT(a) => Command::ACCOUNT(a.to_string()),
             Self::MONITOR(c, n) => Command::MONITOR(c.to_string(), n.map(|s| s.to_string())),
             Self::BATCH(r, sc, params) => Command::BATCH(
                 r.to_string(),
                 sc.clone(),
-                params.as_ref().map(|v| v.iter().map(|s| s.to_string()).collect()),
+                params
+                    .as_ref()
+                    .map(|v| v.iter().map(|s| s.to_string()).collect()),
             ),
             Self::CHGHOST(u, h) => Command::CHGHOST(u.to_string(), h.to_string()),
             Self::SETNAME(r) => Command::SETNAME(r.to_string()),
             Self::Response(r, args) => {
                 Command::Response(*r, args.iter().map(|s| s.to_string()).collect())
             }
-            Self::Raw(cmd, args) => {
-                Command::Raw(cmd.to_string(), args.iter().map(|s| s.to_string()).collect())
-            }
+            Self::Raw(cmd, args) => Command::Raw(
+                cmd.to_string(),
+                args.iter().map(|s| s.to_string()).collect(),
+            ),
         }
     }
 
@@ -290,7 +275,7 @@ impl<'a> CommandRefEnum<'a> {
             Self::BATCH(_, _, _) => "BATCH",
             Self::CHGHOST(_, _) => "CHGHOST",
             Self::SETNAME(_) => "SETNAME",
-            Self::Response(_, _) => "Response",  
+            Self::Response(_, _) => "Response",
             Self::Raw(cmd, _) => cmd,
         }
     }

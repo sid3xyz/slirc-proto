@@ -3,19 +3,21 @@
 //! These tests show how the new convenience constructors can be used
 //! to create IRC messages more ergonomically.
 
-use slirc_proto::{Message, prefix::Prefix};
+use slirc_proto::{prefix::Prefix, Message};
 
 #[test]
 fn test_convenience_api_usage() {
     // Basic message construction
     let privmsg = Message::privmsg("#rust", "Hello, Rust developers!");
-    assert!(privmsg.to_string().contains("PRIVMSG #rust :Hello, Rust developers!"));
+    assert!(privmsg
+        .to_string()
+        .contains("PRIVMSG #rust :Hello, Rust developers!"));
 
     // Message with tags
     let tagged_msg = Message::notice("user123", "Welcome to the server!")
         .with_tag("time", Some("2023-01-01T12:00:00Z"))
         .with_tag("server", Some("irc.example.com"));
-    
+
     let serialized = tagged_msg.to_string();
     assert!(serialized.contains("@time=2023-01-01T12:00:00Z;server=irc.example.com"));
     assert!(serialized.contains("NOTICE user123 :Welcome to the server!"));
@@ -57,18 +59,18 @@ fn test_message_builder_pattern() {
 
     // Verify the message contains all expected parts
     let serialized = message.to_string();
-    
+
     // Should have all three tags
     assert!(serialized.contains("time=2023-01-01T15:30:00Z"));
     assert!(serialized.contains("msgid=feature-123"));
     assert!(serialized.contains("reply-to=msg-456"));
-    
+
     // Should have the prefix
     assert!(serialized.contains(":developer!dev@company.com"));
-    
+
     // Should have the command and parameters
     assert!(serialized.contains("PRIVMSG #development :Check out this new feature!"));
-    
+
     // Should round-trip successfully
     let reparsed: Message = serialized.parse().expect("Should parse successfully");
     assert_eq!(message, reparsed);
@@ -79,18 +81,18 @@ fn test_ping_pong_flow() {
     // Simulate a PING/PONG exchange
     let ping = Message::ping("irc.example.com");
     let ping_serialized = ping.to_string();
-    
+
     // Parse the PING
     let _parsed_ping: Message = ping_serialized.parse().expect("PING should parse");
-    
+
     // Generate appropriate PONG response
     let pong = Message::pong("irc.example.com");
     let pong_serialized = pong.to_string();
-    
+
     // Both should contain the server
     assert!(ping_serialized.contains("irc.example.com"));
     assert!(pong_serialized.contains("irc.example.com"));
-    
+
     // Should round-trip
     let parsed_pong: Message = pong_serialized.parse().expect("PONG should parse");
     assert_eq!(pong, parsed_pong);
@@ -104,7 +106,7 @@ fn test_channel_management() {
     let part_simple = Message::part("#testing");
     let part_with_msg = Message::part_with_message("#testing", "Thanks for the help!");
 
-    // Kick scenarios  
+    // Kick scenarios
     let kick_simple = Message::kick("#moderated", "spammer");
     let kick_with_reason = Message::kick_with_reason("#moderated", "spammer", "Posting spam");
 
@@ -120,7 +122,8 @@ fn test_channel_management() {
     // All should serialize and parse correctly
     for msg in messages {
         let serialized = msg.to_string();
-        let parsed: Message = serialized.parse()
+        let parsed: Message = serialized
+            .parse()
             .unwrap_or_else(|e| panic!("Failed to parse {}: {}", serialized, e));
         assert_eq!(msg, &parsed, "Message should round-trip: {}", serialized);
     }
@@ -135,14 +138,16 @@ fn test_away_status() {
     // Both should serialize correctly
     let away_serialized = away_simple.to_string();
     let away_msg_serialized = away_with_msg.to_string();
-    
+
     assert!(away_serialized.contains("AWAY"));
     assert!(away_msg_serialized.contains("AWAY :Gone to lunch, back in 30 minutes"));
 
     // Should round-trip
     let parsed_away: Message = away_serialized.parse().expect("AWAY should parse");
-    let parsed_away_msg: Message = away_msg_serialized.parse().expect("AWAY with message should parse");
-    
+    let parsed_away_msg: Message = away_msg_serialized
+        .parse()
+        .expect("AWAY with message should parse");
+
     assert_eq!(away_simple, parsed_away);
     assert_eq!(away_with_msg, parsed_away_msg);
 }

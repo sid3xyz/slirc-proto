@@ -1,11 +1,9 @@
-
-use crate::error::MessageParseError;
 use super::super::types::Command;
 use super::connection::raw;
+use crate::error::MessageParseError;
 
 pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseError> {
     let result = match cmd {
-
         "PRIVMSG" => {
             if args.len() != 2 {
                 raw(cmd, args)
@@ -20,7 +18,6 @@ pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseE
                 Command::NOTICE(args[0].to_owned(), args[1].to_owned())
             }
         }
-
 
         "KILL" => {
             if args.len() != 2 {
@@ -54,7 +51,6 @@ pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseE
                 Command::ERROR(args[0].to_owned())
             }
         }
-
 
         "AWAY" => {
             if args.is_empty() {
@@ -118,7 +114,6 @@ pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseE
         "USERHOST" => Command::USERHOST(args.into_iter().map(|s| s.to_owned()).collect()),
         "ISON" => Command::ISON(args.into_iter().map(|s| s.to_owned()).collect()),
 
-
         "SAJOIN" => {
             if args.len() != 2 {
                 raw(cmd, args)
@@ -161,7 +156,6 @@ pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseE
             }
         }
 
-
         "NICKSERV" => Command::NICKSERV(args.into_iter().map(|s| s.to_owned()).collect()),
         "CHANSERV" => Command::CHANSERV(args.into_iter().map(|s| s.to_owned()).collect()),
         "OPERSERV" => Command::OPERSERV(args.into_iter().map(|s| s.to_owned()).collect()),
@@ -169,7 +163,10 @@ pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseE
         "HOSTSERV" => Command::HOSTSERV(args.into_iter().map(|s| s.to_owned()).collect()),
         "MEMOSERV" => Command::MEMOSERV(args.into_iter().map(|s| s.to_owned()).collect()),
 
-        _ => unreachable!("messaging::parse called with non-messaging command: {}", cmd),
+        _ => unreachable!(
+            "messaging::parse called with non-messaging command: {}",
+            cmd
+        ),
     };
 
     Ok(result)
