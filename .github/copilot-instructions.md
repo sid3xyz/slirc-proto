@@ -1,64 +1,43 @@
 # Copilot Instructions for slirc-proto
 
-This is a high-performance Rust library for parsing and encoding IRC protocol messages with full IRCv3 support.
+High-performance Rust library for IRC protocol parsing with full IRCv3 support. Released to the public domain under [The Unlicense](../LICENSE).
 
-## Build & Test Commands
+## Quick Reference
 
 ```bash
-# Build (default features include tokio async transport)
-cargo build
-
-# Build with all features
-cargo build --all-features
-
-# Run tests
-cargo test --all-features
-
-# Run benchmarks
-cargo bench
-
-# Lint (must pass with zero warnings)
-cargo clippy --all-features -- -D warnings
-
-# Format check
-cargo fmt -- --check
+cargo build --all-features    # Build with all features
+cargo test --all-features     # Run all tests
+cargo clippy --all-features -- -D warnings  # Lint (must pass)
+cargo fmt -- --check          # Format check
+cargo bench                   # Run benchmarks
 ```
 
-## Project Requirements
+## Project Constraints
 
-- **MSRV**: Rust 1.70 minimum
-- **Edition**: 2021
-- **Linting**: `#![deny(clippy::all)]` is enforced—all clippy warnings are errors
-- **No unwrap()**: Library code must propagate errors with `?`, never `unwrap()` or `expect()`
+| Constraint | Requirement |
+|------------|-------------|
+| MSRV | Rust 1.70+ |
+| Linting | `#![deny(clippy::all)]` — zero warnings allowed |
+| Error handling | Use `?` propagation, never `unwrap()` or `expect()` in lib code |
+| API stability | `#[non_exhaustive]` on public enums that may grow |
 
 ## Feature Flags
 
-| Feature | Description |
-|---------|-------------|
-| `tokio` (default) | Async transport with Tokio, TLS, WebSocket support |
-| `proptest` | Property-based testing support |
-| `encoding` | Character encoding support via encoding_rs |
+- `tokio` (default) — Async transport with TLS, WebSocket
+- `proptest` — Property-based testing
+- `encoding` — Character encoding via encoding_rs
 
-## Architecture Overview
+## Architecture
 
-- **Zero-copy parsing**: Use `MessageRef<'a>` for hot paths, convert to owned `Message` only when needed
-- **Parser**: nom combinators with simple `Error` type (not `VerboseError`)
-- **Error types**: `ProtocolError` for transport, `MessageParseError` for parsing
-- **Enums**: Key enums use `#[non_exhaustive]` for API stability
-
-## Key Modules
-
-| Module | Purpose |
-|--------|---------|
-| `message/` | Core message types, parsing, serialization |
-| `command/` | IRC command enum and parsing |
-| `prefix/` | Nick!user@host prefix handling |
-| `mode/` | Channel and user mode parsing |
-| `ircv3/` | IRCv3 extensions (batch, msgid, server-time) |
-| `transport.rs` | Async Tokio codec and connection handling |
+| Component | Pattern |
+|-----------|---------|
+| Parsing | `MessageRef<'a>` zero-copy, nom combinators with simple `Error` |
+| Serialization | `write_to(&mut impl fmt::Write)` to avoid allocations |
+| Transport | `Framed<T, IrcCodec>` for async line-based I/O |
+| Errors | `ProtocolError` (transport), `MessageParseError` (parsing) |
 
 ## Testing Requirements
 
-- All new commands need round-trip tests (parse → serialize → parse)
-- Use `proptest` for fuzzing parser inputs when adding new parsing logic
-- Benchmarks in `benches/parsing.rs` for performance-critical changes
+- Round-trip tests for all commands (parse → serialize → parse)
+- Property tests with `proptest` for parser fuzzing
+- Benchmarks in `benches/parsing.rs` for perf-critical changes

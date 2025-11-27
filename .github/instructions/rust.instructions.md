@@ -2,65 +2,40 @@
 applyTo: "**/*.rs"
 ---
 
-# Rust Code Guidelines for slirc-proto
+# Rust Code Style for slirc-proto
 
 ## Zero-Copy Patterns
 
-- Prefer `MessageRef<'a>` over `Message` when data doesn't need to outlive the current scope
-- Use `Cow<'a, str>` for strings that are usually borrowed but occasionally owned
-- Avoid `String::clone()` — use references or `Cow` instead
-- For small collections (1-2 items typical), consider `SmallVec` over `Vec`
+- Use `MessageRef<'a>` when data doesn't need to outlive the scope
+- Use `Cow<'a, str>` for strings that are usually borrowed
+- Use `write_to(&mut impl fmt::Write)` for serialization (no intermediate String)
+- Avoid `String::clone()` — use references or Cow
 
-## Parsing with nom
+## nom Parsing
 
-- Use simple `nom::error::Error` type, NOT `VerboseError` (performance critical)
-- Parser functions return `IResult<&str, T>` or `IResult<&[u8], T>`
-- Compose parsers with combinators: `preceded`, `delimited`, `separated_list0`, etc.
-- Handle the full IRC grammar including edge cases (empty params, CRLF variations)
+- Use `nom::error::Error`, NOT `VerboseError` (performance critical)
+- Return `IResult<&str, T>` or `IResult<&[u8], T>`
+- Handle edge cases: empty params, CRLF variations, IRCv3 tag escaping
 
 ## Error Handling
 
-- Use crate error types: `ProtocolError`, `MessageParseError`
-- Never use `unwrap()` or `expect()` in library code
-- Propagate errors with `?` operator
-- Provide context in error messages (e.g., "failed to parse prefix" not just "parse error")
+- Use `ProtocolError` for transport, `MessageParseError` for parsing
+- Never `unwrap()` or `expect()` in library code
+- Propagate with `?`, provide context in messages
 
-## Enum Guidelines
+## Enums
 
-- Public enums that may grow use `#[non_exhaustive]`
-- Match arms should handle `_` wildcard for non-exhaustive enums
-- Command and Response enums follow this pattern
+- Use `#[non_exhaustive]` on public enums that may grow
+- Handle `_` wildcard in match arms for non-exhaustive types
 
-## Async Code (transport.rs)
+## Async (transport.rs)
 
-- Use `tokio_util::codec::Framed` for line-based protocols
-- Ensure cancellation safety in async operations
-- Handle connection drops and reconnection gracefully
-- Use `tracing` for structured logging, not `println!`
+- Uses `Framed<T, IrcCodec>` for line-based I/O
+- Ensure cancellation safety
+- Use `tracing` for logging, not `println!`
 
-## Style Requirements
+## Style
 
-- All code must pass `cargo clippy -- -D warnings`
+- Must pass `cargo clippy --all-features -- -D warnings`
 - Use `cargo fmt` formatting
-- Prefer explicit type annotations in public APIs
-- Document public items with `///` doc comments
-
-## Testing Patterns
-
-```rust
-// Round-trip test example
-#[test]
-fn test_command_round_trip() {
-    let raw = ":nick!user@host PRIVMSG #channel :Hello world\r\n";
-    let msg = Message::parse(raw).unwrap();
-    assert_eq!(msg.to_string(), raw);
-}
-```
-
-## Common Imports
-
-```rust
-use crate::error::{MessageParseError, ProtocolError};
-use crate::message::{Message, MessageRef};
-use std::borrow::Cow;
-```
+- Document public items with `///`
