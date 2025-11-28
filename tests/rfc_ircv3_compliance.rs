@@ -490,6 +490,27 @@ mod commands {
     }
 
     #[test]
+    fn test_join_variations_roundtrip() {
+        let test_cases = vec![
+            "JOIN #channel",
+            "JOIN #channel key",
+            ":nick!user@host JOIN #channel",
+            "JOIN #channel1,#channel2 key1,key2",
+        ];
+
+        for original in test_cases {
+            let message: Message = original
+                .parse()
+                .unwrap_or_else(|e| panic!("Failed to parse '{}': {}", original, e));
+            let serialized = message.to_string();
+            let reparsed: Message = serialized
+                .parse()
+                .unwrap_or_else(|e| panic!("Failed to reparse '{}': {}", serialized, e));
+            assert_eq!(message, reparsed, "Round-trip failed for '{}'", original);
+        }
+    }
+
+    #[test]
     fn test_part_with_message() {
         let msg: Message = "PART #channel :Goodbye!".parse().unwrap();
         match msg.command {
@@ -520,6 +541,15 @@ mod commands {
     }
 
     #[test]
+    fn test_mode_roundtrip() {
+        let original = ":server MODE #channel +o nick";
+        let message: Message = original.parse().expect("Failed to parse message");
+        let serialized = message.to_string();
+        let reparsed: Message = serialized.parse().expect("Failed to reparse message");
+        assert_eq!(message, reparsed);
+    }
+
+    #[test]
     fn test_kick_with_reason() {
         let msg: Message = "KICK #channel nick :Bad behavior".parse().unwrap();
         match msg.command {
@@ -529,6 +559,138 @@ mod commands {
                 assert_eq!(reason, Some("Bad behavior".to_string()));
             }
             _ => panic!("Expected KICK"),
+        }
+    }
+
+    #[test]
+    fn test_batch_messages() {
+        let test_cases = vec![
+            "BATCH +abc123 chathistory #channel",
+            "BATCH -abc123",
+            "@batch=abc123 :server PRIVMSG #channel :Batched message",
+        ];
+
+        for original in test_cases {
+            let message: Message = original
+                .parse()
+                .unwrap_or_else(|e| panic!("Failed to parse '{}': {}", original, e));
+            let serialized = message.to_string();
+            let reparsed: Message = serialized
+                .parse()
+                .unwrap_or_else(|e| panic!("Failed to reparse '{}': {}", serialized, e));
+            assert_eq!(message, reparsed, "Round-trip failed for '{}'", original);
+        }
+    }
+}
+
+// =============================================================================
+// OPERATOR COMMANDS (KLINE, DLINE, KNOCK, etc.)
+// =============================================================================
+
+mod operator_commands {
+    use super::*;
+
+    #[test]
+    fn test_kline_with_time() {
+        let msg: Message = "KLINE 60 user@host :reason".parse().unwrap();
+        match msg.command {
+            Command::KLINE(Some(time), mask, reason) => {
+                assert_eq!(time, "60");
+                assert_eq!(mask, "user@host");
+                assert_eq!(reason, "reason");
+            }
+            other => panic!("Expected KLINE with time, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_kline_without_time() {
+        let msg: Message = "KLINE user@host :reason".parse().unwrap();
+        match msg.command {
+            Command::KLINE(None, mask, reason) => {
+                assert_eq!(mask, "user@host");
+                assert_eq!(reason, "reason");
+            }
+            other => panic!("Expected KLINE without time, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_dline_with_time() {
+        let msg: Message = "DLINE 3600 192.168.0.1 :banned".parse().unwrap();
+        match msg.command {
+            Command::DLINE(Some(time), host, reason) => {
+                assert_eq!(time, "3600");
+                assert_eq!(host, "192.168.0.1");
+                assert_eq!(reason, "banned");
+            }
+            other => panic!("Expected DLINE with time, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_unkline() {
+        let msg: Message = "UNKLINE user@host".parse().unwrap();
+        match msg.command {
+            Command::UNKLINE(mask) => assert_eq!(mask, "user@host"),
+            other => panic!("Expected UNKLINE, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_undline() {
+        let msg: Message = "UNDLINE 10.0.0.0/8".parse().unwrap();
+        match msg.command {
+            Command::UNDLINE(host) => assert_eq!(host, "10.0.0.0/8"),
+            other => panic!("Expected UNDLINE, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_knock_with_message() {
+        let msg: Message = "KNOCK #channel :let me in".parse().unwrap();
+        match msg.command {
+            Command::KNOCK(channel, Some(message)) => {
+                assert_eq!(channel, "#channel");
+                assert_eq!(message, "let me in");
+            }
+            other => panic!("Expected KNOCK with message, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_knock_without_message() {
+        let msg: Message = "KNOCK #channel".parse().unwrap();
+        match msg.command {
+            Command::KNOCK(channel, None) => {
+                assert_eq!(channel, "#channel");
+            }
+            other => panic!("Expected KNOCK without message, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_operator_ban_commands_roundtrip() {
+        let test_cases = vec![
+            "KLINE 60 *@badhost.com :Spamming",
+            "KLINE user@host.com :No reason given",
+            "DLINE 3600 192.168.1.0/24 :Network abuse",
+            "DLINE 10.0.0.1 :Suspicious activity",
+            "UNKLINE user@host.com",
+            "UNDLINE 192.168.1.0/24",
+            "KNOCK #channel",
+            "KNOCK #secretroom :Please let me in!",
+        ];
+
+        for original in test_cases {
+            let message: Message = original
+                .parse()
+                .unwrap_or_else(|e| panic!("Failed to parse '{}': {}", original, e));
+            let serialized = message.to_string();
+            let reparsed: Message = serialized
+                .parse()
+                .unwrap_or_else(|e| panic!("Failed to reparse '{}': {}", serialized, e));
+            assert_eq!(message, reparsed, "Round-trip failed for '{}'", original);
         }
     }
 }
