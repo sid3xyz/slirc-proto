@@ -101,14 +101,6 @@ pub use self::sasl::{encode_external, encode_plain, SaslMechanism, SaslState};
 pub mod casemap;
 pub use self::casemap::{irc_eq, irc_to_lower};
 
-pub mod validation;
-pub use self::validation::{
-    contains_illegal_control_chars, is_illegal_control_char, is_valid_channel_name,
-    is_valid_hostname, is_valid_nickname, is_valid_username, strip_illegal_control_chars,
-    validate_channel_name, validate_hostname, validate_message_line, validate_nickname,
-    validate_username, IrcValidationExt, ValidationError,
-};
-
 pub mod ircv3;
 pub use self::ircv3::{format_server_time, format_timestamp, generate_batch_ref, generate_msgid};
 pub mod scanner;
