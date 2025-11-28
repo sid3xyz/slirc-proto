@@ -65,6 +65,9 @@ fn write_cmd_freeform(f: &mut fmt::Formatter<'_>, cmd: &str, args: &[&str]) -> f
 /// Write a service command with variable arguments (e.g., NICKSERV, CHANSERV, NS, CS).
 fn write_service_command(f: &mut fmt::Formatter<'_>, cmd: &str, args: &[String]) -> fmt::Result {
     f.write_str(cmd)?;
+    if args.is_empty() {
+        return Ok(());
+    }
     for (i, arg) in args.iter().enumerate() {
         f.write_char(' ')?;
         // Last argument needs trailing handling
