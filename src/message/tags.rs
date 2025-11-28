@@ -1,5 +1,10 @@
+//! IRCv3 message tag escaping utilities.
+
 use std::fmt::{Result as FmtResult, Write};
 
+/// Escape a tag value for serialization.
+///
+/// Escapes special characters according to the IRCv3 message-tags spec.
 pub fn escape_tag_value(f: &mut dyn Write, value: &str) -> FmtResult {
     for c in value.chars() {
         match c {
@@ -14,6 +19,9 @@ pub fn escape_tag_value(f: &mut dyn Write, value: &str) -> FmtResult {
     Ok(())
 }
 
+/// Unescape a tag value from wire format.
+///
+/// Reverses the escaping applied by [`escape_tag_value`].
 pub fn unescape_tag_value(value: &str) -> String {
     let mut unescaped = String::with_capacity(value.len());
     let mut iter = value.chars();

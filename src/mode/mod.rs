@@ -1,3 +1,5 @@
+//! IRC user and channel mode types.
+
 mod parse;
 mod types;
 

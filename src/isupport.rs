@@ -1,15 +1,49 @@
+//! ISUPPORT (RPL_ISUPPORT / 005) parsing for IRC servers.
+//!
+//! This module provides types for parsing and querying the server capability
+//! tokens sent in `RPL_ISUPPORT` (numeric 005) replies.
+//!
+//! # Reference
+//! - Modern IRC documentation: <https://modern.ircdocs.horse/isupport.html>
+
+/// A single ISUPPORT key-value entry.
+///
+/// Represents a token from an ISUPPORT line, which can be either:
+/// - A bare key (e.g., `EXCEPTS`) indicating a feature is supported
+/// - A key=value pair (e.g., `NETWORK=Libera.Chat`)
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct IsupportEntry<'a> {
+    /// The token key (e.g., `NETWORK`, `CHANTYPES`).
     pub key: &'a str,
+    /// The optional value (e.g., `Libera.Chat` for `NETWORK=Libera.Chat`).
     pub value: Option<&'a str>,
 }
 
+/// Parsed ISUPPORT (005) server capabilities.
+///
+/// Contains all tokens from one or more `RPL_ISUPPORT` messages, providing
+/// convenient accessors for common capabilities like `NETWORK`, `PREFIX`, etc.
+///
+/// # Example
+///
+/// ```
+/// use slirc_proto::isupport::Isupport;
+///
+/// let tokens = ["NETWORK=TestNet", "CHANTYPES=#&", "PREFIX=(ov)@+"];
+/// let isupport = Isupport::parse_params(&tokens);
+///
+/// assert_eq!(isupport.network(), Some("TestNet"));
+/// assert_eq!(isupport.chantypes(), Some("#&"));
+/// ```
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Isupport<'a> {
     entries: Vec<IsupportEntry<'a>>,
 }
 
 impl<'a> Isupport<'a> {
+    /// Parse ISUPPORT tokens from a slice of string parameters.
+    ///
+    /// Tokens are parsed as `KEY` or `KEY=VALUE` pairs.
     pub fn parse_params(params: &[&'a str]) -> Self {
         let mut entries = Vec::with_capacity(params.len());
         for &p in params {
@@ -30,6 +64,9 @@ impl<'a> Isupport<'a> {
         Isupport { entries }
     }
 
+    /// Parse ISUPPORT from raw `RPL_ISUPPORT` response arguments.
+    ///
+    /// Skips the first argument (target nickname) and trailing text.
     pub fn from_response_args(args: &[&'a str]) -> Option<Self> {
         if args.is_empty() {
             return None;
@@ -45,6 +82,9 @@ impl<'a> Isupport<'a> {
         Some(Self::parse_params(tokens))
     }
 
+    /// Parse ISUPPORT from an owned `Message`.
+    ///
+    /// Returns `None` if the message is not an `RPL_ISUPPORT` (005) response.
     pub fn from_message(msg: &'a crate::Message) -> Option<Self> {
         match &msg.command {
             crate::command::Command::Response(crate::response::Response::RPL_ISUPPORT, ref a) => {
@@ -55,6 +95,9 @@ impl<'a> Isupport<'a> {
         }
     }
 
+    /// Parse ISUPPORT from a borrowed `MessageRef`.
+    ///
+    /// Returns `None` if the message is not an `RPL_ISUPPORT` (005) response.
     pub fn from_message_ref(msg: &'a crate::MessageRef<'a>) -> Option<Self> {
         if let Ok(resp) = msg.command.name.parse::<crate::response::Response>() {
             if resp == crate::response::Response::RPL_ISUPPORT {
@@ -65,10 +108,16 @@ impl<'a> Isupport<'a> {
         None
     }
 
+    /// Iterate over all parsed ISUPPORT entries.
     pub fn iter(&self) -> impl Iterator<Item = &IsupportEntry<'a>> {
         self.entries.iter()
     }
 
+    /// Get the value for a specific ISUPPORT key.
+    ///
+    /// Returns `Some(Some(value))` if the key has a value,
+    /// `Some(None)` if the key exists without a value,
+    /// or `None` if the key is not present.
     pub fn get(&self, key: &str) -> Option<Option<&'a str>> {
         self.entries
             .iter()
@@ -76,58 +125,85 @@ impl<'a> Isupport<'a> {
             .map(|e| e.value)
     }
 
+    /// Get the `CASEMAPPING` value (e.g., `rfc1459`, `ascii`).
     pub fn casemapping(&self) -> Option<&'a str> {
         self.get("CASEMAPPING").flatten()
     }
 
+    /// Get the `CHANTYPES` value (e.g., `#&`).
     pub fn chantypes(&self) -> Option<&'a str> {
         self.get("CHANTYPES").flatten()
     }
 
+    /// Get the `NETWORK` name (e.g., `Libera.Chat`).
     pub fn network(&self) -> Option<&'a str> {
         self.get("NETWORK").flatten()
     }
 
+    /// Parse the `PREFIX` token into a [`PrefixSpec`].
     pub fn prefix(&self) -> Option<PrefixSpec<'a>> {
         self.get("PREFIX").flatten().and_then(PrefixSpec::parse)
     }
 
+    /// Parse the `CHANMODES` token into a [`ChanModes`] structure.
     pub fn chanmodes(&self) -> Option<ChanModes<'a>> {
         self.get("CHANMODES").flatten().and_then(ChanModes::parse)
     }
 
+    /// Check if the server supports ban exceptions (`EXCEPTS`).
     pub fn has_excepts(&self) -> bool {
         self.get("EXCEPTS").is_some()
     }
 
+    /// Get the mode character for ban exceptions (default: `e`).
     pub fn excepts_mode(&self) -> Option<char> {
         self.get("EXCEPTS").flatten().and_then(|s| s.chars().next())
     }
 
+    /// Check if the server supports invite exceptions (`INVEX`).
     pub fn has_invex(&self) -> bool {
         self.get("INVEX").is_some()
     }
 
+    /// Get the mode character for invite exceptions (default: `I`).
     pub fn invex_mode(&self) -> Option<char> {
         self.get("INVEX").flatten().and_then(|s| s.chars().next())
     }
 
+    /// Parse the `TARGMAX` token into a [`TargMax`] structure.
     pub fn targmax(&self) -> Option<TargMax<'a>> {
         self.get("TARGMAX").flatten().and_then(TargMax::parse)
     }
 
+    /// Parse the `MAXLIST` token into a [`MaxList`] structure.
     pub fn maxlist(&self) -> Option<MaxList> {
         self.get("MAXLIST").flatten().and_then(MaxList::parse)
     }
 }
 
+/// Parsed `PREFIX` ISUPPORT token.
+///
+/// Maps channel user modes (like `o`, `v`) to their prefix symbols (`@`, `+`).
+///
+/// # Example
+///
+/// ```
+/// use slirc_proto::isupport::PrefixSpec;
+///
+/// let spec = PrefixSpec::parse("(ov)@+").unwrap();
+/// assert_eq!(spec.prefix_for_mode('o'), Some('@'));
+/// assert_eq!(spec.mode_for_prefix('+'), Some('v'));
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PrefixSpec<'a> {
+    /// Mode characters (e.g., `ov` for operator and voice).
     pub modes: &'a str,
+    /// Prefix symbols (e.g., `@+` for `@` and `+`).
     pub prefixes: &'a str,
 }
 
 impl<'a> PrefixSpec<'a> {
+    /// Parse a `PREFIX` value like `(ov)@+`.
     pub fn parse(s: &'a str) -> Option<Self> {
         if let Some(open) = s.find('(') {
             if let Some(close) = s[open + 1..].find(')') {
@@ -187,15 +263,27 @@ impl<'a> PrefixSpec<'a> {
     }
 }
 
+/// Parsed `CHANMODES` ISUPPORT token.
+///
+/// Channel modes are divided into four categories (A, B, C, D):
+/// - **A**: List modes (e.g., `b` for ban)
+/// - **B**: Modes with a parameter for both +/- (e.g., `k` for key)
+/// - **C**: Modes with a parameter only for + (e.g., `l` for limit)
+/// - **D**: Modes without parameters (e.g., `n` for no external messages)
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ChanModes<'a> {
+    /// Type A: List modes (always have a parameter).
     pub a: &'a str,
+    /// Type B: Modes that always require a parameter.
     pub b: &'a str,
+    /// Type C: Modes that require a parameter when set.
     pub c: &'a str,
+    /// Type D: Modes that never have a parameter.
     pub d: &'a str,
 }
 
 impl<'a> ChanModes<'a> {
+    /// Parse a `CHANMODES` value like `b,k,l,imnpst`.
     pub fn parse(s: &'a str) -> Option<Self> {
         let mut parts = s.splitn(4, ',');
         let (a, b, c, d) = (parts.next()?, parts.next()?, parts.next()?, parts.next()?);
@@ -203,12 +291,16 @@ impl<'a> ChanModes<'a> {
     }
 }
 
+/// Parsed `TARGMAX` ISUPPORT token.
+///
+/// Specifies the maximum number of targets for various commands.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TargMax<'a> {
     entries: Vec<(&'a str, Option<usize>)>,
 }
 
 impl<'a> TargMax<'a> {
+    /// Parse a `TARGMAX` value like `PRIVMSG:4,NOTICE:4,JOIN:`.
     pub fn parse(s: &'a str) -> Option<Self> {
         if s.is_empty() {
             return Some(TargMax {
@@ -233,6 +325,7 @@ impl<'a> TargMax<'a> {
         Some(TargMax { entries })
     }
 
+    /// Get the target limit for a specific command.
     pub fn get(&self, cmd: &str) -> Option<Option<usize>> {
         self.entries
             .iter()
@@ -240,17 +333,22 @@ impl<'a> TargMax<'a> {
             .map(|(_, v)| *v)
     }
 
+    /// Iterate over all command/limit pairs.
     pub fn iter(&self) -> impl Iterator<Item = (&'a str, Option<usize>)> + '_ {
         self.entries.iter().copied()
     }
 }
 
+/// Parsed `MAXLIST` ISUPPORT token.
+///
+/// Specifies the maximum number of entries for list modes (bans, etc.).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MaxList {
     entries: Vec<(char, usize)>,
 }
 
 impl MaxList {
+    /// Parse a `MAXLIST` value like `b:100,e:100,I:100`.
     pub fn parse(s: &str) -> Option<Self> {
         if s.is_empty() {
             return Some(MaxList {
@@ -276,6 +374,7 @@ impl MaxList {
         Some(MaxList { entries })
     }
 
+    /// Get the limit for a specific list mode character.
     pub fn limit_for(&self, mode: char) -> Option<usize> {
         self.entries
             .iter()
@@ -284,71 +383,87 @@ impl MaxList {
             .map(|(_, n)| *n)
     }
 
+    /// Iterate over all mode/limit pairs.
     pub fn iter(&self) -> impl Iterator<Item = (char, usize)> + '_ {
         self.entries.iter().copied()
     }
 }
 
+/// Builder for constructing ISUPPORT token strings.
+///
+/// Useful for IRC servers to generate `RPL_ISUPPORT` responses.
 #[derive(Debug, Clone, Default)]
 pub struct IsupportBuilder {
     tokens: Vec<String>,
 }
 
 impl IsupportBuilder {
+    /// Create a new empty builder.
     pub fn new() -> Self {
         Self { tokens: Vec::new() }
     }
 
+    /// Set the `NETWORK` token.
     pub fn network(mut self, name: &str) -> Self {
         self.tokens.push(format!("NETWORK={}", name));
         self
     }
 
+    /// Set the `CHANTYPES` token.
     pub fn chantypes(mut self, types: &str) -> Self {
         self.tokens.push(format!("CHANTYPES={}", types));
         self
     }
 
+    /// Set the `CHANMODES` token.
     pub fn chanmodes(mut self, modes: &str) -> Self {
         self.tokens.push(format!("CHANMODES={}", modes));
         self
     }
 
+    /// Set the `PREFIX` token with symbols and mode letters.
     pub fn prefix(mut self, symbols: &str, letters: &str) -> Self {
         self.tokens.push(format!("PREFIX=({}){}", letters, symbols));
         self
     }
 
+    /// Set the `CASEMAPPING` token.
     pub fn casemapping(mut self, mapping: &str) -> Self {
         self.tokens.push(format!("CASEMAPPING={}", mapping));
         self
     }
 
+    /// Set the `MAXCHANNELS` token.
     pub fn max_channels(mut self, count: u32) -> Self {
         self.tokens.push(format!("MAXCHANNELS={}", count));
         self
     }
 
+    /// Set the `NICKLEN` token.
     pub fn max_nick_length(mut self, len: u32) -> Self {
         self.tokens.push(format!("NICKLEN={}", len));
         self
     }
 
+    /// Set the `TOPICLEN` token.
     pub fn max_topic_length(mut self, len: u32) -> Self {
         self.tokens.push(format!("TOPICLEN={}", len));
         self
     }
 
+    /// Set the `MODES` token (max modes per command).
     pub fn modes_count(mut self, count: u32) -> Self {
         self.tokens.push(format!("MODES={}", count));
         self
     }
 
+    /// Set the `STATUSMSG` token.
     pub fn status_msg(mut self, symbols: &str) -> Self {
         self.tokens.push(format!("STATUSMSG={}", symbols));
         self
     }
 
+    /// Set the `EXCEPTS` token.
     pub fn excepts(mut self, mode_char: Option<char>) -> Self {
         if let Some(c) = mode_char {
             self.tokens.push(format!("EXCEPTS={}", c));
@@ -358,6 +473,7 @@ impl IsupportBuilder {
         self
     }
 
+    /// Set the `INVEX` token.
     pub fn invex(mut self, mode_char: Option<char>) -> Self {
         if let Some(c) = mode_char {
             self.tokens.push(format!("INVEX={}", c));
@@ -366,6 +482,7 @@ impl IsupportBuilder {
         }
         self
     }
+    /// Add a custom token.
     pub fn custom(mut self, key: &str, value: Option<&str>) -> Self {
         if let Some(v) = value {
             self.tokens.push(format!("{}={}", key, v));
@@ -375,10 +492,12 @@ impl IsupportBuilder {
         self
     }
 
+    /// Build the tokens into a single space-separated string.
     pub fn build(self) -> String {
         self.tokens.join(" ")
     }
 
+    /// Build the tokens into multiple lines, each with at most `max_per_line` tokens.
     pub fn build_lines(self, max_per_line: usize) -> Vec<String> {
         let mut lines = Vec::new();
         let mut current = Vec::new();

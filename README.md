@@ -19,6 +19,7 @@ This library is a core component of **STRAYLIGHT**, an experimental IRC ecosyste
 - [Installation](#installation)
 - [Usage](#usage)
 - [Examples](#examples)
+- [Cookbook](#cookbook)
 - [Protocol References](#protocol-references)
 - [Contributing](#contributing)
 - [License](#license)
@@ -216,6 +217,20 @@ Run an example:
 ```bash
 cargo run --example bot
 ```
+
+## Cookbook
+
+For practical examples of common IRC tasks, see the [`examples/`](examples/) directory:
+
+| Example | Description |
+|---------|-------------|
+| [`simple_client.rs`](examples/simple_client.rs) | Basic IRC client connection |
+| [`bot.rs`](examples/bot.rs) | Full-featured bot with command handling |
+| [`sasl_auth.rs`](examples/sasl_auth.rs) | SASL PLAIN authentication flow |
+| [`ctcp_handler.rs`](examples/ctcp_handler.rs) | CTCP VERSION/PING responses |
+| [`isupport_parser.rs`](examples/isupport_parser.rs) | Parsing ISUPPORT (005) server capabilities |
+| [`zero_copy_server.rs`](examples/zero_copy_server.rs) | High-performance server using `ZeroCopyTransport` |
+| [`compliance_check.rs`](examples/compliance_check.rs) | Message compliance validation |
 
 ## Protocol References
 
