@@ -6,14 +6,34 @@ use crate::error;
 use crate::error::MessageParseError;
 use crate::prefix::Prefix;
 
+/// An owned IRC message.
+///
+/// Contains the complete parsed representation of an IRC message including
+/// optional IRCv3 tags, optional prefix/source, and the command with parameters.
+///
+/// # Example
+///
+/// ```
+/// use slirc_proto::Message;
+///
+/// // Parse a message
+/// let msg: Message = ":nick!user@host PRIVMSG #channel :Hello!".parse().unwrap();
+///
+/// // Construct a message
+/// let msg = Message::privmsg("#channel", "Hello!");
+/// ```
 #[derive(Clone, PartialEq, Debug)]
 pub struct Message {
+    /// IRCv3 message tags (e.g., `time`, `msgid`).
     pub tags: Option<Vec<Tag>>,
+    /// Message prefix/source (e.g., `nick!user@host`).
     pub prefix: Option<Prefix>,
+    /// The IRC command and its parameters.
     pub command: Command,
 }
 
 impl Message {
+    /// Create a new message from raw components.
     pub fn new(
         prefix: Option<&str>,
         command: &str,
@@ -22,6 +42,7 @@ impl Message {
         Message::with_tags(None, prefix, command, args)
     }
 
+    /// Create a new message with tags from raw components.
     pub fn with_tags(
         tags: Option<Vec<Tag>>,
         prefix: Option<&str>,
@@ -41,6 +62,7 @@ impl Message {
         })
     }
 
+    /// Get the nickname from the message prefix, if present.
     pub fn source_nickname(&self) -> Option<&str> {
         self.prefix.as_ref().and_then(|p| match p {
             Prefix::Nickname(name, _, _) => Some(&name[..]),
@@ -48,6 +70,10 @@ impl Message {
         })
     }
 
+    /// Get the appropriate target for a response.
+    ///
+    /// For channel messages, returns the channel name.
+    /// For private messages, returns the sender's nickname.
     pub fn response_target(&self) -> Option<&str> {
         match self.command {
             Command::PRIVMSG(ref target, _) if target.is_channel_name() => Some(target),
@@ -56,6 +82,7 @@ impl Message {
         }
     }
 
+    /// Get the value of an IRCv3 tag by key.
     pub fn tag_value(&self, key: &str) -> Option<&str> {
         self.tags
             .as_ref()?
@@ -64,18 +91,22 @@ impl Message {
             .and_then(|Tag(_, v)| v.as_deref())
     }
 
+    /// Get the server-time tag value.
     pub fn server_time(&self) -> Option<&str> {
         self.tag_value("time")
     }
 
+    /// Get the labeled-response label tag.
     pub fn label(&self) -> Option<&str> {
         self.tag_value("label")
     }
 
+    /// Get the message ID tag.
     pub fn msgid(&self) -> Option<&str> {
         self.tag_value("msgid")
     }
 
+    /// Get the account tag value.
     pub fn account_tag(&self) -> Option<&str> {
         self.tag_value("account")
     }
@@ -311,10 +342,20 @@ impl From<Command> for Message {
     }
 }
 
+/// An IRCv3 message tag.
+///
+/// Tags are key-value pairs that can be attached to messages.
+/// The value is optional (some tags are presence-only flags).
 #[derive(Clone, PartialEq, Debug)]
-pub struct Tag(pub Cow<'static, str>, pub Option<String>);
+pub struct Tag(
+    /// Tag key (e.g., `time`, `msgid`).
+    pub Cow<'static, str>,
+    /// Optional tag value.
+    pub Option<String>,
+);
 
 impl Tag {
+    /// Create a new tag with a key and optional value.
     pub fn new(key: impl Into<String>, value: Option<String>) -> Self {
         Tag(Cow::Owned(key.into()), value)
     }

@@ -1,3 +1,5 @@
+//! IRC mode parsing.
+
 use crate::error::MessageParseError;
 
 use super::types::{ChannelMode, Mode, ModeType, UserMode};
@@ -9,12 +11,14 @@ enum PlusMinus {
 }
 
 impl Mode<UserMode> {
+    /// Parse user mode strings like `+iw` into a vector of modes.
     pub fn as_user_modes(pieces: &[&str]) -> Result<Vec<Mode<UserMode>>, MessageParseError> {
         parse_modes(pieces)
     }
 }
 
 impl Mode<ChannelMode> {
+    /// Parse channel mode strings like `+o nick` into a vector of modes.
     pub fn as_channel_modes(pieces: &[&str]) -> Result<Vec<Mode<ChannelMode>>, MessageParseError> {
         parse_modes(pieces)
     }

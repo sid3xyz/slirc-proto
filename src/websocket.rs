@@ -1,17 +1,26 @@
+//! WebSocket support for IRC over WebSocket connections.
+//!
+//! This module provides configuration and handshake validation for
+//! WebSocket-based IRC connections, commonly used by web clients.
+
 use std::fmt;
 #[cfg(feature = "tokio")]
 use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request, Response};
 #[cfg(feature = "tokio")]
 use tokio_tungstenite::tungstenite::http::StatusCode;
 
+/// Configuration for WebSocket IRC connections.
+///
+/// Controls origin validation, subprotocol negotiation, and CORS headers.
 #[derive(Debug, Clone)]
 pub struct WebSocketConfig {
+    /// List of allowed origin URLs (empty allows all).
     pub allowed_origins: Vec<String>,
-
+    /// Whether an Origin header is required.
     pub require_origin: bool,
-
+    /// The subprotocol to advertise (typically "irc").
     pub subprotocol: Option<String>,
-
+    /// Whether to add CORS headers to responses.
     pub enable_cors: bool,
 }
 
@@ -27,6 +36,7 @@ impl Default for WebSocketConfig {
 }
 
 impl WebSocketConfig {
+    /// Create a production configuration requiring origin validation.
     pub fn production() -> Self {
         Self {
             allowed_origins: Vec::new(),
@@ -36,6 +46,7 @@ impl WebSocketConfig {
         }
     }
 
+    /// Create a development configuration with permissive settings.
     pub fn development() -> Self {
         Self {
             allowed_origins: vec![
@@ -51,15 +62,22 @@ impl WebSocketConfig {
     }
 }
 
+/// Result of WebSocket handshake validation.
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum HandshakeResult {
+    /// Handshake accepted with negotiated parameters.
     Accept {
+        /// The negotiated subprotocol, if any.
         subprotocol: Option<String>,
+        /// The client's origin, if provided.
         origin: Option<String>,
     },
+    /// Handshake rejected with error details.
     Reject {
+        /// HTTP status code to return.
         status: u16,
+        /// Human-readable rejection reason.
         reason: String,
     },
 }
@@ -87,6 +105,10 @@ impl fmt::Display for HandshakeResult {
     }
 }
 
+/// Validate a WebSocket upgrade request against the configuration.
+///
+/// Returns `HandshakeResult::Accept` if the request passes all checks,
+/// or `HandshakeResult::Reject` with an appropriate error.
 #[cfg(feature = "tokio")]
 pub fn validate_handshake(req: &Request, config: &WebSocketConfig) -> HandshakeResult {
     let origin = req
@@ -147,6 +169,9 @@ pub fn validate_handshake(req: &Request, config: &WebSocketConfig) -> HandshakeR
     }
 }
 
+/// Build an HTTP response for a WebSocket handshake result.
+///
+/// Adds CORS headers and subprotocol negotiation as configured.
 #[cfg(feature = "tokio")]
 #[allow(clippy::result_large_err)]
 pub fn build_handshake_response(

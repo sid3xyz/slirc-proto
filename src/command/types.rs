@@ -209,10 +209,15 @@ pub enum Command {
     /// - `BETWEEN <target> <msgref> <msgref> <limit>`
     /// - `TARGETS <timestamp> <timestamp> <limit>`
     CHATHISTORY {
+        /// The CHATHISTORY subcommand (LATEST, BEFORE, AFTER, etc.).
         subcommand: ChatHistorySubCommand,
+        /// Target channel or `*` for all targets.
         target: String,
+        /// First message reference or timestamp.
         msg_ref1: MessageReference,
+        /// Second message reference (for BETWEEN).
         msg_ref2: Option<MessageReference>,
+        /// Maximum number of messages to return.
         limit: u32,
     },
 

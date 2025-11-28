@@ -1,3 +1,5 @@
+//! IRC command parsing implementation.
+
 mod channel;
 mod connection;
 mod ircv3;
@@ -11,6 +13,7 @@ use crate::error::MessageParseError;
 use crate::mode::Mode;
 
 impl Command {
+    /// Parse a command from its name and arguments.
     pub fn new(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseError> {
         let cmd_upper = cmd.to_ascii_uppercase();
         let cmd_str = cmd_upper.as_str();

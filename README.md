@@ -204,12 +204,17 @@ assert_eq!(spec.mode_for_prefix('~'), Some('q'));  // founder
 
 ## Examples
 
-See the [`examples/`](examples/) directory:
+See the [`examples/`](examples/) directory for practical examples of common IRC tasks:
 
-- `simple_client.rs` — Basic IRC client connection
-- `bot.rs` — Full-featured bot with command handling
-- `sasl_auth.rs` — SASL PLAIN authentication flow
-- `ctcp_handler.rs` — CTCP VERSION/PING responses
+| Example | Description |
+|---------|-------------|
+| [`simple_client.rs`](examples/simple_client.rs) | Basic IRC client connection |
+| [`bot.rs`](examples/bot.rs) | Full-featured bot with command handling |
+| [`sasl_auth.rs`](examples/sasl_auth.rs) | SASL PLAIN authentication flow |
+| [`ctcp_handler.rs`](examples/ctcp_handler.rs) | CTCP VERSION/PING responses |
+| [`isupport_parser.rs`](examples/isupport_parser.rs) | Parsing ISUPPORT (005) server capabilities |
+| [`zero_copy_server.rs`](examples/zero_copy_server.rs) | High-performance server using `ZeroCopyTransport` |
+| [`compliance_check.rs`](examples/compliance_check.rs) | Message compliance validation |
 
 Run an example:
 

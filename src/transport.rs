@@ -92,19 +92,34 @@ impl From<ProtocolError> for TransportReadError {
     }
 }
 
+/// IRC transport over various stream types.
+///
+/// Supports TCP, TLS, and WebSocket connections. Use during connection
+/// handshake and capability negotiation, then convert to [`ZeroCopyTransportEnum`]
+/// for high-performance message processing.
 #[allow(clippy::large_enum_variant)]
 #[non_exhaustive]
 pub enum Transport {
+    /// Plain TCP transport.
     Tcp {
+        /// The framed codec for TCP.
         framed: Framed<tokio::net::TcpStream, IrcCodec>,
     },
+    /// TLS-encrypted transport.
     Tls {
+        /// The framed codec for TLS.
         framed: Framed<TlsStream<TcpStream>, IrcCodec>,
     },
+    /// WebSocket transport (plain).
     #[cfg(feature = "tokio")]
-    WebSocket { stream: WebSocketStream<TcpStream> },
+    WebSocket {
+        /// The WebSocket stream.
+        stream: WebSocketStream<TcpStream>,
+    },
+    /// WebSocket transport over TLS.
     #[cfg(feature = "tokio")]
     WebSocketTls {
+        /// The TLS WebSocket stream.
         stream: WebSocketStream<TlsStream<TcpStream>>,
     },
 }
@@ -112,10 +127,14 @@ pub enum Transport {
 /// A unified raw transport stream type for hand-off to users.
 #[non_exhaustive]
 pub enum TransportStream {
+    /// Plain TCP stream.
     Tcp(TcpStream),
+    /// TLS stream (boxed for size).
     Tls(Box<TlsStream<TcpStream>>),
+    /// WebSocket stream (plain).
     #[cfg(feature = "tokio")]
     WebSocket(Box<WebSocketStream<TcpStream>>),
+    /// WebSocket stream over TLS.
     #[cfg(feature = "tokio")]
     WebSocketTls(Box<WebSocketStream<TlsStream<TcpStream>>>),
 }
@@ -123,22 +142,29 @@ pub enum TransportStream {
 /// The parts extracted from a `Transport`, including any buffered data
 /// that has already been read but not yet parsed.
 pub struct TransportParts {
+    /// The underlying raw stream.
     pub stream: TransportStream,
+    /// Bytes read but not yet parsed.
     pub read_buf: BytesMut,
+    /// Bytes waiting to be written.
     pub write_buf: BytesMut,
-    // Keep the codec so it can be used to re-create framed writers if needed
+    /// The IRC codec for message framing.
     pub codec: IrcCodec,
 }
 
 /// Owned read half for a transport after splitting.
 pub enum TransportReadHalf {
+    /// TCP read half.
     Tcp(tokio::net::tcp::OwnedReadHalf),
+    /// TLS read half.
     Tls(tokio::io::ReadHalf<TlsStream<TcpStream>>),
 }
 
 /// Owned write half for a transport after splitting.
 pub enum TransportWriteHalf {
+    /// TCP write half.
     Tcp(tokio::net::tcp::OwnedWriteHalf),
+    /// TLS write half.
     Tls(tokio::io::WriteHalf<TlsStream<TcpStream>>),
 }
 
@@ -185,15 +211,20 @@ impl AsyncWrite for TransportWriteHalf {
 /// A convenience container for a split transport read side with any pre-seeded
 /// buffer loaded from the original framed transport.
 pub struct TransportRead {
+    /// The read half of the transport.
     pub half: TransportReadHalf,
+    /// Bytes read but not yet parsed.
     pub read_buf: BytesMut,
 }
 
 /// A convenience container for a split transport write side including any
 /// write buffer and codec to reconstruct a framed writer.
 pub struct TransportWrite {
+    /// The write half of the transport.
     pub half: TransportWriteHalf,
+    /// Bytes waiting to be written.
     pub write_buf: BytesMut,
+    /// The IRC codec for message framing.
     pub codec: IrcCodec,
 }
 
@@ -249,6 +280,7 @@ impl TransportParts {
 }
 
 impl Transport {
+    /// Create a new TCP transport from a connected stream.
     pub fn tcp(stream: TcpStream) -> Self {
         if let Err(e) = Self::enable_keepalive(&stream) {
             warn!("failed to enable TCP keepalive: {}", e);
@@ -274,6 +306,7 @@ impl Transport {
         Ok(())
     }
 
+    /// Create a new TLS transport from an established TLS stream.
     pub fn tls(stream: TlsStream<TcpStream>) -> Self {
         let codec =
             IrcCodec::new("utf-8").expect("Failed to create UTF-8 codec: encoding not supported");
@@ -282,11 +315,13 @@ impl Transport {
         }
     }
 
+    /// Create a new WebSocket transport.
     #[cfg(feature = "tokio")]
     pub fn websocket(stream: WebSocketStream<TcpStream>) -> Self {
         Self::WebSocket { stream }
     }
 
+    /// Create a new WebSocket transport over TLS.
     #[cfg(feature = "tokio")]
     pub fn websocket_tls(stream: WebSocketStream<TlsStream<TcpStream>>) -> Self {
         Self::WebSocketTls { stream }
@@ -321,10 +356,12 @@ impl Transport {
         }
     }
 
+    /// Check if this transport uses TLS encryption.
     pub fn is_tls(&self) -> bool {
         matches!(self, Self::Tls { .. })
     }
 
+    /// Check if this transport uses WebSocket framing.
     pub fn is_websocket(&self) -> bool {
         #[cfg(feature = "tokio")]
         {
@@ -336,6 +373,9 @@ impl Transport {
         }
     }
 
+    /// Read the next IRC message from the transport.
+    ///
+    /// Returns `Ok(None)` when the connection is closed.
     pub async fn read_message(&mut self) -> Result<Option<Message>, TransportReadError> {
         macro_rules! read_framed {
             ($framed:expr) => {
@@ -370,6 +410,7 @@ impl Transport {
         }
     }
 
+    /// Write an IRC message to the transport.
     pub async fn write_message(&mut self, message: &Message) -> Result<()> {
         macro_rules! write_framed {
             ($framed:expr, $msg:expr) => {
