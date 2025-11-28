@@ -52,7 +52,7 @@ use std::task::{Context, Poll};
 
 use anyhow::Result;
 use bytes::{Buf, BytesMut};
-use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio_rustls::server::TlsStream;
 use tokio_util::codec::Framed;
@@ -140,6 +140,46 @@ pub enum TransportReadHalf {
 pub enum TransportWriteHalf {
     Tcp(tokio::net::tcp::OwnedWriteHalf),
     Tls(tokio::io::WriteHalf<TlsStream<TcpStream>>),
+}
+
+impl AsyncRead for TransportReadHalf {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Self::Tcp(inner) => Pin::new(inner).poll_read(cx, buf),
+            Self::Tls(inner) => Pin::new(inner).poll_read(cx, buf),
+        }
+    }
+}
+
+impl AsyncWrite for TransportWriteHalf {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<std::io::Result<usize>> {
+        match self.get_mut() {
+            Self::Tcp(inner) => Pin::new(inner).poll_write(cx, buf),
+            Self::Tls(inner) => Pin::new(inner).poll_write(cx, buf),
+        }
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Self::Tcp(inner) => Pin::new(inner).poll_flush(cx),
+            Self::Tls(inner) => Pin::new(inner).poll_flush(cx),
+        }
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Self::Tcp(inner) => Pin::new(inner).poll_shutdown(cx),
+            Self::Tls(inner) => Pin::new(inner).poll_shutdown(cx),
+        }
+    }
 }
 
 /// A convenience container for a split transport read side with any pre-seeded
