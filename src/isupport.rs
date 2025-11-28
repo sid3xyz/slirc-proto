@@ -482,6 +482,7 @@ impl IsupportBuilder {
         }
         self
     }
+
     /// Add a custom token.
     pub fn custom(mut self, key: &str, value: Option<&str>) -> Self {
         if let Some(v) = value {
