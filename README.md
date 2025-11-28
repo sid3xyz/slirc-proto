@@ -19,7 +19,6 @@ This library is a core component of **STRAYLIGHT**, an experimental IRC ecosyste
 - [Installation](#installation)
 - [Usage](#usage)
 - [Examples](#examples)
-- [Cookbook](#cookbook)
 - [Protocol References](#protocol-references)
 - [Contributing](#contributing)
 - [License](#license)
@@ -205,22 +204,7 @@ assert_eq!(spec.mode_for_prefix('~'), Some('q'));  // founder
 
 ## Examples
 
-See the [`examples/`](examples/) directory:
-
-- `simple_client.rs` — Basic IRC client connection
-- `bot.rs` — Full-featured bot with command handling
-- `sasl_auth.rs` — SASL PLAIN authentication flow
-- `ctcp_handler.rs` — CTCP VERSION/PING responses
-
-Run an example:
-
-```bash
-cargo run --example bot
-```
-
-## Cookbook
-
-For practical examples of common IRC tasks, see the [`examples/`](examples/) directory:
+See the [`examples/`](examples/) directory for practical examples of common IRC tasks:
 
 | Example | Description |
 |---------|-------------|
@@ -231,6 +215,12 @@ For practical examples of common IRC tasks, see the [`examples/`](examples/) dir
 | [`isupport_parser.rs`](examples/isupport_parser.rs) | Parsing ISUPPORT (005) server capabilities |
 | [`zero_copy_server.rs`](examples/zero_copy_server.rs) | High-performance server using `ZeroCopyTransport` |
 | [`compliance_check.rs`](examples/compliance_check.rs) | Message compliance validation |
+
+Run an example:
+
+```bash
+cargo run --example bot
+```
 
 ## Protocol References
 
