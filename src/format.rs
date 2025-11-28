@@ -57,7 +57,7 @@ pub const IRC_FORMAT_CODES: &[char] = &[
 /// ```
 #[inline]
 pub fn is_irc_format_code(ch: char) -> bool {
-    IRC_FORMAT_CODES.contains(&ch)
+    matches!(ch, '\x01' | '\x02' | '\x03' | '\x04' | '\x0F' | '\x11' | '\x16' | '\x1D' | '\x1E' | '\x1F')
 }
 
 /// Returns true if a control character is illegal in IRC messages.
