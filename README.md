@@ -2,14 +2,26 @@
 
 [![License: Unlicense](https://img.shields.io/badge/License-Unlicense-blue.svg)](LICENSE)
 [![MSRV](https://img.shields.io/badge/MSRV-1.70-blue.svg)](https://blog.rust-lang.org/2023/06/01/Rust-1.70.0.html)
+[![Crates.io](https://img.shields.io/crates/v/slirc-proto.svg)](https://crates.io/crates/slirc-proto)
+[![Documentation](https://docs.rs/slirc-proto/badge.svg)](https://docs.rs/slirc-proto)
 
-A Rust library for parsing and serializing IRC protocol messages, with full IRCv3 support.
+A high-performance Rust library for parsing and serializing IRC protocol messages with full IRCv3 support.
 
 > **🚀 First Public Release** — This is the first component of the STRAYLIGHT IRC ecosystem to go public. Over the next few weeks, we'll be releasing the full IRCd and related tools as we clean things up and make them professionally presentable — at least enough for the Gonzo Admin.
 
 ## Part of the STRAYLIGHT Project
 
 This library is a core component of **STRAYLIGHT**, an experimental IRC ecosystem. For more information about the STRAYLIGHT project and its related components, visit [sid3.xyz](https://sid3.xyz).
+
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Examples](#examples)
+- [Protocol References](#protocol-references)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Features
 
