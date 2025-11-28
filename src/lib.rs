@@ -15,7 +15,7 @@
 
 #![deny(clippy::all)]
 // TODO: Enable once documentation coverage is complete
-// #![warn(missing_docs)]
+#![warn(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! ## Quick Start
