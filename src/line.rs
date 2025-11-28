@@ -60,7 +60,7 @@ impl LineCodec {
     fn validate_line(s: &str) -> error::Result<()> {
         let trimmed = s.trim_end_matches(&['\r', '\n'][..]);
         for ch in trimmed.chars() {
-            if ch == '\0' || (ch.is_control() && ch != '\r' && ch != '\n') {
+            if crate::format::is_illegal_control_char(ch) {
                 return Err(error::ProtocolError::IllegalControlChar(ch));
             }
         }

@@ -66,6 +66,7 @@ pub mod command;
 pub mod compliance;
 pub mod ctcp;
 pub mod error;
+pub mod format;
 #[cfg(feature = "tokio")]
 pub mod irc;
 pub mod isupport;
