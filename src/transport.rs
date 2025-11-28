@@ -52,10 +52,10 @@ use std::task::{Context, Poll};
 
 use anyhow::Result;
 use bytes::{Buf, BytesMut};
-use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_rustls::server::TlsStream;
-use tokio_util::codec::Framed;
+use tokio_util::codec::{Encoder, Framed};
 use tracing::warn;
 
 use crate::error::ProtocolError;
@@ -155,6 +155,101 @@ pub struct TransportWrite {
     pub half: TransportWriteHalf,
     pub write_buf: BytesMut,
     pub codec: IrcCodec,
+}
+
+impl AsyncRead for TransportReadHalf {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Self::Tcp(s) => Pin::new(s).poll_read(cx, buf),
+            Self::Tls(s) => Pin::new(s).poll_read(cx, buf),
+        }
+    }
+}
+
+impl AsyncWrite for TransportWriteHalf {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<std::io::Result<usize>> {
+        match self.get_mut() {
+            Self::Tcp(s) => Pin::new(s).poll_write(cx, buf),
+            Self::Tls(s) => Pin::new(s).poll_write(cx, buf),
+        }
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Self::Tcp(s) => Pin::new(s).poll_flush(cx),
+            Self::Tls(s) => Pin::new(s).poll_flush(cx),
+        }
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Self::Tcp(s) => Pin::new(s).poll_shutdown(cx),
+            Self::Tls(s) => Pin::new(s).poll_shutdown(cx),
+        }
+    }
+}
+
+impl TransportRead {
+    /// Read the next message from the transport.
+    ///
+    /// This method uses the internal buffer and the underlying stream to read
+    /// and parse the next IRC message. It is similar to `Transport::read_message`
+    /// but works on the split read half.
+    pub async fn read_message(&mut self) -> Result<Option<Message>, TransportReadError> {
+        // Temporarily take the buffer to use with ZeroCopyTransport
+        let buf = std::mem::take(&mut self.read_buf);
+        
+        // Create a temporary zero-copy transport
+        let mut transport = ZeroCopyTransport::with_buffer(&mut self.half, buf);
+        
+        // Read the next message and convert to owned immediately to drop the borrow
+        let msg = match transport.next().await {
+            Some(Ok(msg_ref)) => Some(Ok(msg_ref.to_owned())),
+            Some(Err(e)) => Some(Err(e)),
+            None => None,
+        };
+        
+        // Restore the buffer (which may have new data)
+        self.read_buf = transport.into_buffer();
+        
+        msg.transpose()
+    }
+}
+
+impl TransportWrite {
+    /// Write a message to the transport.
+    ///
+    /// This method encodes the message using the internal codec and writes it
+    /// to the underlying stream. It is similar to `Transport::write_message`
+    /// but works on the split write half.
+    pub async fn write_message(&mut self, message: &Message) -> Result<()> {
+        // Encode message into write buffer
+        self.codec.encode(message.clone(), &mut self.write_buf)?;
+        
+        // Write all bytes from buffer to the stream
+        while !self.write_buf.is_empty() {
+            let n = self.half.write(&self.write_buf).await?;
+            if n == 0 {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::WriteZero,
+                    "failed to write whole buffer",
+                ).into());
+            }
+            self.write_buf.advance(n);
+        }
+        
+        // Flush the stream
+        self.half.flush().await?;
+        Ok(())
+    }
 }
 
 impl TransportParts {
@@ -522,6 +617,14 @@ impl<S> ZeroCopyTransport<S> {
             consumed: 0,
             max_line_len: max_len,
         }
+    }
+
+    /// Consume the transport and return the internal buffer.
+    ///
+    /// This is useful when you need to recover the buffer after using the
+    /// transport, for example to hand it off to another component.
+    pub fn into_buffer(self) -> BytesMut {
+        self.buffer
     }
 
     /// Advance the buffer by the consumed amount.
@@ -1178,6 +1281,48 @@ mod tests {
                 }
                 _ => panic!("Expected Tcp write half"),
             }
+        };
+
+        tokio::join!(client, server);
+    }
+
+    #[tokio::test]
+    async fn test_split_read_write_message() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::net::TcpListener;
+        use crate::message::Message;
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let client = async move {
+            let mut s = tokio::net::TcpStream::connect(addr).await.unwrap();
+            // Send a message
+            s.write_all(b"PING :client\r\n").await.unwrap();
+            
+            // Read response
+            let mut buf = [0u8; 1024];
+            let n = s.read(&mut buf).await.unwrap();
+            let s = std::str::from_utf8(&buf[..n]).unwrap();
+            assert!(s.contains("PONG"));
+        };
+
+        let server = async move {
+            let (stream, _peer) = listener.accept().await.unwrap();
+            let transport = Transport::tcp(stream);
+            let parts = transport.into_parts().unwrap();
+            let (mut read, mut write) = parts.split();
+
+            // Read message using TransportRead::read_message
+            let msg = read.read_message().await.unwrap().unwrap();
+            match msg.command {
+                crate::command::Command::PING(_, _) => {},
+                _ => panic!("Expected PING, got {:?}", msg.command),
+            }
+            
+            // Write message using TransportWrite::write_message
+            let response = Message::pong("server");
+            write.write_message(&response).await.unwrap();
         };
 
         tokio::join!(client, server);
