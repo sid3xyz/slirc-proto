@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-11-28
+
+### Changed
+- Improved `Clone` implementation for `MessageParseError::ParseContext` to preserve source error message instead of discarding it
+
+### Fixed
+- `ParseContext` clone no longer loses source error information (now stores error message string)
+
 ## [1.0.0] - 2025-11-27
 
 ### 🎉 Stable Release

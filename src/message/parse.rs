@@ -83,6 +83,7 @@ impl FromStr for Message {
                 position: parse_err.position,
                 context: format!("Parse error: {:?}", parse_err.kind),
                 source: None,
+                source_message: None,
             };
 
             ProtocolError::InvalidMessage {

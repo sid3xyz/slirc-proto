@@ -105,6 +105,10 @@ pub enum MessageParseError {
         /// Optional source error that caused this failure.
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
+        /// Preserved source error message for Clone support.
+        /// When cloning, the boxed error cannot be cloned, but this field
+        /// preserves the error message for debugging purposes.
+        source_message: Option<String>,
     },
 }
 
@@ -138,13 +142,18 @@ impl Clone for MessageParseError {
             MessageParseError::ParseContext {
                 position,
                 context,
-                source: _,
+                source,
+                source_message,
             } => {
-                // We can't clone the boxed error, so we create a new instance without the source
+                // We can't clone the boxed error, but we preserve the error message
+                let preserved_message = source_message.clone().or_else(|| {
+                    source.as_ref().map(|e| e.to_string())
+                });
                 MessageParseError::ParseContext {
                     position: *position,
                     context: context.clone(),
                     source: None,
+                    source_message: preserved_message,
                 }
             }
         }
@@ -221,6 +230,7 @@ mod tests {
             position: 10,
             context: "parsing command arguments".to_string(),
             source: None,
+            source_message: None,
         };
 
         assert_eq!(
@@ -235,10 +245,27 @@ mod tests {
             position: 5,
             context: "reading message data".to_string(),
             source: Some(Box::new(io_err)),
+            source_message: None,
         };
 
         let source = std::error::Error::source(&context_err_with_source);
         assert!(source.is_some());
+
+        // Test that cloning preserves the source error message
+        let cloned = context_err_with_source.clone();
+        match cloned {
+            MessageParseError::ParseContext {
+                source,
+                source_message,
+                ..
+            } => {
+                // After cloning, source is None but source_message is preserved
+                assert!(source.is_none());
+                assert!(source_message.is_some());
+                assert_eq!(source_message.unwrap(), "unexpected end of input");
+            }
+            _ => panic!("Expected ParseContext variant"),
+        }
     }
 
     #[test]
