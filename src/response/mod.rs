@@ -323,7 +323,7 @@ pub enum Response {
     /// 461 - Need more params
     ERR_NEEDMOREPARAMS = 461,
     /// 462 - Already registered
-    ERR_ALREADYREGISTRED = 462,
+    ERR_ALREADYREGISTERED = 462,
     /// 463 - No permission for host
     ERR_NOPERMFORHOST = 463,
     /// 464 - Password mismatch
@@ -461,6 +461,13 @@ pub enum Response {
     /// 908 - SASL mechanisms
     RPL_SASLMECHS = 908,
 }
+
+/// Deprecated alias for [`Response::ERR_ALREADYREGISTERED`].
+///
+/// The original RFC 1459/2812 used the typo'd spelling "ALREADYREGISTRED".
+/// Modern IRC documentation uses the correct spelling "ALREADYREGISTERED".
+#[deprecated(since = "1.2.0", note = "use ERR_ALREADYREGISTERED (correct spelling)")]
+pub const ERR_ALREADYREGISTRED: Response = Response::ERR_ALREADYREGISTERED;
 
 impl Response {
     /// Returns the numeric code as u16
@@ -608,7 +615,7 @@ impl Response {
             446 => Response::ERR_USERSDISABLED,
             451 => Response::ERR_NOTREGISTERED,
             461 => Response::ERR_NEEDMOREPARAMS,
-            462 => Response::ERR_ALREADYREGISTRED,
+            462 => Response::ERR_ALREADYREGISTERED,
             463 => Response::ERR_NOPERMFORHOST,
             464 => Response::ERR_PASSWDMISMATCH,
             465 => Response::ERR_YOUREBANNEDCREEP,
