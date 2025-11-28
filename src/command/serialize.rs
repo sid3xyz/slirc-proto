@@ -62,6 +62,20 @@ fn write_cmd_freeform(f: &mut fmt::Formatter<'_>, cmd: &str, args: &[&str]) -> f
     }
 }
 
+/// Write a service command with variable arguments (e.g., NICKSERV, CHANSERV, NS, CS).
+fn write_service_command(f: &mut fmt::Formatter<'_>, cmd: &str, args: &[String]) -> fmt::Result {
+    f.write_str(cmd)?;
+    for (i, arg) in args.iter().enumerate() {
+        f.write_char(' ')?;
+        // Last argument needs trailing handling
+        if i == args.len() - 1 && (arg.is_empty() || arg.contains(' ') || arg.starts_with(':')) {
+            f.write_char(':')?;
+        }
+        f.write_str(arg)?;
+    }
+    Ok(())
+}
+
 impl fmt::Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -214,26 +228,18 @@ impl fmt::Display for Command {
             Command::UNDLINE(h) => write_cmd(f, "UNDLINE", &[h]),
             Command::KNOCK(c, Some(m)) => write_cmd_freeform(f, "KNOCK", &[c, m]),
             Command::KNOCK(c, None) => write_cmd(f, "KNOCK", &[c]),
-            Command::NICKSERV(p) => {
-                // Write directly to avoid Vec allocation
-                f.write_str("NICKSERV")?;
-                for (i, arg) in p.iter().enumerate() {
-                    f.write_char(' ')?;
-                    // Last argument needs trailing handling
-                    if i == p.len() - 1
-                        && (arg.is_empty() || arg.contains(' ') || arg.starts_with(':'))
-                    {
-                        f.write_char(':')?;
-                    }
-                    f.write_str(arg)?;
-                }
-                Ok(())
-            }
-            Command::CHANSERV(m) => write_cmd(f, "CHANSERV", &[m]),
-            Command::OPERSERV(m) => write_cmd(f, "OPERSERV", &[m]),
-            Command::BOTSERV(m) => write_cmd(f, "BOTSERV", &[m]),
-            Command::HOSTSERV(m) => write_cmd(f, "HOSTSERV", &[m]),
-            Command::MEMOSERV(m) => write_cmd(f, "MEMOSERV", &[m]),
+            Command::NICKSERV(p) => write_service_command(f, "NICKSERV", p),
+            Command::CHANSERV(p) => write_service_command(f, "CHANSERV", p),
+            Command::OPERSERV(p) => write_service_command(f, "OPERSERV", p),
+            Command::BOTSERV(p) => write_service_command(f, "BOTSERV", p),
+            Command::HOSTSERV(p) => write_service_command(f, "HOSTSERV", p),
+            Command::MEMOSERV(p) => write_service_command(f, "MEMOSERV", p),
+            Command::NS(p) => write_service_command(f, "NS", p),
+            Command::CS(p) => write_service_command(f, "CS", p),
+            Command::OS(p) => write_service_command(f, "OS", p),
+            Command::BS(p) => write_service_command(f, "BS", p),
+            Command::HS(p) => write_service_command(f, "HS", p),
+            Command::MS(p) => write_service_command(f, "MS", p),
             Command::CAP(None, s, None, Some(p)) => write_cmd(f, "CAP", &[s.to_str(), p]),
             Command::CAP(None, s, None, None) => write_cmd(f, "CAP", &[s.to_str()]),
             Command::CAP(Some(k), s, None, Some(p)) => write_cmd(f, "CAP", &[k, s.to_str(), p]),

@@ -152,18 +152,30 @@ pub enum Command {
     SAPART(String, String),
     /// `SAQUIT nick reason`
     SAQUIT(String, String),
-    /// NickServ shorthand
+    /// NickServ shorthand: `NICKSERV params...`
     NICKSERV(Vec<String>),
-    /// ChanServ shorthand
-    CHANSERV(String),
-    /// OperServ shorthand
-    OPERSERV(String),
-    /// BotServ shorthand
-    BOTSERV(String),
-    /// HostServ shorthand
-    HOSTSERV(String),
-    /// MemoServ shorthand
-    MEMOSERV(String),
+    /// ChanServ shorthand: `CHANSERV params...`
+    CHANSERV(Vec<String>),
+    /// OperServ shorthand: `OPERSERV params...`
+    OPERSERV(Vec<String>),
+    /// BotServ shorthand: `BOTSERV params...`
+    BOTSERV(Vec<String>),
+    /// HostServ shorthand: `HOSTSERV params...`
+    HOSTSERV(Vec<String>),
+    /// MemoServ shorthand: `MEMOSERV params...`
+    MEMOSERV(Vec<String>),
+    /// NickServ alias: `NS params...`
+    NS(Vec<String>),
+    /// ChanServ alias: `CS params...`
+    CS(Vec<String>),
+    /// OperServ alias: `OS params...`
+    OS(Vec<String>),
+    /// BotServ alias: `BS params...`
+    BS(Vec<String>),
+    /// HostServ alias: `HS params...`
+    HS(Vec<String>),
+    /// MemoServ alias: `MS params...`
+    MS(Vec<String>),
 
     // === IRCv3 Extensions ===
     /// `CAP [target] subcommand [params] [capabilities]`

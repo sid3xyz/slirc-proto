@@ -739,3 +739,163 @@ mod edge_cases {
         assert_eq!(msg.arg(1), Some(":"));
     }
 }
+
+// =============================================================================
+// SERVICE COMMANDS AND ALIASES
+// =============================================================================
+
+mod service_commands {
+    use super::*;
+
+    #[test]
+    fn test_nickserv_single_arg() {
+        let msg: Message = "NICKSERV IDENTIFY".parse().unwrap();
+        match msg.command {
+            Command::NICKSERV(args) => {
+                assert_eq!(args, vec!["IDENTIFY"]);
+            }
+            other => panic!("Expected NICKSERV, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_nickserv_multiple_args() {
+        let msg: Message = "NICKSERV IDENTIFY mypassword".parse().unwrap();
+        match msg.command {
+            Command::NICKSERV(args) => {
+                assert_eq!(args, vec!["IDENTIFY", "mypassword"]);
+            }
+            other => panic!("Expected NICKSERV, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_chanserv_multiple_args() {
+        let msg: Message = "CHANSERV OP #channel nick".parse().unwrap();
+        match msg.command {
+            Command::CHANSERV(args) => {
+                assert_eq!(args, vec!["OP", "#channel", "nick"]);
+            }
+            other => panic!("Expected CHANSERV, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_ns_alias() {
+        let msg: Message = "NS IDENTIFY mypassword".parse().unwrap();
+        match msg.command {
+            Command::NS(args) => {
+                assert_eq!(args, vec!["IDENTIFY", "mypassword"]);
+            }
+            other => panic!("Expected NS, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_cs_alias() {
+        let msg: Message = "CS OP #channel nick".parse().unwrap();
+        match msg.command {
+            Command::CS(args) => {
+                assert_eq!(args, vec!["OP", "#channel", "nick"]);
+            }
+            other => panic!("Expected CS, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_os_alias() {
+        let msg: Message = "OS GLOBAL :Server maintenance at 3 PM".parse().unwrap();
+        match msg.command {
+            Command::OS(args) => {
+                assert_eq!(args, vec!["GLOBAL", "Server maintenance at 3 PM"]);
+            }
+            other => panic!("Expected OS, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_ms_alias() {
+        let msg: Message = "MS SEND nick :Hello there!".parse().unwrap();
+        match msg.command {
+            Command::MS(args) => {
+                assert_eq!(args, vec!["SEND", "nick", "Hello there!"]);
+            }
+            other => panic!("Expected MS, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_hs_alias() {
+        let msg: Message = "HS ON".parse().unwrap();
+        match msg.command {
+            Command::HS(args) => {
+                assert_eq!(args, vec!["ON"]);
+            }
+            other => panic!("Expected HS, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_bs_alias() {
+        let msg: Message = "BS ASSIGN #channel BotName".parse().unwrap();
+        match msg.command {
+            Command::BS(args) => {
+                assert_eq!(args, vec!["ASSIGN", "#channel", "BotName"]);
+            }
+            other => panic!("Expected BS, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_service_commands_roundtrip() {
+        let test_cases = vec![
+            "NICKSERV IDENTIFY password",
+            "CHANSERV OP #channel nick",
+            "OPERSERV GLOBAL :Hello everyone",
+            "BOTSERV ASSIGN #channel Bot",
+            "HOSTSERV ON",
+            "MEMOSERV SEND nick :Hello",
+            "NS IDENTIFY password",
+            "CS OP #channel nick",
+            "OS GLOBAL :Hello everyone",
+            "BS ASSIGN #channel Bot",
+            "HS ON",
+            "MS SEND nick :Hello",
+        ];
+
+        for original in test_cases {
+            let message: Message = original
+                .parse()
+                .unwrap_or_else(|e| panic!("Failed to parse '{}': {}", original, e));
+            let serialized = message.to_string();
+            let reparsed: Message = serialized
+                .parse()
+                .unwrap_or_else(|e| panic!("Failed to reparse '{}': {}", serialized, e));
+            assert_eq!(message, reparsed, "Round-trip failed for '{}'", original);
+        }
+    }
+
+    #[test]
+    fn test_service_aliases_case_insensitive() {
+        // IRC commands are case-insensitive
+        let cases = vec![
+            ("ns identify", "NS"),
+            ("Ns identify", "NS"),
+            ("NS IDENTIFY", "NS"),
+            ("cs op #ch", "CS"),
+            ("Cs op #ch", "CS"),
+        ];
+
+        for (input, expected_cmd) in cases {
+            let msg: Message = input.parse().unwrap();
+            let serialized = msg.to_string();
+            assert!(
+                serialized.starts_with(expected_cmd),
+                "Expected '{}' to serialize starting with '{}', got '{}'",
+                input,
+                expected_cmd,
+                serialized
+            );
+        }
+    }
+}
