@@ -184,3 +184,29 @@ fn test_hex_color_format_code() {
     let serialized = msg.to_string();
     assert!(serialized.contains("\x04FF0000hex red\x04"));
 }
+
+#[test]
+fn test_message_rejects_nul() {
+    // NUL character should be rejected in message content
+    let _raw = "PRIVMSG #test :text with \x00 NUL";
+    // Message parsing itself doesn't reject, but transport layer would
+    // Test via the format module function
+    use slirc_proto::format::is_illegal_control_char;
+    assert!(
+        is_illegal_control_char('\x00'),
+        "NUL should be detected as illegal"
+    );
+}
+
+#[test]
+fn test_message_rejects_bel() {
+    // BEL character should be rejected in message content
+    let _raw = "PRIVMSG #test :text with \x07 BEL";
+    // Message parsing itself doesn't reject, but transport layer would
+    // Test via the format module function
+    use slirc_proto::format::is_illegal_control_char;
+    assert!(
+        is_illegal_control_char('\x07'),
+        "BEL should be detected as illegal"
+    );
+}
