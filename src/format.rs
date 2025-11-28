@@ -13,7 +13,7 @@
 //! - Hex color (0x04)
 //! - Reset (0x0F)
 //! - Monospace (0x11)
-//! - Reverse/Italic legacy (0x16)
+//! - Reverse (0x16)
 //! - Italic (0x1D)
 //! - Strikethrough (0x1E)
 //! - Underline (0x1F)
@@ -34,7 +34,7 @@ pub const IRC_FORMAT_CODES: &[char] = &[
     '\x04', // Hex color
     '\x0F', // Reset
     '\x11', // Monospace
-    '\x16', // Reverse/Italic (legacy)
+    '\x16', // Reverse
     '\x1D', // Italic
     '\x1E', // Strikethrough
     '\x1F', // Underline
