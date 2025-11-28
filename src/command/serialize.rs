@@ -206,6 +206,14 @@ impl fmt::Display for Command {
             Command::SANICK(o, n) => write_cmd(f, "SANICK", &[o, n]),
             Command::SAPART(c, r) => write_cmd(f, "SAPART", &[c, r]),
             Command::SAQUIT(c, r) => write_cmd(f, "SAQUIT", &[c, r]),
+            Command::KLINE(Some(t), m, r) => write_cmd_freeform(f, "KLINE", &[t, m, r]),
+            Command::KLINE(None, m, r) => write_cmd_freeform(f, "KLINE", &[m, r]),
+            Command::DLINE(Some(t), h, r) => write_cmd_freeform(f, "DLINE", &[t, h, r]),
+            Command::DLINE(None, h, r) => write_cmd_freeform(f, "DLINE", &[h, r]),
+            Command::UNKLINE(m) => write_cmd(f, "UNKLINE", &[m]),
+            Command::UNDLINE(h) => write_cmd(f, "UNDLINE", &[h]),
+            Command::KNOCK(c, Some(m)) => write_cmd_freeform(f, "KNOCK", &[c, m]),
+            Command::KNOCK(c, None) => write_cmd(f, "KNOCK", &[c]),
             Command::NICKSERV(p) => {
                 // Write directly to avoid Vec allocation
                 f.write_str("NICKSERV")?;

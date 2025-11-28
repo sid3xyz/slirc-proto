@@ -127,6 +127,20 @@ pub enum Command {
     /// `ISON nicknames...`
     ISON(Vec<String>),
 
+    // === Operator Ban Commands ===
+    /// `KLINE [time] user@host :reason`
+    KLINE(Option<String>, String, String),
+    /// `DLINE [time] host :reason`
+    DLINE(Option<String>, String, String),
+    /// `UNKLINE user@host`
+    UNKLINE(String),
+    /// `UNDLINE host`
+    UNDLINE(String),
+
+    // === Channel Extension Commands ===
+    /// `KNOCK channel [:message]`
+    KNOCK(String, Option<String>),
+
     // === Services Commands (common extensions) ===
     /// `SAJOIN nick channel`
     SAJOIN(String, String),

@@ -32,7 +32,8 @@ impl Command {
             "PRIVMSG" | "NOTICE" | "PING" | "PONG" | "ERROR" | "AWAY" | "REHASH" | "DIE"
             | "RESTART" | "SUMMON" | "USERS" | "WALLOPS" | "USERHOST" | "ISON" | "KILL"
             | "SAJOIN" | "SAMODE" | "SANICK" | "SAPART" | "SAQUIT" | "NICKSERV" | "CHANSERV"
-            | "OPERSERV" | "BOTSERV" | "HOSTSERV" | "MEMOSERV" => messaging::parse(cmd_str, args),
+            | "OPERSERV" | "BOTSERV" | "HOSTSERV" | "MEMOSERV" | "KLINE" | "DLINE" | "UNKLINE"
+            | "UNDLINE" | "KNOCK" => messaging::parse(cmd_str, args),
 
             "CAP" | "AUTHENTICATE" | "ACCOUNT" | "BATCH" | "CHGHOST" | "SETNAME" | "MONITOR"
             | "TAGMSG" | "WEBIRC" | "CHATHISTORY" => ircv3::parse(cmd_str, args),

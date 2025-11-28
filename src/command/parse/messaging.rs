@@ -156,6 +156,69 @@ pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseE
             }
         }
 
+        // KLINE [time] user@host :reason
+        // With 2 args: mask, reason (no time)
+        // With 3 args: time, mask, reason
+        "KLINE" => {
+            if args.len() == 2 {
+                Command::KLINE(None, args[0].to_owned(), args[1].to_owned())
+            } else if args.len() == 3 {
+                Command::KLINE(
+                    Some(args[0].to_owned()),
+                    args[1].to_owned(),
+                    args[2].to_owned(),
+                )
+            } else {
+                raw(cmd, args)
+            }
+        }
+
+        // DLINE [time] host :reason
+        // With 2 args: host, reason (no time)
+        // With 3 args: time, host, reason
+        "DLINE" => {
+            if args.len() == 2 {
+                Command::DLINE(None, args[0].to_owned(), args[1].to_owned())
+            } else if args.len() == 3 {
+                Command::DLINE(
+                    Some(args[0].to_owned()),
+                    args[1].to_owned(),
+                    args[2].to_owned(),
+                )
+            } else {
+                raw(cmd, args)
+            }
+        }
+
+        // UNKLINE user@host
+        "UNKLINE" => {
+            if args.len() != 1 {
+                raw(cmd, args)
+            } else {
+                Command::UNKLINE(args[0].to_owned())
+            }
+        }
+
+        // UNDLINE host
+        "UNDLINE" => {
+            if args.len() != 1 {
+                raw(cmd, args)
+            } else {
+                Command::UNDLINE(args[0].to_owned())
+            }
+        }
+
+        // KNOCK channel [:message]
+        "KNOCK" => {
+            if args.is_empty() || args.len() > 2 {
+                raw(cmd, args)
+            } else if args.len() == 1 {
+                Command::KNOCK(args[0].to_owned(), None)
+            } else {
+                Command::KNOCK(args[0].to_owned(), Some(args[1].to_owned()))
+            }
+        }
+
         "NICKSERV" => Command::NICKSERV(args.into_iter().map(|s| s.to_owned()).collect()),
         "CHANSERV" => Command::CHANSERV(args.into_iter().map(|s| s.to_owned()).collect()),
         "OPERSERV" => Command::OPERSERV(args.into_iter().map(|s| s.to_owned()).collect()),
