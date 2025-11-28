@@ -17,6 +17,13 @@ pub trait ModeType: fmt::Display + fmt::Debug + Clone + PartialEq {
     /// Returns true if this mode takes an argument when set.
     fn takes_arg(&self) -> bool;
 
+    /// Returns true if this is a Type A (list) mode that can be queried without an argument.
+    ///
+    /// Per RFC 2812 and Modern IRC docs, list modes (ban, exception, invite-exception)
+    /// may be issued without an argument to query the current list contents.
+    /// For example, `MODE #channel +b` queries the ban list.
+    fn is_list_mode(&self) -> bool;
+
     /// Parse a mode character into its typed representation.
     fn from_char(c: char) -> Self;
 }
@@ -55,6 +62,10 @@ pub enum UserMode {
 impl ModeType for UserMode {
     fn takes_arg(&self) -> bool {
         false // User modes don't take arguments
+    }
+
+    fn is_list_mode(&self) -> bool {
+        false // User modes are not list modes
     }
 
     fn from_char(c: char) -> Self {
@@ -160,6 +171,14 @@ impl ModeType for ChannelMode {
                 | Self::Oper
                 | Self::Halfop
                 | Self::Voice
+        )
+    }
+
+    fn is_list_mode(&self) -> bool {
+        // Type A modes per Modern IRC docs - can be queried without argument
+        matches!(
+            self,
+            Self::Ban | Self::Exception | Self::InviteException | Self::Quiet
         )
     }
 

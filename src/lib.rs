@@ -63,6 +63,7 @@ pub mod caps;
 pub mod chan;
 pub mod colors;
 pub mod command;
+pub mod compliance;
 pub mod ctcp;
 pub mod error;
 #[cfg(feature = "tokio")]
@@ -82,6 +83,7 @@ pub use self::colors::FormattedStringExt;
 pub use self::command::{
     BatchSubCommand, CapSubCommand, ChatHistorySubCommand, Command, MessageReference,
 };
+pub use self::compliance::{check_compliance, ComplianceConfig, ComplianceError};
 pub use self::ctcp::{Ctcp, CtcpKind, CtcpOwned};
 
 pub use self::command::CommandRef;
