@@ -296,10 +296,7 @@ fn demo_isupport_parsing() {
     if let Some(prefix) = PrefixSpec::parse("(qaohv)~&@%+") {
         println!("  PREFIX modes: {}", prefix.modes);
         println!("  is_prefix_mode('q'): {}", prefix.is_prefix_mode('q'));
-        println!(
-            "  prefix_for_mode('q'): {:?}",
-            prefix.prefix_for_mode('q')
-        );
+        println!("  prefix_for_mode('q'): {:?}", prefix.prefix_for_mode('q'));
         println!("  → 'q' IS a prefix mode with ~ symbol (Founder)");
     }
 

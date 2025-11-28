@@ -18,7 +18,6 @@ use crate::error;
 /// Line-based codec that handles newline-terminated messages.
 ///
 /// By default, lines are limited to 512 bytes (IRC standard).
-#[derive(Clone, Debug)]
 pub struct LineCodec {
     #[cfg(feature = "encoding")]
     encoding: &'static Encoding,

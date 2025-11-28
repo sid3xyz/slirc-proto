@@ -97,7 +97,11 @@ async fn handle_connection(
                         processor.process_message_ref(&msg_ref);
 
                         // For logging, use Debug since MessageRef doesn't impl Display
-                        println!("← {} {}", msg_ref.command.name, msg_ref.command.args.join(" "));
+                        println!(
+                            "← {} {}",
+                            msg_ref.command.name,
+                            msg_ref.command.args.join(" ")
+                        );
 
                         // If you need to keep the message, you can convert to owned:
                         // let owned: Message = msg_ref.to_owned();
@@ -126,7 +130,8 @@ async fn handle_connection(
 
 /// Demonstrates the difference between owned and zero-copy parsing
 fn compare_parsing_approaches() {
-    let raw = "@time=2023-01-01T12:00:00Z;msgid=abc123 :nick!user@host PRIVMSG #channel :Hello, world!";
+    let raw =
+        "@time=2023-01-01T12:00:00Z;msgid=abc123 :nick!user@host PRIVMSG #channel :Hello, world!";
 
     // Approach 1: Owned parsing (allocates)
     let owned: Message = raw.parse().unwrap();
