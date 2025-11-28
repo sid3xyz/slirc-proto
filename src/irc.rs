@@ -51,7 +51,7 @@ impl IrcCodec {
 
         // Reject illegal control characters
         for ch in data.chars() {
-            if ch == '\0' || (ch.is_control() && ch != '\r' && ch != '\n') {
+            if crate::format::is_illegal_control_char(ch) {
                 return Err(error::ProtocolError::IllegalControlChar(ch));
             }
         }
