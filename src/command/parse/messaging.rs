@@ -225,6 +225,13 @@ pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseE
         "BOTSERV" => Command::BOTSERV(args.into_iter().map(|s| s.to_owned()).collect()),
         "HOSTSERV" => Command::HOSTSERV(args.into_iter().map(|s| s.to_owned()).collect()),
         "MEMOSERV" => Command::MEMOSERV(args.into_iter().map(|s| s.to_owned()).collect()),
+        // Service aliases
+        "NS" => Command::NS(args.into_iter().map(|s| s.to_owned()).collect()),
+        "CS" => Command::CS(args.into_iter().map(|s| s.to_owned()).collect()),
+        "OS" => Command::OS(args.into_iter().map(|s| s.to_owned()).collect()),
+        "BS" => Command::BS(args.into_iter().map(|s| s.to_owned()).collect()),
+        "HS" => Command::HS(args.into_iter().map(|s| s.to_owned()).collect()),
+        "MS" => Command::MS(args.into_iter().map(|s| s.to_owned()).collect()),
 
         _ => unreachable!(
             "messaging::parse called with non-messaging command: {}",
