@@ -111,6 +111,11 @@ pub use self::transport::{
     LendingStream, Transport, TransportReadError, WebSocketNotSupportedError, ZeroCopyTransport,
     ZeroCopyTransportEnum, MAX_IRC_LINE_LEN,
 };
+#[cfg(feature = "tokio")]
+pub use self::transport::{
+    TransportParts, TransportRead, TransportReadHalf, TransportStream, TransportWrite,
+    TransportWriteHalf,
+};
 
 #[cfg(feature = "tokio")]
 pub mod websocket;

@@ -27,6 +27,21 @@
 //!     let msg_ref = result?;
 //!     // Process MessageRef without allocations
 //! }
+//!
+//! // If you want to split the stream into separate read and write halves while
+//! // preserving any bytes that were already read by the framed codec, use
+//! // `Transport::into_parts()`:
+//! //
+//! // ```ignore
+//! // // After handshake
+//! // let parts = transport.into_parts()?;
+//! // // Split into read/write halves
+//! // let (read, write) = parts.split();
+//! // // Seed the zero-copy reader with leftover bytes
+//! // let mut zero_copy = ZeroCopyTransport::with_buffer(read.half, read.read_buf);
+//! // // Create a framed writer using the write half and codec
+//! // let mut writer = tokio_util::codec::FramedWrite::new(write.half, write.codec);
+//! // ```
 //! ```
 //!
 //! [`Message`]: crate::Message
@@ -94,6 +109,105 @@ pub enum Transport {
     },
 }
 
+/// A unified raw transport stream type for hand-off to users.
+#[non_exhaustive]
+pub enum TransportStream {
+    Tcp(TcpStream),
+    Tls(Box<TlsStream<TcpStream>>),
+    #[cfg(feature = "tokio")]
+    WebSocket(Box<WebSocketStream<TcpStream>>),
+    #[cfg(feature = "tokio")]
+    WebSocketTls(Box<WebSocketStream<TlsStream<TcpStream>>>),
+}
+
+/// The parts extracted from a `Transport`, including any buffered data
+/// that has already been read but not yet parsed.
+pub struct TransportParts {
+    pub stream: TransportStream,
+    pub read_buf: BytesMut,
+    pub write_buf: BytesMut,
+    // Keep the codec so it can be used to re-create framed writers if needed
+    pub codec: IrcCodec,
+}
+
+/// Owned read half for a transport after splitting.
+pub enum TransportReadHalf {
+    Tcp(tokio::net::tcp::OwnedReadHalf),
+    Tls(tokio::io::ReadHalf<TlsStream<TcpStream>>),
+}
+
+/// Owned write half for a transport after splitting.
+pub enum TransportWriteHalf {
+    Tcp(tokio::net::tcp::OwnedWriteHalf),
+    Tls(tokio::io::WriteHalf<TlsStream<TcpStream>>),
+}
+
+/// A convenience container for a split transport read side with any pre-seeded
+/// buffer loaded from the original framed transport.
+pub struct TransportRead {
+    pub half: TransportReadHalf,
+    pub read_buf: BytesMut,
+}
+
+/// A convenience container for a split transport write side including any
+/// write buffer and codec to reconstruct a framed writer.
+pub struct TransportWrite {
+    pub half: TransportWriteHalf,
+    pub write_buf: BytesMut,
+    pub codec: IrcCodec,
+}
+
+impl TransportParts {
+    /// Split the `TransportParts` into read & write halves suitable for
+    /// spawning separate tasks. The read half contains any leftover bytes
+    /// that were read but not yet parsed; the write half contains the
+    /// codec and write buffer allowing the caller to create a framed sink.
+    pub fn split(self) -> (TransportRead, TransportWrite) {
+        match self.stream {
+            TransportStream::Tcp(stream) => {
+                let (r, w) = stream.into_split();
+                (
+                    TransportRead {
+                        half: TransportReadHalf::Tcp(r),
+                        read_buf: self.read_buf,
+                    },
+                    TransportWrite {
+                        half: TransportWriteHalf::Tcp(w),
+                        write_buf: self.write_buf,
+                        codec: self.codec,
+                    },
+                )
+            }
+            TransportStream::Tls(stream) => {
+                // Unbox and split the TLS stream
+                let (r, w) = tokio::io::split(*stream);
+                (
+                    TransportRead {
+                        half: TransportReadHalf::Tls(r),
+                        read_buf: self.read_buf,
+                    },
+                    TransportWrite {
+                        half: TransportWriteHalf::Tls(w),
+                        write_buf: self.write_buf,
+                        codec: self.codec,
+                    },
+                )
+            }
+            #[cfg(feature = "tokio")]
+            TransportStream::WebSocket(_ws) => {
+                // WebSocket streams don't have a sensible split that maintains
+                // the line-based message semantics; return sink/stream halves.
+                // We intentionally panic here to make unsupported usage explicit.
+                panic!("WebSocket split not supported via TransportParts::split");
+            }
+            #[cfg(feature = "tokio")]
+            TransportStream::WebSocketTls(_ws) => {
+                panic!("WebSocketTls split not supported via TransportParts::split");
+            }
+        }
+    }
+}
+
 impl Transport {
     pub fn tcp(stream: TcpStream) -> Self {
         if let Err(e) = Self::enable_keepalive(&stream) {
@@ -136,6 +250,35 @@ impl Transport {
     #[cfg(feature = "tokio")]
     pub fn websocket_tls(stream: WebSocketStream<TlsStream<TcpStream>>) -> Self {
         Self::WebSocketTls { stream }
+    }
+
+    /// Consume the `Transport`, returning the underlying raw stream and any
+    /// buffered bytes that were read but not yet parsed. This is intended for
+    /// callers that want to take over I/O (for example to spawn a writer task)
+    /// while preserving any buffered data for a zero-copy reader.
+    pub fn into_parts(self) -> Result<TransportParts, WebSocketNotSupportedError> {
+        match self {
+            Transport::Tcp { framed } => {
+                let parts = framed.into_parts();
+                Ok(TransportParts {
+                    stream: TransportStream::Tcp(parts.io),
+                    read_buf: parts.read_buf,
+                    write_buf: parts.write_buf,
+                    codec: parts.codec,
+                })
+            }
+            Transport::Tls { framed } => {
+                let parts = framed.into_parts();
+                Ok(TransportParts {
+                    stream: TransportStream::Tls(Box::new(parts.io)),
+                    read_buf: parts.read_buf,
+                    write_buf: parts.write_buf,
+                    codec: parts.codec,
+                })
+            }
+            #[cfg(feature = "tokio")]
+            _ => Err(WebSocketNotSupportedError),
+        }
     }
 
     pub fn is_tls(&self) -> bool {
@@ -687,13 +830,14 @@ impl LendingStream for ZeroCopyTransportEnum {
 ///
 /// WebSocket transports cannot be converted to zero-copy because the
 /// WebSocket framing protocol requires different handling.
-pub struct WebSocketNotSupportedError(pub Transport);
+pub struct WebSocketNotSupportedError;
 
 impl std::fmt::Debug for WebSocketNotSupportedError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("WebSocketNotSupportedError")
-            .field("transport_type", &"WebSocket")
-            .finish()
+        writeln!(
+            f,
+            "WebSocket transport cannot be converted to zero-copy transport"
+        )
     }
 }
 
@@ -721,25 +865,19 @@ impl TryFrom<Transport> for ZeroCopyTransportEnum {
     /// Returns `Err(WebSocketNotSupportedError)` if the transport is a
     /// WebSocket variant, as WebSocket requires different framing.
     fn try_from(transport: Transport) -> Result<Self, Self::Error> {
-        match transport {
-            Transport::Tcp { framed } => {
-                let parts = framed.into_parts();
-                Ok(ZeroCopyTransportEnum::tcp_with_buffer(
-                    parts.io,
-                    parts.read_buf,
-                ))
+        let parts = transport.into_parts()?;
+        match parts.stream {
+            TransportStream::Tcp(io) => {
+                Ok(ZeroCopyTransportEnum::tcp_with_buffer(io, parts.read_buf))
             }
-            Transport::Tls { framed } => {
-                let parts = framed.into_parts();
-                Ok(ZeroCopyTransportEnum::tls_with_buffer(
-                    parts.io,
-                    parts.read_buf,
-                ))
+            TransportStream::Tls(io) => {
+                Ok(ZeroCopyTransportEnum::tls_with_buffer(*io, parts.read_buf))
             }
             #[cfg(feature = "tokio")]
-            t @ Transport::WebSocket { .. } => Err(WebSocketNotSupportedError(t)),
-            #[cfg(feature = "tokio")]
-            t @ Transport::WebSocketTls { .. } => Err(WebSocketNotSupportedError(t)),
+            _ => unreachable!("WebSocket transports cannot be converted to zero-copy"),
+            // WebSocket variants are already handled by `into_parts` returning
+            // a `WebSocketNotSupportedError` earlier, so we don't handle them
+            // here.
         }
     }
 }
@@ -940,5 +1078,108 @@ mod tests {
             }
             other => panic!("Expected UnexpectedEof error, got {:?}", other),
         }
+    }
+
+    #[tokio::test]
+    async fn test_into_parts_preserves_buffer() {
+        use tokio::io::AsyncWriteExt;
+        use tokio::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let client = async move {
+            let mut s = tokio::net::TcpStream::connect(addr).await.unwrap();
+            // Send both messages in a single write so the framed reader may read
+            // both and leave the second in the read buffer.
+            s.write_all(b"NICK test\r\nUSER test 0 * :Test\r\n")
+                .await
+                .unwrap();
+        };
+
+        let server = async move {
+            let (stream, _peer) = listener.accept().await.unwrap();
+            let mut transport = Transport::tcp(stream);
+
+            let msg = transport.read_message().await.unwrap().unwrap();
+            use crate::command::Command;
+            match msg.command {
+                Command::NICK(_) => {}
+                _ => panic!("Expected NICK command"),
+            }
+
+            let parts = transport.into_parts().unwrap();
+            // Ensure there is leftover data with USER
+            let leftover = std::str::from_utf8(&parts.read_buf).unwrap();
+            assert!(leftover.contains("USER "));
+        };
+
+        tokio::join!(client, server);
+    }
+
+    #[tokio::test]
+    async fn test_upgrade_split_zero_copy() {
+        use crate::command::Command;
+        use crate::message::Message;
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::net::TcpListener;
+        use tokio_util::codec::FramedWrite;
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let client = async move {
+            let mut s = tokio::net::TcpStream::connect(addr).await.unwrap();
+            s.write_all(b"NICK test\r\nUSER test 0 * :Test\r\n")
+                .await
+                .unwrap();
+
+            // Read response from server (writer) - the server will send a PRIVMSG
+            let mut buf = [0u8; 1024];
+            let n = s.read(&mut buf).await.unwrap();
+            let s = std::str::from_utf8(&buf[..n]).unwrap();
+            assert!(s.contains("PRIVMSG"));
+        };
+
+        let server = async move {
+            let (stream, _peer) = listener.accept().await.unwrap();
+            let mut transport = Transport::tcp(stream);
+
+            // Read first message (NICK)
+            let msg = transport.read_message().await.unwrap().unwrap();
+            match msg.command {
+                Command::NICK(_) => {}
+                _ => panic!("Expected NICK command"),
+            }
+
+            // Upgrade & split
+            let parts = transport.into_parts().unwrap();
+            let (read, write) = parts.split();
+
+            // Create zero-copy reader using the read half and read buffer
+            match read.half {
+                TransportReadHalf::Tcp(r) => {
+                    let mut zero = ZeroCopyTransport::with_buffer(r, read.read_buf);
+                    // For the purposes of this test, read next message (USER)
+                    let next_msg = zero.next().await.unwrap().unwrap();
+                    assert!(next_msg.is_numeric() || next_msg.command_name() != "");
+                }
+                _ => panic!("Expected Tcp read half"),
+            }
+
+            // For writer, send a PRIVMSG to the client
+            match write.half {
+                TransportWriteHalf::Tcp(w) => {
+                    let mut framed_write = FramedWrite::new(w, write.codec);
+                    framed_write
+                        .send(Message::privmsg("test", "Hello from server"))
+                        .await
+                        .unwrap();
+                }
+                _ => panic!("Expected Tcp write half"),
+            }
+        };
+
+        tokio::join!(client, server);
     }
 }
