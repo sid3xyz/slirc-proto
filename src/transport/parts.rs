@@ -6,7 +6,8 @@ use std::task::{Context, Poll};
 use bytes::BytesMut;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
-use tokio_rustls::server::TlsStream;
+use tokio_rustls::client::TlsStream as ClientTlsStream;
+use tokio_rustls::server::TlsStream as ServerTlsStream;
 
 use crate::irc::IrcCodec;
 
@@ -18,14 +19,16 @@ use tokio_tungstenite::WebSocketStream;
 pub enum TransportStream {
     /// Plain TCP stream.
     Tcp(TcpStream),
-    /// TLS stream (boxed for size).
-    Tls(Box<TlsStream<TcpStream>>),
+    /// Server-side TLS stream (boxed for size).
+    Tls(Box<ServerTlsStream<TcpStream>>),
+    /// Client-side TLS stream (boxed for size).
+    ClientTls(Box<ClientTlsStream<TcpStream>>),
     /// WebSocket stream (plain).
     #[cfg(feature = "tokio")]
     WebSocket(Box<WebSocketStream<TcpStream>>),
     /// WebSocket stream over TLS.
     #[cfg(feature = "tokio")]
-    WebSocketTls(Box<WebSocketStream<TlsStream<TcpStream>>>),
+    WebSocketTls(Box<WebSocketStream<ServerTlsStream<TcpStream>>>),
 }
 
 /// The parts extracted from a `Transport`, including any buffered data
@@ -45,16 +48,20 @@ pub struct TransportParts {
 pub enum TransportReadHalf {
     /// TCP read half.
     Tcp(tokio::net::tcp::OwnedReadHalf),
-    /// TLS read half.
-    Tls(tokio::io::ReadHalf<TlsStream<TcpStream>>),
+    /// Server-side TLS read half.
+    Tls(tokio::io::ReadHalf<ServerTlsStream<TcpStream>>),
+    /// Client-side TLS read half.
+    ClientTls(tokio::io::ReadHalf<ClientTlsStream<TcpStream>>),
 }
 
 /// Owned write half for a transport after splitting.
 pub enum TransportWriteHalf {
     /// TCP write half.
     Tcp(tokio::net::tcp::OwnedWriteHalf),
-    /// TLS write half.
-    Tls(tokio::io::WriteHalf<TlsStream<TcpStream>>),
+    /// Server-side TLS write half.
+    Tls(tokio::io::WriteHalf<ServerTlsStream<TcpStream>>),
+    /// Client-side TLS write half.
+    ClientTls(tokio::io::WriteHalf<ClientTlsStream<TcpStream>>),
 }
 
 impl AsyncRead for TransportReadHalf {
@@ -66,6 +73,7 @@ impl AsyncRead for TransportReadHalf {
         match self.get_mut() {
             Self::Tcp(inner) => Pin::new(inner).poll_read(cx, buf),
             Self::Tls(inner) => Pin::new(inner).poll_read(cx, buf),
+            Self::ClientTls(inner) => Pin::new(inner).poll_read(cx, buf),
         }
     }
 }
@@ -79,6 +87,7 @@ impl AsyncWrite for TransportWriteHalf {
         match self.get_mut() {
             Self::Tcp(inner) => Pin::new(inner).poll_write(cx, buf),
             Self::Tls(inner) => Pin::new(inner).poll_write(cx, buf),
+            Self::ClientTls(inner) => Pin::new(inner).poll_write(cx, buf),
         }
     }
 
@@ -86,6 +95,7 @@ impl AsyncWrite for TransportWriteHalf {
         match self.get_mut() {
             Self::Tcp(inner) => Pin::new(inner).poll_flush(cx),
             Self::Tls(inner) => Pin::new(inner).poll_flush(cx),
+            Self::ClientTls(inner) => Pin::new(inner).poll_flush(cx),
         }
     }
 
@@ -93,6 +103,7 @@ impl AsyncWrite for TransportWriteHalf {
         match self.get_mut() {
             Self::Tcp(inner) => Pin::new(inner).poll_shutdown(cx),
             Self::Tls(inner) => Pin::new(inner).poll_shutdown(cx),
+            Self::ClientTls(inner) => Pin::new(inner).poll_shutdown(cx),
         }
     }
 }
@@ -139,7 +150,7 @@ impl TransportParts {
                 )
             }
             TransportStream::Tls(stream) => {
-                // Unbox and split the TLS stream
+                // Unbox and split the server-side TLS stream
                 let (r, w) = tokio::io::split(*stream);
                 (
                     TransportRead {
@@ -148,6 +159,21 @@ impl TransportParts {
                     },
                     TransportWrite {
                         half: TransportWriteHalf::Tls(w),
+                        write_buf: self.write_buf,
+                        codec: self.codec,
+                    },
+                )
+            }
+            TransportStream::ClientTls(stream) => {
+                // Unbox and split the client-side TLS stream
+                let (r, w) = tokio::io::split(*stream);
+                (
+                    TransportRead {
+                        half: TransportReadHalf::ClientTls(r),
+                        read_buf: self.read_buf,
+                    },
+                    TransportWrite {
+                        half: TransportWriteHalf::ClientTls(w),
                         write_buf: self.write_buf,
                         codec: self.codec,
                     },

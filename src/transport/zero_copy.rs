@@ -10,7 +10,8 @@ use std::task::{Context, Poll};
 use bytes::{Buf, BytesMut};
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::net::TcpStream;
-use tokio_rustls::server::TlsStream;
+use tokio_rustls::client::TlsStream as ClientTlsStream;
+use tokio_rustls::server::TlsStream as ServerTlsStream;
 
 use crate::error::ProtocolError;
 use crate::message::MessageRef;
@@ -383,8 +384,10 @@ impl<S: AsyncRead + Unpin> LendingStream for ZeroCopyTransport<S> {
 pub enum ZeroCopyTransportEnum {
     /// TCP zero-copy transport.
     Tcp(ZeroCopyTransport<TcpStream>),
-    /// TLS zero-copy transport.
-    Tls(ZeroCopyTransport<TlsStream<TcpStream>>),
+    /// Server-side TLS zero-copy transport.
+    Tls(ZeroCopyTransport<ServerTlsStream<TcpStream>>),
+    /// Client-side TLS zero-copy transport.
+    ClientTls(ZeroCopyTransport<ClientTlsStream<TcpStream>>),
 }
 
 impl ZeroCopyTransportEnum {
@@ -398,14 +401,24 @@ impl ZeroCopyTransportEnum {
         Self::Tcp(ZeroCopyTransport::with_buffer(stream, buffer))
     }
 
-    /// Create a new TLS zero-copy transport.
-    pub fn tls(stream: TlsStream<TcpStream>) -> Self {
+    /// Create a new server-side TLS zero-copy transport.
+    pub fn tls(stream: ServerTlsStream<TcpStream>) -> Self {
         Self::Tls(ZeroCopyTransport::new(stream))
     }
 
-    /// Create a new TLS zero-copy transport with an existing buffer.
-    pub fn tls_with_buffer(stream: TlsStream<TcpStream>, buffer: BytesMut) -> Self {
+    /// Create a new server-side TLS zero-copy transport with an existing buffer.
+    pub fn tls_with_buffer(stream: ServerTlsStream<TcpStream>, buffer: BytesMut) -> Self {
         Self::Tls(ZeroCopyTransport::with_buffer(stream, buffer))
+    }
+
+    /// Create a new client-side TLS zero-copy transport.
+    pub fn client_tls(stream: ClientTlsStream<TcpStream>) -> Self {
+        Self::ClientTls(ZeroCopyTransport::new(stream))
+    }
+
+    /// Create a new client-side TLS zero-copy transport with an existing buffer.
+    pub fn client_tls_with_buffer(stream: ClientTlsStream<TcpStream>, buffer: BytesMut) -> Self {
+        Self::ClientTls(ZeroCopyTransport::with_buffer(stream, buffer))
     }
 
     /// Read the next message from the transport.
@@ -413,6 +426,7 @@ impl ZeroCopyTransportEnum {
         match self {
             Self::Tcp(t) => t.next().await,
             Self::Tls(t) => t.next().await,
+            Self::ClientTls(t) => t.next().await,
         }
     }
 }
@@ -431,6 +445,7 @@ impl LendingStream for ZeroCopyTransportEnum {
         match self.get_mut() {
             Self::Tcp(t) => Pin::new(t).poll_next(cx),
             Self::Tls(t) => Pin::new(t).poll_next(cx),
+            Self::ClientTls(t) => Pin::new(t).poll_next(cx),
         }
     }
 }
@@ -460,6 +475,10 @@ impl TryFrom<Transport> for ZeroCopyTransportEnum {
             TransportStream::Tls(io) => {
                 Ok(ZeroCopyTransportEnum::tls_with_buffer(*io, parts.read_buf))
             }
+            TransportStream::ClientTls(io) => Ok(ZeroCopyTransportEnum::client_tls_with_buffer(
+                *io,
+                parts.read_buf,
+            )),
             #[cfg(feature = "tokio")]
             _ => unreachable!("WebSocket transports cannot be converted to zero-copy"),
             // WebSocket variants are already handled by `into_parts` returning

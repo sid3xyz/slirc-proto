@@ -3,7 +3,8 @@
 use anyhow::Result;
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
-use tokio_rustls::server::TlsStream;
+use tokio_rustls::client::TlsStream as ClientTlsStream;
+use tokio_rustls::server::TlsStream as ServerTlsStream;
 use tokio_util::codec::Framed;
 use tracing::warn;
 
@@ -31,10 +32,19 @@ pub enum Transport {
         /// The framed codec for TCP.
         framed: Framed<tokio::net::TcpStream, IrcCodec>,
     },
-    /// TLS-encrypted transport.
+    /// Server-side TLS-encrypted transport.
+    ///
+    /// Use this for IRC servers accepting TLS connections.
     Tls {
-        /// The framed codec for TLS.
-        framed: Framed<TlsStream<TcpStream>, IrcCodec>,
+        /// The framed codec for server-side TLS.
+        framed: Framed<ServerTlsStream<TcpStream>, IrcCodec>,
+    },
+    /// Client-side TLS-encrypted transport.
+    ///
+    /// Use this for IRC clients connecting to TLS-enabled servers.
+    ClientTls {
+        /// The framed codec for client-side TLS.
+        framed: Framed<ClientTlsStream<TcpStream>, IrcCodec>,
     },
     /// WebSocket transport (plain).
     #[cfg(feature = "tokio")]
@@ -46,7 +56,7 @@ pub enum Transport {
     #[cfg(feature = "tokio")]
     WebSocketTls {
         /// The TLS WebSocket stream.
-        stream: WebSocketStream<TlsStream<TcpStream>>,
+        stream: WebSocketStream<ServerTlsStream<TcpStream>>,
     },
 }
 
@@ -107,15 +117,44 @@ impl Transport {
         Ok(())
     }
 
-    /// Create a new TLS transport from an established TLS stream.
+    /// Create a new server-side TLS transport from an established TLS stream.
+    ///
+    /// This is typically used by IRC servers accepting incoming TLS connections.
     ///
     /// # Errors
     ///
     /// Returns an error if the UTF-8 codec cannot be created (should not happen
     /// in practice, but avoids panicking in library code).
-    pub fn tls(stream: TlsStream<TcpStream>) -> Result<Self, ProtocolError> {
+    pub fn tls(stream: ServerTlsStream<TcpStream>) -> Result<Self, ProtocolError> {
         let codec = IrcCodec::new("utf-8")?;
         Ok(Self::Tls {
+            framed: Framed::new(stream, codec),
+        })
+    }
+
+    /// Create a new client-side TLS transport from an established TLS stream.
+    ///
+    /// This is typically used by IRC clients connecting to TLS-enabled servers.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use slirc_proto::transport::Transport;
+    /// use tokio_rustls::TlsConnector;
+    /// use tokio::net::TcpStream;
+    ///
+    /// let tcp_stream = TcpStream::connect("irc.libera.chat:6697").await?;
+    /// let tls_stream = connector.connect(server_name, tcp_stream).await?;
+    /// let transport = Transport::client_tls(tls_stream)?;
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the UTF-8 codec cannot be created (should not happen
+    /// in practice, but avoids panicking in library code).
+    pub fn client_tls(stream: ClientTlsStream<TcpStream>) -> Result<Self, ProtocolError> {
+        let codec = IrcCodec::new("utf-8")?;
+        Ok(Self::ClientTls {
             framed: Framed::new(stream, codec),
         })
     }
@@ -128,7 +167,7 @@ impl Transport {
 
     /// Create a new WebSocket transport over TLS.
     #[cfg(feature = "tokio")]
-    pub fn websocket_tls(stream: WebSocketStream<TlsStream<TcpStream>>) -> Self {
+    pub fn websocket_tls(stream: WebSocketStream<ServerTlsStream<TcpStream>>) -> Self {
         Self::WebSocketTls { stream }
     }
 
@@ -156,13 +195,32 @@ impl Transport {
                     codec: parts.codec,
                 })
             }
+            Transport::ClientTls { framed } => {
+                let parts = framed.into_parts();
+                Ok(TransportParts {
+                    stream: TransportStream::ClientTls(Box::new(parts.io)),
+                    read_buf: parts.read_buf,
+                    write_buf: parts.write_buf,
+                    codec: parts.codec,
+                })
+            }
             #[cfg(feature = "tokio")]
             _ => Err(WebSocketNotSupportedError),
         }
     }
 
-    /// Check if this transport uses TLS encryption.
+    /// Check if this transport uses TLS encryption (either server or client).
     pub fn is_tls(&self) -> bool {
+        matches!(self, Self::Tls { .. } | Self::ClientTls { .. })
+    }
+
+    /// Check if this transport uses client-side TLS.
+    pub fn is_client_tls(&self) -> bool {
+        matches!(self, Self::ClientTls { .. })
+    }
+
+    /// Check if this transport uses server-side TLS.
+    pub fn is_server_tls(&self) -> bool {
         matches!(self, Self::Tls { .. })
     }
 
@@ -208,6 +266,7 @@ impl Transport {
         match self {
             Transport::Tcp { framed } => read_framed!(framed),
             Transport::Tls { framed } => read_framed!(framed),
+            Transport::ClientTls { framed } => read_framed!(framed),
             #[cfg(feature = "tokio")]
             Transport::WebSocket { stream } => read_websocket!(stream),
             #[cfg(feature = "tokio")]
@@ -229,6 +288,7 @@ impl Transport {
         match self {
             Transport::Tcp { framed } => write_framed!(framed, message),
             Transport::Tls { framed } => write_framed!(framed, message),
+            Transport::ClientTls { framed } => write_framed!(framed, message),
             #[cfg(feature = "tokio")]
             Transport::WebSocket { stream } => {
                 write_websocket_message(stream, &message.to_string()).await
