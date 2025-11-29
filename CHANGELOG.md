@@ -7,12 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **SASL helpers made public** - The following SASL utilities are now part of the public API:
+  - `SASL_CHUNK_SIZE` - Maximum chunk size constant (400 bytes)
+  - `parse_mechanisms()` - Parse mechanism list from RPL_SASLMECHS (908)
+  - `choose_mechanism()` - Select best mechanism from available list
+  - `encode_plain_with_authzid()` - PLAIN encoding with explicit authorization identity
+  - `chunk_response()` - Split long responses into chunks
+  - `needs_chunking()` - Check if response needs chunking
+  - `decode_base64()` - Decode SASL challenges/responses
+
 ### Changed (Internal)
 
 - Refactored `parse_message` in `src/message/nom_parser.rs`: extracted parameter parsing into `parse_params` helper
 - Refactored `parse_modes` in `src/mode/parse.rs`: extracted argument resolution into `resolve_mode_arg` helper
 - Simplified `src/command/parse/channel.rs`: replaced repetitive `if/else` chains with `match` expressions and `arg_opt` helper
 - Extracted `parse_mode_command` helper in `src/command/parse/mod.rs` for cleaner dispatcher
+
+### Fixed
+- Fixed `#[deprecated(since = "1.2.0")]` on `ERR_ALREADYREGISTRED` alias to correctly use `"1.1.0"`
 
 ### Note for Server Team
 

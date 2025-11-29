@@ -466,7 +466,7 @@ pub enum Response {
 ///
 /// The original RFC 1459/2812 used the typo'd spelling "ALREADYREGISTRED".
 /// Modern IRC documentation uses the correct spelling "ALREADYREGISTERED".
-#[deprecated(since = "1.2.0", note = "use ERR_ALREADYREGISTERED (correct spelling)")]
+#[deprecated(since = "1.1.0", note = "use ERR_ALREADYREGISTERED (correct spelling)")]
 pub const ERR_ALREADYREGISTRED: Response = Response::ERR_ALREADYREGISTERED;
 
 impl Response {

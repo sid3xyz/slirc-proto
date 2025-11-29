@@ -32,8 +32,7 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 ///
 /// SASL responses that exceed this length must be split into multiple
 /// AUTHENTICATE commands.
-#[allow(dead_code)] // Used in tests; available for internal use
-pub(crate) const SASL_CHUNK_SIZE: usize = 400;
+pub const SASL_CHUNK_SIZE: usize = 400;
 
 /// Supported SASL authentication mechanisms.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -85,8 +84,7 @@ impl std::fmt::Display for SaslMechanism {
 /// Parse a list of mechanisms from a server's `RPL_SASLMECHS` (908) response.
 ///
 /// The mechanisms are typically comma-separated.
-#[allow(dead_code)] // Used in tests; available for internal use
-pub(crate) fn parse_mechanisms(list: &str) -> Vec<SaslMechanism> {
+pub fn parse_mechanisms(list: &str) -> Vec<SaslMechanism> {
     list.split(',')
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
@@ -97,8 +95,7 @@ pub(crate) fn parse_mechanisms(list: &str) -> Vec<SaslMechanism> {
 /// Choose the best supported mechanism from a list.
 ///
 /// Preference order: EXTERNAL > SCRAM-SHA-256 > PLAIN
-#[allow(dead_code)] // Used in tests; available for internal use
-pub(crate) fn choose_mechanism(available: &[SaslMechanism]) -> Option<SaslMechanism> {
+pub fn choose_mechanism(available: &[SaslMechanism]) -> Option<SaslMechanism> {
     // Prefer EXTERNAL (certificate-based) over password-based
     if available.contains(&SaslMechanism::External) {
         return Some(SaslMechanism::External);
@@ -154,8 +151,7 @@ pub fn encode_plain(username: &str, password: &str) -> String {
 /// * `authzid` - The authorization identity (who to act as)
 /// * `authcid` - The authentication identity (who is authenticating)
 /// * `password` - The password
-#[allow(dead_code)] // Used in tests; available for internal use
-pub(crate) fn encode_plain_with_authzid(authzid: &str, authcid: &str, password: &str) -> String {
+pub fn encode_plain_with_authzid(authzid: &str, authcid: &str, password: &str) -> String {
     let payload = format!("{}\0{}\0{}", authzid, authcid, password);
     BASE64.encode(payload.as_bytes())
 }
@@ -179,8 +175,7 @@ pub fn encode_external(authzid: Option<&str>) -> String {
 ///
 /// IRC SASL requires responses longer than 400 bytes to be split
 /// across multiple AUTHENTICATE commands.
-#[allow(dead_code)] // Used in tests; available for internal use
-pub(crate) fn chunk_response(encoded: &str) -> impl Iterator<Item = &str> {
+pub fn chunk_response(encoded: &str) -> impl Iterator<Item = &str> {
     encoded.as_bytes().chunks(SASL_CHUNK_SIZE).map(|chunk| {
         // Safe because base64 is always ASCII
         std::str::from_utf8(chunk).unwrap()
@@ -189,8 +184,7 @@ pub(crate) fn chunk_response(encoded: &str) -> impl Iterator<Item = &str> {
 
 /// Check if a SASL response needs chunking.
 #[inline]
-#[allow(dead_code)] // Used in tests; available for internal use
-pub(crate) fn needs_chunking(encoded: &str) -> bool {
+pub fn needs_chunking(encoded: &str) -> bool {
     encoded.len() > SASL_CHUNK_SIZE
 }
 
@@ -199,8 +193,7 @@ pub(crate) fn needs_chunking(encoded: &str) -> bool {
 /// # Returns
 ///
 /// The decoded bytes, or an error if decoding fails.
-#[allow(dead_code)] // Used in tests; available for internal use
-pub(crate) fn decode_base64(encoded: &str) -> Result<Vec<u8>, base64::DecodeError> {
+pub fn decode_base64(encoded: &str) -> Result<Vec<u8>, base64::DecodeError> {
     if encoded == "+" {
         return Ok(Vec::new());
     }

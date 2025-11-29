@@ -97,7 +97,11 @@ pub use self::mode::{ChannelMode, Mode, UserMode};
 pub use self::prefix::Prefix;
 pub use self::prefix::PrefixRef;
 pub use self::response::Response;
-pub use self::sasl::{encode_external, encode_plain, SaslMechanism, SaslState};
+pub use self::sasl::{
+    choose_mechanism, chunk_response, decode_base64, encode_external, encode_plain,
+    encode_plain_with_authzid, needs_chunking, parse_mechanisms, SaslMechanism, SaslState,
+    SASL_CHUNK_SIZE,
+};
 
 pub mod casemap;
 pub use self::casemap::{irc_eq, irc_lower_char, irc_to_lower};
