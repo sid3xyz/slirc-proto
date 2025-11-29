@@ -21,8 +21,22 @@ pub enum ProtocolError {
     Decode(#[from] std::string::FromUtf8Error),
 
     /// Message exceeded maximum allowed length.
-    #[error("message too long: {0} bytes")]
-    MessageTooLong(usize),
+    #[error("message too long: {actual} bytes (limit: {limit})" )]
+    MessageTooLong {
+        /// Actual message length.
+        actual: usize,
+        /// Maximum allowed length.
+        limit: usize,
+    },
+
+    /// Tags section exceeded maximum allowed length.
+    #[error("tags too long: {actual} bytes (limit: {limit})")]
+    TagsTooLong {
+        /// Actual tags length.
+        actual: usize,
+        /// Maximum allowed length.
+        limit: usize,
+    },
 
     /// Illegal control character in message.
     #[error("illegal control character: {0:?}")]
@@ -95,6 +109,23 @@ pub enum MessageParseError {
     #[error("invalid prefix: {0}")]
     InvalidPrefix(String),
 
+    /// Invalid character at specific position.
+    #[error("invalid character {byte:#04x} at position {position}")]
+    InvalidCharacterAt {
+        /// The invalid byte value.
+        byte: u8,
+        /// Position in the message.
+        position: usize,
+    },
+
+    /// Tags section was not properly terminated.
+    #[error("unterminated tags section")]
+    UnterminatedTags,
+
+    /// Origin/prefix was not properly terminated.
+    #[error("unterminated origin/prefix")]
+    UnterminatedOrigin,
+
     /// Parsing error with detailed context information.
     #[error("parsing failed at position {position}: {context}")]
     ParseContext {
@@ -139,6 +170,14 @@ impl Clone for MessageParseError {
                 }
             }
             MessageParseError::InvalidPrefix(s) => MessageParseError::InvalidPrefix(s.clone()),
+            MessageParseError::InvalidCharacterAt { byte, position } => {
+                MessageParseError::InvalidCharacterAt {
+                    byte: *byte,
+                    position: *position,
+                }
+            }
+            MessageParseError::UnterminatedTags => MessageParseError::UnterminatedTags,
+            MessageParseError::UnterminatedOrigin => MessageParseError::UnterminatedOrigin,
             MessageParseError::ParseContext {
                 position,
                 context,
@@ -182,8 +221,8 @@ mod tests {
 
     #[test]
     fn test_error_display() {
-        let err = ProtocolError::MessageTooLong(1024);
-        assert_eq!(format!("{}", err), "message too long: 1024 bytes");
+        let err = ProtocolError::MessageTooLong { actual: 1024, limit: 512 };
+        assert_eq!(format!("{}", err), "message too long: 1024 bytes (limit: 512)");
 
         let err = MessageParseError::NotEnoughArguments {
             expected: 2,

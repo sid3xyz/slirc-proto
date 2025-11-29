@@ -77,6 +77,7 @@ pub mod mode;
 pub mod prefix;
 pub mod response;
 pub mod sasl;
+pub mod util;
 
 pub use self::caps::{Capability, NegotiationVersion};
 pub use self::chan::ChannelExt;

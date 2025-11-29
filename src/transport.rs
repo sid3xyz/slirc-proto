@@ -447,9 +447,10 @@ where
         match stream.next().await {
             Some(Ok(WsMessage::Text(text))) => {
                 if text.len() > MAX_IRC_LINE_LEN {
-                    return Err(TransportReadError::Protocol(ProtocolError::MessageTooLong(
-                        text.len(),
-                    )));
+                    return Err(TransportReadError::Protocol(ProtocolError::MessageTooLong {
+                        actual: text.len(),
+                        limit: MAX_IRC_LINE_LEN,
+                    }));
                 }
 
                 let trimmed = text.trim_end_matches(&['\r', '\n'][..]);
@@ -668,7 +669,10 @@ impl<S: AsyncRead + Unpin> ZeroCopyTransport<S> {
                 // Check line length limit
                 if line_len > self.max_line_len {
                     return Some(Err(TransportReadError::Protocol(
-                        ProtocolError::MessageTooLong(line_len),
+                        ProtocolError::MessageTooLong {
+                            actual: line_len,
+                            limit: self.max_line_len,
+                        },
                     )));
                 }
 
@@ -702,7 +706,10 @@ impl<S: AsyncRead + Unpin> ZeroCopyTransport<S> {
             // Check if buffer is getting too large without a complete line
             if self.buffer.len() > self.max_line_len {
                 return Some(Err(TransportReadError::Protocol(
-                    ProtocolError::MessageTooLong(self.buffer.len()),
+                    ProtocolError::MessageTooLong {
+                        actual: self.buffer.len(),
+                        limit: self.max_line_len,
+                    },
                 )));
             }
 
@@ -752,7 +759,10 @@ impl<S: AsyncRead + Unpin> LendingStream for ZeroCopyTransport<S> {
                 // Check line length limit
                 if line_len > self.max_line_len {
                     return Poll::Ready(Some(Err(TransportReadError::Protocol(
-                        ProtocolError::MessageTooLong(line_len),
+                        ProtocolError::MessageTooLong {
+                            actual: line_len,
+                            limit: self.max_line_len,
+                        },
                     ))));
                 }
 
@@ -803,7 +813,10 @@ impl<S: AsyncRead + Unpin> LendingStream for ZeroCopyTransport<S> {
             // Check if buffer is getting too large
             if self.buffer.len() > self.max_line_len {
                 return Poll::Ready(Some(Err(TransportReadError::Protocol(
-                    ProtocolError::MessageTooLong(self.buffer.len()),
+                    ProtocolError::MessageTooLong {
+                        actual: self.buffer.len(),
+                        limit: self.max_line_len,
+                    },
                 ))));
             }
 
@@ -1059,7 +1072,7 @@ mod tests {
         let result = transport.next().await;
         assert!(result.is_some());
         match result.unwrap() {
-            Err(TransportReadError::Protocol(ProtocolError::MessageTooLong(_))) => {}
+            Err(TransportReadError::Protocol(ProtocolError::MessageTooLong { .. })) => {}
             other => panic!("Expected MessageTooLong error, got {:?}", other),
         }
     }

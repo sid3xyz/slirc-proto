@@ -66,6 +66,19 @@ pub enum Capability {
     StandardReplies,
     /// Strict Transport Security
     Sts,
+    // Draft/experimental capabilities
+    /// Chat history retrieval (draft/chathistory)
+    ChatHistory,
+    /// Multi-line messages (draft/multiline)
+    Multiline,
+    /// Read marker synchronization (draft/read-marker)
+    ReadMarker,
+    /// Typing notifications
+    Typing,
+    /// Event playback for history (draft/event-playback)
+    EventPlayback,
+    /// Message redaction/deletion (draft/message-redaction)
+    MessageRedaction,
     /// Unknown/custom capability
     Custom(String),
 }
@@ -93,6 +106,12 @@ impl AsRef<str> for Capability {
             Self::LabeledResponse => "labeled-response",
             Self::StandardReplies => "standard-replies",
             Self::Sts => "sts",
+            Self::ChatHistory => "draft/chathistory",
+            Self::Multiline => "draft/multiline",
+            Self::ReadMarker => "draft/read-marker",
+            Self::Typing => "typing",
+            Self::EventPlayback => "draft/event-playback",
+            Self::MessageRedaction => "draft/message-redaction",
             Self::Custom(s) => s,
         }
     }
@@ -127,6 +146,12 @@ impl From<&str> for Capability {
             "labeled-response" => Self::LabeledResponse,
             "standard-replies" => Self::StandardReplies,
             "sts" => Self::Sts,
+            "draft/chathistory" => Self::ChatHistory,
+            "draft/multiline" => Self::Multiline,
+            "draft/read-marker" => Self::ReadMarker,
+            "typing" => Self::Typing,
+            "draft/event-playback" => Self::EventPlayback,
+            "draft/message-redaction" => Self::MessageRedaction,
             other => Self::Custom(other.to_string()),
         }
     }
@@ -255,6 +280,43 @@ pub const CAPABILITIES: &[CapabilityDef] = &[
         version: 302,
         value: Some("port=6697,duration=2592000"),
         description: "Strict Transport Security - upgrade plaintext to TLS",
+    },
+    // Draft/experimental capabilities
+    CapabilityDef {
+        name: "draft/chathistory",
+        version: 302,
+        value: None,
+        description: "Chat history retrieval via CHATHISTORY command",
+    },
+    CapabilityDef {
+        name: "draft/multiline",
+        version: 302,
+        value: Some("max-bytes=4096,max-lines=100"),
+        description: "Multi-line message batches",
+    },
+    CapabilityDef {
+        name: "draft/read-marker",
+        version: 302,
+        value: None,
+        description: "Read marker synchronization across clients",
+    },
+    CapabilityDef {
+        name: "typing",
+        version: 302,
+        value: None,
+        description: "Typing notifications (+typing tag)",
+    },
+    CapabilityDef {
+        name: "draft/event-playback",
+        version: 302,
+        value: None,
+        description: "Include non-message events in history playback",
+    },
+    CapabilityDef {
+        name: "draft/message-redaction",
+        version: 302,
+        value: None,
+        description: "Message deletion/redaction support",
     },
 ];
 
@@ -463,5 +525,45 @@ mod tests {
         assert!(list.contains("multi-prefix"));
         assert!(list.contains("echo-message"));
         assert!(list.contains("sts=port=6697"));
+    }
+
+    #[test]
+    fn test_draft_capabilities() {
+        // Test draft capability enum variants
+        assert_eq!(Capability::ChatHistory.as_ref(), "draft/chathistory");
+        assert_eq!(Capability::Multiline.as_ref(), "draft/multiline");
+        assert_eq!(Capability::ReadMarker.as_ref(), "draft/read-marker");
+        assert_eq!(Capability::Typing.as_ref(), "typing");
+        assert_eq!(Capability::EventPlayback.as_ref(), "draft/event-playback");
+        assert_eq!(Capability::MessageRedaction.as_ref(), "draft/message-redaction");
+    }
+
+    #[test]
+    fn test_draft_capabilities_from_str() {
+        assert_eq!(Capability::from("draft/chathistory"), Capability::ChatHistory);
+        assert_eq!(Capability::from("draft/multiline"), Capability::Multiline);
+        assert_eq!(Capability::from("draft/read-marker"), Capability::ReadMarker);
+        assert_eq!(Capability::from("typing"), Capability::Typing);
+        assert_eq!(Capability::from("draft/event-playback"), Capability::EventPlayback);
+        assert_eq!(Capability::from("draft/message-redaction"), Capability::MessageRedaction);
+    }
+
+    #[test]
+    fn test_draft_capabilities_supported() {
+        assert!(is_supported("draft/chathistory"));
+        assert!(is_supported("draft/multiline"));
+        assert!(is_supported("draft/read-marker"));
+        assert!(is_supported("typing"));
+        assert!(is_supported("draft/event-playback"));
+        assert!(is_supported("draft/message-redaction"));
+    }
+
+    #[test]
+    fn test_cap_list_includes_draft() {
+        let list = get_cap_list(302, None);
+        assert!(list.contains("draft/chathistory"));
+        assert!(list.contains("typing"));
+        // multiline has a value
+        assert!(list.contains("draft/multiline=max-bytes=4096,max-lines=100"));
     }
 }

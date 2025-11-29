@@ -81,7 +81,10 @@ impl Decoder for LineCodec {
 
             // Check length limit
             if line.len() > self.max_len {
-                return Err(error::ProtocolError::MessageTooLong(line.len()));
+                return Err(error::ProtocolError::MessageTooLong {
+                    actual: line.len(),
+                    limit: self.max_len,
+                });
             }
 
             // Decode bytes to string
@@ -104,7 +107,10 @@ impl Decoder for LineCodec {
 
             // Check if partial line already exceeds limit
             if src.len() > self.max_len {
-                return Err(error::ProtocolError::MessageTooLong(src.len()));
+                return Err(error::ProtocolError::MessageTooLong {
+                    actual: src.len(),
+                    limit: self.max_len,
+                });
             }
 
             Ok(None)
@@ -165,7 +171,7 @@ mod tests {
         let result = codec.decode(&mut buf);
         assert!(matches!(
             result,
-            Err(error::ProtocolError::MessageTooLong(_))
+            Err(error::ProtocolError::MessageTooLong { .. })
         ));
     }
 
