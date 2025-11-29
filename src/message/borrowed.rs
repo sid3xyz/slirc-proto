@@ -270,7 +270,8 @@ impl<'a> MessageRef<'a> {
             // - is empty
             // - starts with ':' (to distinguish from prefix marker)
             let is_last = i == self.command.args.len() - 1;
-            let needs_colon = is_last && (arg.contains(' ') || arg.is_empty() || arg.starts_with(':'));
+            let needs_colon =
+                is_last && (arg.contains(' ') || arg.is_empty() || arg.starts_with(':'));
             if needs_colon {
                 s.push(':');
             }
@@ -332,7 +333,7 @@ impl Display for MessageRef<'_> {
         for (i, arg) in self.command.args.iter().enumerate() {
             // Last argument needs colon prefix if it:
             // - contains a space
-            // - is empty  
+            // - is empty
             // - starts with ':' (to distinguish from prefix marker)
             let is_last = i == self.command.args.len() - 1;
             let needs_colon =

@@ -1,5 +1,7 @@
 //! IRC mode parsing.
 
+use std::iter::Peekable;
+
 use crate::error::MessageParseError;
 
 use super::types::{ChannelMode, Mode, ModeType, UserMode};
@@ -24,6 +26,34 @@ impl Mode<ChannelMode> {
     }
 }
 
+/// Resolve the argument for a mode character, if required.
+///
+/// Returns `Some(arg)` if the mode takes an argument and one is available,
+/// `None` if the mode doesn't take an argument or is a list mode query,
+/// or an error if the mode requires an argument but none was provided.
+fn resolve_mode_arg<'a, T, I>(
+    mode: &T,
+    mode_char: char,
+    args: &mut Peekable<I>,
+) -> Result<Option<String>, MessageParseError>
+where
+    T: ModeType,
+    I: Iterator<Item = &'a str>,
+{
+    if !mode.takes_arg() {
+        return Ok(None);
+    }
+
+    match args.next() {
+        Some(arg) => Ok(Some(arg.to_string())),
+        None if mode.is_list_mode() => Ok(None), // List mode query (e.g., MODE #channel +b)
+        None => Err(MessageParseError::InvalidModeArg(format!(
+            "Mode '{}' requires an argument but none provided",
+            mode_char
+        ))),
+    }
+}
+
 fn parse_modes<T>(pieces: &[&str]) -> Result<Vec<Mode<T>>, MessageParseError>
 where
     T: ModeType,
@@ -32,61 +62,43 @@ where
 
     let mut res = vec![];
 
-    if let Some((first, rest)) = pieces.split_first() {
-        let mut modes = first.chars();
-        let mut args = rest.iter().copied().peekable();
+    let Some((first, rest)) = pieces.split_first() else {
+        return Ok(res);
+    };
 
-        let mut cur_mod = match modes.next() {
-            Some('+') => Plus,
-            Some('-') => Minus,
-            Some(_) => {
-                modes = first.chars();
-                NoPrefix
-            }
-            None => {
-                return Ok(res);
-            }
-        };
+    let mut modes = first.chars();
+    let mut args = rest.iter().copied().peekable();
 
-        for c in modes {
-            match c {
-                '+' => cur_mod = Plus,
-                '-' => cur_mod = Minus,
-                _ => {
-                    let mode = T::from_char(c);
-                    let arg = if mode.takes_arg() {
-                        match args.next() {
-                            Some(arg) => Some(arg.to_string()),
-                            None => {
-                                // List modes (Type A) can be queried without an argument
-                                // e.g., MODE #channel +b queries the ban list
-                                if mode.is_list_mode() {
-                                    None
-                                } else {
-                                    return Err(MessageParseError::InvalidModeArg(format!(
-                                        "Mode '{}' requires an argument but none provided",
-                                        c
-                                    )));
-                                }
-                            }
-                        }
-                    } else {
-                        None
-                    };
-                    res.push(match cur_mod {
-                        Plus => Mode::Plus(mode, arg),
-                        Minus => Mode::Minus(mode, arg),
-                        NoPrefix => Mode::NoPrefix(mode),
-                    })
-                }
+    let mut cur_mod = match modes.next() {
+        Some('+') => Plus,
+        Some('-') => Minus,
+        Some(_) => {
+            modes = first.chars();
+            NoPrefix
+        }
+        None => return Ok(res),
+    };
+
+    for c in modes {
+        match c {
+            '+' => cur_mod = Plus,
+            '-' => cur_mod = Minus,
+            _ => {
+                let mode = T::from_char(c);
+                let arg = resolve_mode_arg(&mode, c, &mut args)?;
+                res.push(match cur_mod {
+                    Plus => Mode::Plus(mode, arg),
+                    Minus => Mode::Minus(mode, arg),
+                    NoPrefix => Mode::NoPrefix(mode),
+                });
             }
         }
+    }
 
-        if args.peek().is_some() {
-            return Err(MessageParseError::InvalidModeArg(
-                "Unused arguments provided for mode parsing".to_string(),
-            ));
-        }
+    if args.peek().is_some() {
+        return Err(MessageParseError::InvalidModeArg(
+            "Unused arguments provided for mode parsing".to_string(),
+        ));
     }
 
     Ok(res)

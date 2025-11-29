@@ -12,6 +12,28 @@ use crate::chan::ChannelExt;
 use crate::error::MessageParseError;
 use crate::mode::Mode;
 
+/// Parse a MODE command, dispatching to channel or user mode parsing.
+fn parse_mode_command(original_cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseError> {
+    if args.is_empty() {
+        return Ok(connection::raw(original_cmd, args));
+    }
+
+    let target = args[0];
+    let mode_args = &args[1..];
+
+    if target.is_channel_name() {
+        Ok(Command::ChannelMODE(
+            target.to_owned(),
+            Mode::as_channel_modes(mode_args)?,
+        ))
+    } else {
+        Ok(Command::UserMODE(
+            target.to_owned(),
+            Mode::as_user_modes(mode_args)?,
+        ))
+    }
+}
+
 impl Command {
     /// Parse a command from its name and arguments.
     pub fn new(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseError> {
@@ -43,13 +65,7 @@ impl Command {
             "CAP" | "AUTHENTICATE" | "ACCOUNT" | "BATCH" | "CHGHOST" | "SETNAME" | "MONITOR"
             | "TAGMSG" | "WEBIRC" | "CHATHISTORY" => ircv3::parse(cmd_str, args),
 
-            "MODE" => Ok(if args.is_empty() {
-                connection::raw(cmd, args)
-            } else if args[0].is_channel_name() {
-                Command::ChannelMODE(args[0].to_owned(), Mode::as_channel_modes(&args[1..])?)
-            } else {
-                Command::UserMODE(args[0].to_owned(), Mode::as_user_modes(&args[1..])?)
-            }),
+            "MODE" => parse_mode_command(cmd, args),
 
             _ => {
                 if let Ok(resp) = cmd.parse() {

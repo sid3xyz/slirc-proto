@@ -27,6 +27,40 @@ fn parse_command(input: &str) -> IResult<&str, &str> {
     take_while1(|c: char| c.is_alphanumeric())(input)
 }
 
+/// Parse IRC message parameters from the remaining input after the command.
+///
+/// Handles both regular space-separated parameters and the trailing parameter
+/// (prefixed with `:`) which may contain spaces.
+fn parse_params(input: &str) -> (&str, Vec<&str>) {
+    let mut params: Vec<&str> = Vec::new();
+    let mut rest = input;
+
+    while let Some(b' ') = rest.as_bytes().first().copied() {
+        // Skip the leading space
+        rest = &rest[1..];
+
+        if let Some(b':') = rest.as_bytes().first().copied() {
+            // Trailing parameter - everything after `:` until line end
+            let after_colon = &rest[1..];
+            let end = after_colon.find(['\r', '\n']).unwrap_or(after_colon.len());
+            params.push(&after_colon[..end]);
+            rest = &after_colon[end..];
+            break;
+        }
+
+        // Regular parameter - until next space or line end
+        let end = rest.find([' ', '\r', '\n']).unwrap_or(rest.len());
+        let param = &rest[..end];
+        if param.is_empty() {
+            break;
+        }
+        params.push(param);
+        rest = &rest[end..];
+    }
+
+    (rest, params)
+}
+
 /// Parse a complete IRC message into its components.
 ///
 /// IRC message format:
@@ -46,41 +80,7 @@ pub(crate) fn parse_message(input: &str) -> IResult<&str, ParsedMessage<'_>> {
     let (input, command) = parse_command(input)?;
 
     // Parse parameters (including trailing)
-    let mut params: Vec<&str> = Vec::new();
-    let mut rest = input;
-
-    while let Some(b' ') = rest.as_bytes().first().copied() {
-        // Skip the space
-        rest = &rest[1..];
-
-        if let Some(b':') = rest.as_bytes().first().copied() {
-            // Trailing parameter - everything after `:` until line end
-            let after_colon = &rest[1..];
-            let end = after_colon.find(['\r', '\n']).unwrap_or(after_colon.len());
-            let trailing = &after_colon[..end];
-            params.push(trailing);
-            rest = &after_colon[end..];
-            break;
-        } else {
-            // Regular parameter - until next space or line end
-            let mut end = rest.len();
-            if let Some(i) = rest.find(' ') {
-                end = end.min(i);
-            }
-            if let Some(i) = rest.find('\r') {
-                end = end.min(i);
-            }
-            if let Some(i) = rest.find('\n') {
-                end = end.min(i);
-            }
-            let param = &rest[..end];
-            if param.is_empty() {
-                break;
-            }
-            params.push(param);
-            rest = &rest[end..];
-        }
-    }
+    let (rest, params) = parse_params(input);
 
     Ok((
         rest,

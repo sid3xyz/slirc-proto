@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed (Internal)
+
+- Refactored `parse_message` in `src/message/nom_parser.rs`: extracted parameter parsing into `parse_params` helper
+- Refactored `parse_modes` in `src/mode/parse.rs`: extracted argument resolution into `resolve_mode_arg` helper
+- Simplified `src/command/parse/channel.rs`: replaced repetitive `if/else` chains with `match` expressions and `arg_opt` helper
+- Extracted `parse_mode_command` helper in `src/command/parse/mod.rs` for cleaner dispatcher
+
+### Note for Server Team
+
+These are **internal refactorings only**. No public API changes. All functions modified are `pub(crate)`, `pub(super)`, or private.
+
 ## [1.1.0] - 2025-11-28
 
 ### Changed
