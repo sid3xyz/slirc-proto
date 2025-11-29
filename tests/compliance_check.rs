@@ -62,8 +62,10 @@ fn test_missing_parameters() {
 fn test_strict_channel_names() {
     let raw = "JOIN invalid_channel";
     let msg = MessageRef::parse(raw).unwrap();
-    let mut config = ComplianceConfig::default();
-    config.strict_channel_names = true;
+    let config = ComplianceConfig {
+        strict_channel_names: true,
+        ..Default::default()
+    };
 
     let result = check_compliance(&msg, Some(raw.len()), &config);
     assert!(
@@ -79,8 +81,10 @@ fn test_strict_channel_names() {
 fn test_strict_nicknames() {
     let raw = "NICK 123invalid"; // Starts with digit
     let msg = MessageRef::parse(raw).unwrap();
-    let mut config = ComplianceConfig::default();
-    config.strict_nicknames = true;
+    let config = ComplianceConfig {
+        strict_nicknames: true,
+        ..Default::default()
+    };
 
     let result = check_compliance(&msg, Some(raw.len()), &config);
     assert!(

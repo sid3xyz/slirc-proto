@@ -128,7 +128,8 @@ impl From<&str> for Prefix {
 /// - Is non-empty
 /// - Contains no NUL, control characters, or spaces
 /// - If it has @ or !, follows the nick!user@host format
-pub fn is_valid_prefix_str(s: &str) -> bool {
+#[allow(dead_code)] // Used in tests; available for internal use
+pub(crate) fn is_valid_prefix_str(s: &str) -> bool {
     validate_prefix(s)
 }
 

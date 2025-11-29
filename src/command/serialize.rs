@@ -65,13 +65,49 @@ fn write_cmd_freeform(f: &mut fmt::Formatter<'_>, cmd: &str, args: &[&str]) -> f
 /// Write a service command with variable arguments (e.g., NICKSERV, CHANSERV, NS, CS).
 fn write_service_command(f: &mut fmt::Formatter<'_>, cmd: &str, args: &[String]) -> fmt::Result {
     f.write_str(cmd)?;
-    if args.is_empty() {
-        return Ok(());
-    }
+    write_args_with_trailing(f, args.iter().map(String::as_str))
+}
+
+/// Check if a string needs colon-prefixing as a trailing IRC argument.
+fn needs_colon_prefix(s: &str) -> bool {
+    s.is_empty() || s.contains(' ') || s.starts_with(':')
+}
+
+/// Write arguments with proper trailing colon prefix for the last element.
+/// Used for commands with variable-length argument lists.
+fn write_args_with_trailing<'a>(
+    f: &mut fmt::Formatter<'_>,
+    args: impl Iterator<Item = &'a str> + Clone,
+) -> fmt::Result {
+    let args: Vec<_> = args.collect();
     for (i, arg) in args.iter().enumerate() {
         f.write_char(' ')?;
-        // Last argument needs trailing handling
-        if i == args.len() - 1 && (arg.is_empty() || arg.contains(' ') || arg.starts_with(':')) {
+        if i == args.len() - 1 && needs_colon_prefix(arg) {
+            f.write_char(':')?;
+        }
+        f.write_str(arg)?;
+    }
+    Ok(())
+}
+
+/// Write a standard reply (FAIL/WARN/NOTE) with command, code, and context.
+/// The last context argument is always colon-prefixed (freeform).
+fn write_standard_reply(
+    f: &mut fmt::Formatter<'_>,
+    reply_type: &str,
+    command: &str,
+    code: &str,
+    context: &[String],
+) -> fmt::Result {
+    f.write_str(reply_type)?;
+    f.write_char(' ')?;
+    f.write_str(command)?;
+    f.write_char(' ')?;
+    f.write_str(code)?;
+    for (i, arg) in context.iter().enumerate() {
+        f.write_char(' ')?;
+        // Last argument gets colon prefix (freeform)
+        if i == context.len() - 1 {
             f.write_char(':')?;
         }
         f.write_str(arg)?;
@@ -188,34 +224,12 @@ impl fmt::Display for Command {
             Command::USERS(None) => write_cmd(f, "USERS", &[]),
             Command::WALLOPS(t) => write_cmd_freeform(f, "WALLOPS", &[t]),
             Command::USERHOST(u) => {
-                // Write directly to avoid Vec allocation
                 f.write_str("USERHOST")?;
-                for (i, nick) in u.iter().enumerate() {
-                    f.write_char(' ')?;
-                    // Last argument needs trailing handling
-                    if i == u.len() - 1
-                        && (nick.is_empty() || nick.contains(' ') || nick.starts_with(':'))
-                    {
-                        f.write_char(':')?;
-                    }
-                    f.write_str(nick)?;
-                }
-                Ok(())
+                write_args_with_trailing(f, u.iter().map(String::as_str))
             }
             Command::ISON(u) => {
-                // Write directly to avoid Vec allocation
                 f.write_str("ISON")?;
-                for (i, nick) in u.iter().enumerate() {
-                    f.write_char(' ')?;
-                    // Last argument needs trailing handling
-                    if i == u.len() - 1
-                        && (nick.is_empty() || nick.contains(' ') || nick.starts_with(':'))
-                    {
-                        f.write_char(':')?;
-                    }
-                    f.write_str(nick)?;
-                }
-                Ok(())
+                write_args_with_trailing(f, u.iter().map(String::as_str))
             }
             Command::SAJOIN(n, c) => write_cmd(f, "SAJOIN", &[n, c]),
             Command::SAMODE(t, m, Some(p)) => write_cmd(f, "SAMODE", &[t, m, p]),
@@ -258,41 +272,17 @@ impl fmt::Display for Command {
             Command::MONITOR(c, Some(t)) => write_cmd(f, "MONITOR", &[c, t]),
             Command::MONITOR(c, None) => write_cmd(f, "MONITOR", &[c]),
             Command::BATCH(t, Some(c), Some(a)) => {
-                // Write directly to avoid Vec allocation
-                f.write_str("BATCH")?;
-                f.write_char(' ')?;
+                f.write_str("BATCH ")?;
                 f.write_str(t)?;
                 f.write_char(' ')?;
                 f.write_str(c.to_str())?;
-                for (i, arg) in a.iter().enumerate() {
-                    f.write_char(' ')?;
-                    // Last argument needs trailing handling
-                    if i == a.len() - 1
-                        && (arg.is_empty() || arg.contains(' ') || arg.starts_with(':'))
-                    {
-                        f.write_char(':')?;
-                    }
-                    f.write_str(arg)?;
-                }
-                Ok(())
+                write_args_with_trailing(f, a.iter().map(String::as_str))
             }
             Command::BATCH(t, Some(c), None) => write_cmd(f, "BATCH", &[t, c.to_str()]),
             Command::BATCH(t, None, Some(a)) => {
-                // Write directly to avoid Vec allocation
-                f.write_str("BATCH")?;
-                f.write_char(' ')?;
+                f.write_str("BATCH ")?;
                 f.write_str(t)?;
-                for (i, arg) in a.iter().enumerate() {
-                    f.write_char(' ')?;
-                    // Last argument needs trailing handling
-                    if i == a.len() - 1
-                        && (arg.is_empty() || arg.contains(' ') || arg.starts_with(':'))
-                    {
-                        f.write_char(':')?;
-                    }
-                    f.write_str(arg)?;
-                }
-                Ok(())
+                write_args_with_trailing(f, a.iter().map(String::as_str))
             }
             Command::BATCH(t, None, None) => write_cmd(f, "BATCH", &[t]),
             Command::CHGHOST(u, h) => write_cmd(f, "CHGHOST", &[u, h]),
@@ -338,55 +328,13 @@ impl fmt::Display for Command {
                 }
             }
             Command::FAIL(command, code, context) => {
-                // Write directly to avoid Vec allocation, last arg is freeform (colon-prefixed)
-                f.write_str("FAIL")?;
-                f.write_char(' ')?;
-                f.write_str(command.as_str())?;
-                f.write_char(' ')?;
-                f.write_str(code.as_str())?;
-                for (i, arg) in context.iter().enumerate() {
-                    f.write_char(' ')?;
-                    // Last argument gets colon prefix (freeform)
-                    if i == context.len() - 1 {
-                        f.write_char(':')?;
-                    }
-                    f.write_str(arg)?;
-                }
-                Ok(())
+                write_standard_reply(f, "FAIL", command.as_str(), code.as_str(), context)
             }
             Command::WARN(command, code, context) => {
-                // Write directly to avoid Vec allocation, last arg is freeform (colon-prefixed)
-                f.write_str("WARN")?;
-                f.write_char(' ')?;
-                f.write_str(command.as_str())?;
-                f.write_char(' ')?;
-                f.write_str(code.as_str())?;
-                for (i, arg) in context.iter().enumerate() {
-                    f.write_char(' ')?;
-                    // Last argument gets colon prefix (freeform)
-                    if i == context.len() - 1 {
-                        f.write_char(':')?;
-                    }
-                    f.write_str(arg)?;
-                }
-                Ok(())
+                write_standard_reply(f, "WARN", command.as_str(), code.as_str(), context)
             }
             Command::NOTE(command, code, context) => {
-                // Write directly to avoid Vec allocation, last arg is freeform (colon-prefixed)
-                f.write_str("NOTE")?;
-                f.write_char(' ')?;
-                f.write_str(command.as_str())?;
-                f.write_char(' ')?;
-                f.write_str(code.as_str())?;
-                for (i, arg) in context.iter().enumerate() {
-                    f.write_char(' ')?;
-                    // Last argument gets colon prefix (freeform)
-                    if i == context.len() - 1 {
-                        f.write_char(':')?;
-                    }
-                    f.write_str(arg)?;
-                }
-                Ok(())
+                write_standard_reply(f, "NOTE", command.as_str(), code.as_str(), context)
             }
             Command::Response(resp, a) => {
                 // Write the 3-digit response code directly, zero-copy
@@ -400,7 +348,7 @@ impl fmt::Display for Command {
                 }
                 if let Some(last) = a.last() {
                     f.write_char(' ')?;
-                    if last.is_empty() || last.contains(' ') || last.starts_with(':') {
+                    if needs_colon_prefix(last) {
                         f.write_char(':')?;
                     }
                     f.write_str(last)?;
@@ -408,19 +356,8 @@ impl fmt::Display for Command {
                 Ok(())
             }
             Command::Raw(c, a) => {
-                // Write directly to avoid Vec allocation
                 f.write_str(c)?;
-                for (i, arg) in a.iter().enumerate() {
-                    f.write_char(' ')?;
-                    // Last argument needs trailing handling
-                    if i == a.len() - 1
-                        && (arg.is_empty() || arg.contains(' ') || arg.starts_with(':'))
-                    {
-                        f.write_char(':')?;
-                    }
-                    f.write_str(arg)?;
-                }
-                Ok(())
+                write_args_with_trailing(f, a.iter().map(String::as_str))
             }
         }
     }

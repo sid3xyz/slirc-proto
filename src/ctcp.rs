@@ -25,7 +25,7 @@
 use std::fmt;
 
 /// The CTCP delimiter character (`\x01`).
-pub const CTCP_DELIM: char = '\x01';
+pub(crate) const CTCP_DELIM: char = '\x01';
 
 /// Known CTCP command types.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]

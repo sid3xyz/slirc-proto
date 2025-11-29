@@ -7,91 +7,9 @@
 //!
 //! Run with: `cargo test --test rfc_ircv3_compliance`
 
-use slirc_proto::message::tags::{escape_tag_value, unescape_tag_value};
 use slirc_proto::{Command, Message, MessageRef};
 
-// =============================================================================
-// IRCv3 MESSAGE TAGS ESCAPING (https://ircv3.net/specs/extensions/message-tags)
-// =============================================================================
-
-mod tag_escaping {
-    use super::*;
-
-    /// IRCv3 specifies these escape sequences:
-    /// - `\:` → `;` (semicolon)
-    /// - `\s` → ` ` (space)
-    /// - `\\` → `\` (backslash)  
-    /// - `\r` → CR (carriage return)
-    /// - `\n` → LF (line feed)
-    #[test]
-    fn test_unescape_semicolon() {
-        assert_eq!(unescape_tag_value("a\\:b"), "a;b");
-    }
-
-    #[test]
-    fn test_unescape_space() {
-        assert_eq!(unescape_tag_value("hello\\sworld"), "hello world");
-    }
-
-    #[test]
-    fn test_unescape_backslash() {
-        assert_eq!(unescape_tag_value("path\\\\file"), "path\\file");
-    }
-
-    #[test]
-    fn test_unescape_carriage_return() {
-        assert_eq!(unescape_tag_value("line\\rend"), "line\rend");
-    }
-
-    #[test]
-    fn test_unescape_line_feed() {
-        assert_eq!(unescape_tag_value("line\\nend"), "line\nend");
-    }
-
-    #[test]
-    fn test_unescape_combined() {
-        // All escape sequences together
-        let input = "a\\:b\\sc\\\\d\\re\\nf";
-        let expected = "a;b c\\d\re\nf";
-        assert_eq!(unescape_tag_value(input), expected);
-    }
-
-    #[test]
-    fn test_unescape_trailing_backslash() {
-        // Trailing backslash with no following char should be dropped per IRCv3
-        assert_eq!(unescape_tag_value("test\\"), "test");
-    }
-
-    #[test]
-    fn test_unescape_unknown_escape() {
-        // Unknown escape sequences: \x becomes x (backslash dropped)
-        assert_eq!(unescape_tag_value("a\\xb"), "axb");
-    }
-
-    #[test]
-    fn test_escape_roundtrip() {
-        let test_values = vec![
-            "simple",
-            "with space",
-            "with;semicolon",
-            "with\\backslash",
-            "with\nnewline",
-            "with\rcarriage",
-            "complex; \\ \n \r all",
-        ];
-
-        for original in test_values {
-            let mut escaped = String::new();
-            escape_tag_value(&mut escaped, original).unwrap();
-            let unescaped = unescape_tag_value(&escaped);
-            assert_eq!(
-                unescaped, original,
-                "Roundtrip failed: '{}' -> '{}' -> '{}'",
-                original, escaped, unescaped
-            );
-        }
-    }
-}
+// Note: Tag escaping tests have been moved to src/message/tags.rs
 
 // =============================================================================
 // IRCv3 TAG PARSING IN MESSAGES

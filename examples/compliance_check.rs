@@ -18,8 +18,10 @@ fn main() {
 
     let invalid_raw = "JOIN invalid_channel";
     let invalid_msg = MessageRef::parse(invalid_raw).unwrap();
-    let mut strict_config = ComplianceConfig::default();
-    strict_config.strict_channel_names = true;
+    let strict_config = ComplianceConfig {
+        strict_channel_names: true,
+        ..Default::default()
+    };
 
     println!("\nChecking invalid message with strict config:");
     match check_compliance(&invalid_msg, Some(invalid_raw.len()), &strict_config) {

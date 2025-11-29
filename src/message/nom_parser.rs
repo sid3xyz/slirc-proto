@@ -33,7 +33,7 @@ fn parse_command(input: &str) -> IResult<&str, &str> {
 /// ```text
 /// [@tags] [:prefix] <command> [params...] [:trailing]
 /// ```
-pub fn parse_message(input: &str) -> IResult<&str, ParsedMessage<'_>> {
+pub(crate) fn parse_message(input: &str) -> IResult<&str, ParsedMessage<'_>> {
     // Parse optional tags
     let (input, tags) = opt(parse_tags)(input)?;
     let (input, _) = space0(input)?;
@@ -98,7 +98,7 @@ pub fn parse_message(input: &str) -> IResult<&str, ParsedMessage<'_>> {
 /// This is the intermediate representation produced by the nom parser.
 /// It holds references into the original input string for zero-copy parsing.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ParsedMessage<'a> {
+pub(crate) struct ParsedMessage<'a> {
     /// Raw tags string (without the leading `@`), if present.
     pub tags: Option<&'a str>,
     /// Raw prefix string (without the leading `:`), if present.
@@ -136,7 +136,7 @@ impl<'a> ParsedMessage<'a> {
 
 /// Detailed parse error with position information.
 #[derive(Debug, Clone)]
-pub struct DetailedParseError {
+pub(crate) struct DetailedParseError {
     /// The original input string that failed to parse.
     pub input: String,
     /// Character position where parsing failed.

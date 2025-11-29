@@ -73,7 +73,7 @@ fn prefix_strategy() -> impl Strategy<Value = Prefix> {
 /// Generate a valid Tag
 fn tag_strategy() -> impl Strategy<Value = Tag> {
     (tag_key_strategy(), prop::option::of(tag_value_strategy()))
-        .prop_map(|(key, value)| Tag(key.into(), value.map(Into::into)))
+        .prop_map(|(key, value)| Tag(key.into(), value))
 }
 
 /// Generate a list of tags
@@ -180,7 +180,7 @@ proptest! {
         key in tag_key_strategy(),
         value in prop::option::of(tag_value_strategy())
     ) {
-        let tag = Tag(key.clone().into(), value.clone().map(Into::into));
+        let tag = Tag(key.clone().into(), value.clone());
         let msg = Message {
             tags: Some(vec![tag]),
             prefix: None,
