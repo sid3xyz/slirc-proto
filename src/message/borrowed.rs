@@ -16,6 +16,8 @@
 //! assert_eq!(msg.source_nickname(), Some("nick"));
 //! ```
 
+use std::fmt::{self, Display, Formatter};
+
 use crate::command::Command;
 use crate::command::CommandRef;
 use crate::error::MessageParseError;
@@ -242,7 +244,10 @@ impl<'a> MessageRef<'a> {
         })
     }
 
-    /// Serialize back to a raw IRC message string.
+    /// Serialize back to a raw IRC message string (without trailing CRLF).
+    ///
+    /// Note: Unlike [`Display`], this does not append `\r\n` to match the
+    /// original input format.
     pub fn to_raw_owned(&self) -> String {
         let capacity = self.raw.len();
         let mut s = String::with_capacity(capacity);
@@ -260,8 +265,13 @@ impl<'a> MessageRef<'a> {
         s.push_str(self.command.name);
         for (i, arg) in self.command.args.iter().enumerate() {
             s.push(' ');
-            // Last argument with spaces needs colon prefix
-            if i == self.command.args.len() - 1 && (arg.contains(' ') || arg.is_empty()) {
+            // Last argument needs colon prefix if it:
+            // - contains a space
+            // - is empty
+            // - starts with ':' (to distinguish from prefix marker)
+            let is_last = i == self.command.args.len() - 1;
+            let needs_colon = is_last && (arg.contains(' ') || arg.is_empty() || arg.starts_with(':'));
+            if needs_colon {
                 s.push(':');
             }
             s.push_str(arg);
@@ -294,6 +304,46 @@ impl<'a> MessageRef<'a> {
         } else {
             None
         }
+    }
+}
+
+impl Display for MessageRef<'_> {
+    /// Serialize the message to IRC wire format.
+    ///
+    /// The output includes the trailing `\r\n` for consistency with [`Message`]'s
+    /// Display implementation.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use slirc_proto::message::MessageRef;
+    ///
+    /// let msg = MessageRef::parse(":nick PRIVMSG #channel :Hello").unwrap();
+    /// assert_eq!(format!("{}", msg), ":nick PRIVMSG #channel Hello\r\n");
+    /// ```
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        if let Some(tags) = &self.tags {
+            write!(f, "@{} ", tags)?;
+        }
+        if let Some(prefix) = &self.prefix {
+            write!(f, ":{} ", prefix.raw)?;
+        }
+        write!(f, "{}", self.command.name)?;
+        for (i, arg) in self.command.args.iter().enumerate() {
+            // Last argument needs colon prefix if it:
+            // - contains a space
+            // - is empty  
+            // - starts with ':' (to distinguish from prefix marker)
+            let is_last = i == self.command.args.len() - 1;
+            let needs_colon =
+                is_last && (arg.contains(' ') || arg.is_empty() || arg.starts_with(':'));
+            if needs_colon {
+                write!(f, " :{}", arg)?;
+            } else {
+                write!(f, " {}", arg)?;
+            }
+        }
+        write!(f, "\r\n")
     }
 }
 
@@ -361,5 +411,35 @@ mod tests {
         let raw = ":nick PRIVMSG #channel :Hello world";
         let msg = MessageRef::parse(raw).unwrap();
         assert_eq!(msg.to_raw_owned(), raw);
+    }
+
+    #[test]
+    fn test_display() {
+        // Simple command - no space in arg, colon not needed
+        let msg = MessageRef::parse("PING :server").unwrap();
+        assert_eq!(format!("{msg}"), "PING server\r\n");
+
+        // With prefix and trailing arg containing spaces
+        let msg = MessageRef::parse(":nick PRIVMSG #channel :Hello world").unwrap();
+        assert_eq!(format!("{msg}"), ":nick PRIVMSG #channel :Hello world\r\n");
+
+        // With tags - single word arg without special chars, no colon needed
+        let msg = MessageRef::parse("@time=2023;msgid=abc :nick NOTICE #ch :Hi").unwrap();
+        assert_eq!(
+            format!("{msg}"),
+            "@time=2023;msgid=abc :nick NOTICE #ch Hi\r\n"
+        );
+
+        // Empty trailing arg - needs colon
+        let msg = MessageRef::parse(":nick QUIT :").unwrap();
+        assert_eq!(format!("{msg}"), ":nick QUIT :\r\n");
+
+        // Arg with spaces - needs colon
+        let msg = MessageRef::parse("PRIVMSG #test :hello there").unwrap();
+        assert_eq!(format!("{msg}"), "PRIVMSG #test :hello there\r\n");
+
+        // Arg starting with colon - needs colon prefix (per IRC protocol)
+        let msg = MessageRef::parse("PRIVMSG #test ::)").unwrap();
+        assert_eq!(format!("{msg}"), "PRIVMSG #test ::)\r\n");
     }
 }

@@ -101,7 +101,7 @@ pub use self::response::Response;
 pub use self::sasl::{encode_external, encode_plain, SaslMechanism, SaslState};
 
 pub mod casemap;
-pub use self::casemap::{irc_eq, irc_to_lower};
+pub use self::casemap::{irc_eq, irc_lower_char, irc_to_lower};
 
 pub mod ircv3;
 pub use self::ircv3::{format_server_time, format_timestamp, generate_batch_ref, generate_msgid};
