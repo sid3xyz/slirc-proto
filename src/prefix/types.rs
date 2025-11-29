@@ -73,6 +73,24 @@ impl Prefix {
         }
     }
 
+    /// Create a new user prefix from nick, user, and host components.
+    ///
+    /// This is a shorthand for `Prefix::Nickname(nick.into(), user.into(), host.into())`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use slirc_proto::Prefix;
+    ///
+    /// let prefix = Prefix::new("nick", "user", "host.example.com");
+    /// assert_eq!(prefix.nick(), Some("nick"));
+    /// assert_eq!(prefix.user(), Some("user"));
+    /// assert_eq!(prefix.host(), Some("host.example.com"));
+    /// ```
+    pub fn new(nick: impl Into<String>, user: impl Into<String>, host: impl Into<String>) -> Self {
+        Prefix::Nickname(nick.into(), user.into(), host.into())
+    }
+
     /// Parse with validation, returning an error for invalid prefixes.
     pub fn try_from_str(s: &str) -> Result<Self, MessageParseError> {
         if validate_prefix(s) {

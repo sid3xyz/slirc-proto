@@ -41,12 +41,18 @@ pub enum UserMode {
     Invisible,
     /// 'w' - User receives WALLOPS messages
     Wallops,
-    /// 'r' - Restricted connection (cannot change nick after connecting)
-    Restricted,
+    /// 'r' - User is registered/identified with services
+    ///
+    /// Note: The meaning of `+r` varies by network:
+    /// - On most modern networks: indicates the user is identified with NickServ
+    /// - On some older networks: indicates a restricted connection
+    Registered,
     /// 'R' - Only registered users can message
     RegisteredOnly,
     /// 'B' - User is marked as a bot
     Bot,
+    /// 'S' - User is a network service
+    Service,
     /// 'o' - User is an IRC operator
     Oper,
     /// 'O' - User is a local operator
@@ -73,9 +79,10 @@ impl ModeType for UserMode {
             'a' => Self::Away,
             'i' => Self::Invisible,
             'w' => Self::Wallops,
-            'r' => Self::Restricted,
+            'r' => Self::Registered,
             'R' => Self::RegisteredOnly,
             'B' => Self::Bot,
+            'S' => Self::Service,
             'o' => Self::Oper,
             'O' => Self::LocalOper,
             's' => Self::ServerNotices,
@@ -91,9 +98,10 @@ impl fmt::Display for UserMode {
             Self::Away => 'a',
             Self::Invisible => 'i',
             Self::Wallops => 'w',
-            Self::Restricted => 'r',
+            Self::Registered => 'r',
             Self::RegisteredOnly => 'R',
             Self::Bot => 'B',
+            Self::Service => 'S',
             Self::Oper => 'o',
             Self::LocalOper => 'O',
             Self::ServerNotices => 's',

@@ -5,9 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.2.0] - 2025-11-29
 
 ### Added
+
+- **New user modes:**
+  - `UserMode::Registered` - Maps to `+r`, indicates user is registered with services
+  - `UserMode::Service` - Maps to `+S`, indicates user is a network service
 - **SASL helpers made public** - The following SASL utilities are now part of the public API:
   - `SASL_CHUNK_SIZE` - Maximum chunk size constant (400 bytes)
   - `parse_mechanisms()` - Parse mechanism list from RPL_SASLMECHS (908)
@@ -16,6 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `chunk_response()` - Split long responses into chunks
   - `needs_chunking()` - Check if response needs chunking
   - `decode_base64()` - Decode SASL challenges/responses
+- `Prefix::new(nick, user, host)` - Ergonomic constructor for user prefixes
+
+### Changed
+
+- **BREAKING:** `UserMode::Restricted` renamed to `UserMode::Registered` to reflect modern IRC semantics (both map to `+r`)
+- `ChannelMODE` serialization now collapses adjacent mode signs (`+ovh` instead of `+o+v+h`)
+- `UserMODE` serialization also uses collapsed mode format for consistency
 
 ### Changed (Internal)
 
@@ -25,11 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extracted `parse_mode_command` helper in `src/command/parse/mod.rs` for cleaner dispatcher
 
 ### Fixed
+
 - Fixed `#[deprecated(since = "1.2.0")]` on `ERR_ALREADYREGISTRED` alias to correctly use `"1.1.0"`
-
-### Note for Server Team
-
-These are **internal refactorings only**. No public API changes. All functions modified are `pub(crate)`, `pub(super)`, or private.
 
 ## [1.1.0] - 2025-11-28
 

@@ -4,19 +4,44 @@ use crate::mode::{Mode, ModeType};
 
 use super::types::Command;
 
-/// Helper to write a mode flag (+o, -v, etc.) directly without allocation
-fn write_mode_flag<T: ModeType>(f: &mut fmt::Formatter<'_>, m: &Mode<T>) -> fmt::Result {
-    match m {
-        Mode::Plus(mode, _) => {
-            f.write_char('+')?;
-            write!(f, "{}", mode)
-        }
-        Mode::Minus(mode, _) => {
-            f.write_char('-')?;
-            write!(f, "{}", mode)
-        }
-        Mode::NoPrefix(mode) => write!(f, "{}", mode),
+/// Write mode flags with collapsed signs (e.g., +ovh instead of +o+v+h).
+///
+/// This produces more efficient IRC output by only emitting a sign character
+/// when the sign state changes.
+fn write_collapsed_mode_flags<T: ModeType>(
+    f: &mut fmt::Formatter<'_>,
+    modes: &[Mode<T>],
+) -> fmt::Result {
+    #[derive(PartialEq, Clone, Copy)]
+    enum Sign {
+        Plus,
+        Minus,
+        None,
     }
+
+    let mut current_sign = Sign::None;
+
+    for m in modes {
+        let (new_sign, mode) = match m {
+            Mode::Plus(mode, _) => (Sign::Plus, mode),
+            Mode::Minus(mode, _) => (Sign::Minus, mode),
+            Mode::NoPrefix(mode) => (Sign::None, mode),
+        };
+
+        // Only write sign when it changes
+        if new_sign != current_sign {
+            match new_sign {
+                Sign::Plus => f.write_char('+')?,
+                Sign::Minus => f.write_char('-')?,
+                Sign::None => {}
+            }
+            current_sign = new_sign;
+        }
+
+        write!(f, "{}", mode)?;
+    }
+
+    Ok(())
 }
 
 /// Write a command with arguments directly to a formatter.
@@ -125,9 +150,9 @@ impl fmt::Display for Command {
             Command::UserMODE(u, modes) => {
                 f.write_str("MODE ")?;
                 f.write_str(u)?;
-                f.write_char(' ')?;
-                for m in modes {
-                    write_mode_flag(f, m)?;
+                if !modes.is_empty() {
+                    f.write_char(' ')?;
+                    write_collapsed_mode_flags(f, modes)?;
                 }
                 Ok(())
             }
@@ -146,14 +171,14 @@ impl fmt::Display for Command {
             Command::ChannelMODE(c, modes) => {
                 f.write_str("MODE ")?;
                 f.write_str(c)?;
-                f.write_char(' ')?;
-                for m in modes {
-                    write_mode_flag(f, m)?;
-                }
-                for m in modes {
-                    if let Some(arg) = m.arg() {
-                        f.write_char(' ')?;
-                        f.write_str(arg)?;
+                if !modes.is_empty() {
+                    f.write_char(' ')?;
+                    write_collapsed_mode_flags(f, modes)?;
+                    for m in modes {
+                        if let Some(arg) = m.arg() {
+                            f.write_char(' ')?;
+                            f.write_str(arg)?;
+                        }
                     }
                 }
                 Ok(())
