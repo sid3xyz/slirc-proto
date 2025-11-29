@@ -136,7 +136,9 @@ fn test_format_module_functions() {
 fn test_nickserv_bold_output() {
     // Simulate NickServ output with bold text
     let raw = ":NickServ!services@irc.example.com NOTICE user :\x02Password accepted\x02 - you are now identified.";
-    let msg: Message = raw.parse().expect("Should parse NickServ message with bold");
+    let msg: Message = raw
+        .parse()
+        .expect("Should parse NickServ message with bold");
     assert!(msg.to_string().contains("\x02Password accepted\x02"));
 }
 
@@ -162,7 +164,9 @@ fn test_reverse_format_code() {
 fn test_strikethrough_format_code() {
     // Strikethrough format code (0x1E)
     let raw = "PRIVMSG #test :\x1Estrikethrough\x1E";
-    let msg: Message = raw.parse().expect("Should parse message with strikethrough");
+    let msg: Message = raw
+        .parse()
+        .expect("Should parse message with strikethrough");
     let serialized = msg.to_string();
     assert!(serialized.contains("\x1Estrikethrough\x1E"));
 }

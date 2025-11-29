@@ -13,7 +13,7 @@ use slirc_proto::{Command, Message, Transport};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Connect to an IRC server
     let stream = TcpStream::connect("irc.libera.chat:6667").await?;
-    let mut transport = Transport::tcp(stream);
+    let mut transport = Transport::tcp(stream)?;
 
     // Send NICK and USER commands for registration
     let nick_msg = Message {

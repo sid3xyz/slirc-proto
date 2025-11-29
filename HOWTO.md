@@ -291,7 +291,7 @@ use slirc_proto::{Transport, Message, Command};
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let stream = TcpStream::connect("irc.libera.chat:6667").await?;
-    let mut transport = Transport::tcp(stream);
+    let mut transport = Transport::tcp(stream)?;
 
     // Send messages
     transport.write_message(&Message::nick("mybot")).await?;
@@ -350,7 +350,7 @@ For high-throughput servers, upgrade from `Transport` to `ZeroCopyTransport` aft
 use slirc_proto::{Transport, ZeroCopyTransportEnum, MessageRef};
 
 // Phase 1: Use Transport for handshake
-let mut transport = Transport::tcp(stream);
+let mut transport = Transport::tcp(stream)?;
 // ... perform CAP negotiation, SASL auth, etc ...
 
 // Phase 2: Upgrade to zero-copy for the hot loop

@@ -434,7 +434,10 @@ mod roundtrip {
     fn test_roundtrip_with_escaped_tags() {
         // This tests that tags with special characters survive roundtrip
         let original = Message {
-            tags: Some(vec![slirc_proto::Tag::new("key", Some("value;with;semicolons".to_string()))]),
+            tags: Some(vec![slirc_proto::Tag::new(
+                "key",
+                Some("value;with;semicolons".to_string()),
+            )]),
             prefix: None,
             command: Command::PING("test".to_string(), None),
         };

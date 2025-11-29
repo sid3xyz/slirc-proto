@@ -170,7 +170,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let (stream, addr) = listener.accept().await?;
     println!("Accepted connection from {}", addr);
 
-    let transport = Transport::tcp(stream);
+    let transport = Transport::tcp(stream)?;
     handle_connection(transport, &mut processor).await?;
 
     Ok(())

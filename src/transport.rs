@@ -281,16 +281,20 @@ impl TransportParts {
 
 impl Transport {
     /// Create a new TCP transport from a connected stream.
-    pub fn tcp(stream: TcpStream) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the UTF-8 codec cannot be created (should not happen
+    /// in practice, but avoids panicking in library code).
+    pub fn tcp(stream: TcpStream) -> Result<Self, ProtocolError> {
         if let Err(e) = Self::enable_keepalive(&stream) {
             warn!("failed to enable TCP keepalive: {}", e);
         }
 
-        let codec =
-            IrcCodec::new("utf-8").expect("Failed to create UTF-8 codec: encoding not supported");
-        Self::Tcp {
+        let codec = IrcCodec::new("utf-8")?;
+        Ok(Self::Tcp {
             framed: Framed::new(stream, codec),
-        }
+        })
     }
 
     fn enable_keepalive(stream: &TcpStream) -> Result<()> {
@@ -307,12 +311,16 @@ impl Transport {
     }
 
     /// Create a new TLS transport from an established TLS stream.
-    pub fn tls(stream: TlsStream<TcpStream>) -> Self {
-        let codec =
-            IrcCodec::new("utf-8").expect("Failed to create UTF-8 codec: encoding not supported");
-        Self::Tls {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the UTF-8 codec cannot be created (should not happen
+    /// in practice, but avoids panicking in library code).
+    pub fn tls(stream: TlsStream<TcpStream>) -> Result<Self, ProtocolError> {
+        let codec = IrcCodec::new("utf-8")?;
+        Ok(Self::Tls {
             framed: Framed::new(stream, codec),
-        }
+        })
     }
 
     /// Create a new WebSocket transport.
@@ -447,10 +455,12 @@ where
         match stream.next().await {
             Some(Ok(WsMessage::Text(text))) => {
                 if text.len() > MAX_IRC_LINE_LEN {
-                    return Err(TransportReadError::Protocol(ProtocolError::MessageTooLong {
-                        actual: text.len(),
-                        limit: MAX_IRC_LINE_LEN,
-                    }));
+                    return Err(TransportReadError::Protocol(
+                        ProtocolError::MessageTooLong {
+                            actual: text.len(),
+                            limit: MAX_IRC_LINE_LEN,
+                        },
+                    ));
                 }
 
                 let trimmed = text.trim_end_matches(&['\r', '\n'][..]);
@@ -1193,7 +1203,7 @@ mod tests {
 
         let server = async move {
             let (stream, _peer) = listener.accept().await.unwrap();
-            let mut transport = Transport::tcp(stream);
+            let mut transport = Transport::tcp(stream).unwrap();
 
             let msg = transport.read_message().await.unwrap().unwrap();
             use crate::command::Command;
@@ -1237,7 +1247,7 @@ mod tests {
 
         let server = async move {
             let (stream, _peer) = listener.accept().await.unwrap();
-            let mut transport = Transport::tcp(stream);
+            let mut transport = Transport::tcp(stream).unwrap();
 
             // Read first message (NICK)
             let msg = transport.read_message().await.unwrap().unwrap();

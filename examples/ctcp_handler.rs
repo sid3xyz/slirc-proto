@@ -23,7 +23,7 @@ struct CtcpHandler {
 impl CtcpHandler {
     async fn new(server: &str, nick: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let stream = tokio::net::TcpStream::connect(server).await?;
-        let transport = Transport::tcp(stream);
+        let transport = Transport::tcp(stream)?;
         Ok(CtcpHandler {
             transport,
             nick: nick.to_string(),

@@ -21,7 +21,7 @@ pub enum ProtocolError {
     Decode(#[from] std::string::FromUtf8Error),
 
     /// Message exceeded maximum allowed length.
-    #[error("message too long: {actual} bytes (limit: {limit})" )]
+    #[error("message too long: {actual} bytes (limit: {limit})")]
     MessageTooLong {
         /// Actual message length.
         actual: usize,
@@ -185,9 +185,9 @@ impl Clone for MessageParseError {
                 source_message,
             } => {
                 // We can't clone the boxed error, but we preserve the error message
-                let preserved_message = source_message.clone().or_else(|| {
-                    source.as_ref().map(|e| e.to_string())
-                });
+                let preserved_message = source_message
+                    .clone()
+                    .or_else(|| source.as_ref().map(|e| e.to_string()));
                 MessageParseError::ParseContext {
                     position: *position,
                     context: context.clone(),
@@ -221,8 +221,14 @@ mod tests {
 
     #[test]
     fn test_error_display() {
-        let err = ProtocolError::MessageTooLong { actual: 1024, limit: 512 };
-        assert_eq!(format!("{}", err), "message too long: 1024 bytes (limit: 512)");
+        let err = ProtocolError::MessageTooLong {
+            actual: 1024,
+            limit: 512,
+        };
+        assert_eq!(
+            format!("{}", err),
+            "message too long: 1024 bytes (limit: 512)"
+        );
 
         let err = MessageParseError::NotEnoughArguments {
             expected: 2,

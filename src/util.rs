@@ -207,7 +207,7 @@ mod tests {
     #[test]
     fn test_check_body_length() {
         assert!(check_body_length("short").is_none());
-        
+
         let long = "x".repeat(600);
         assert_eq!(check_body_length(&long), Some(600));
     }
@@ -215,7 +215,7 @@ mod tests {
     #[test]
     fn test_check_tags_length() {
         assert!(check_tags_length("short=tag").is_none());
-        
+
         let long = "x".repeat(9000);
         assert_eq!(check_tags_length(&long), Some(9000));
     }

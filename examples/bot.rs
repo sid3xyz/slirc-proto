@@ -37,7 +37,7 @@ impl Bot {
         channels: Vec<String>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let stream = tokio::net::TcpStream::connect(server).await?;
-        let transport = Transport::tcp(stream);
+        let transport = Transport::tcp(stream)?;
 
         Ok(Bot {
             nick: nick.to_string(),
@@ -363,7 +363,7 @@ impl Bot {
         // Try to reconnect
         match tokio::net::TcpStream::connect("irc.libera.chat:6667").await {
             Ok(stream) => {
-                self.transport = Transport::tcp(stream);
+                self.transport = Transport::tcp(stream)?;
                 self.connect().await?;
                 println!("✓ Reconnected successfully!");
                 Ok(())

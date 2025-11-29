@@ -535,17 +535,32 @@ mod tests {
         assert_eq!(Capability::ReadMarker.as_ref(), "draft/read-marker");
         assert_eq!(Capability::Typing.as_ref(), "typing");
         assert_eq!(Capability::EventPlayback.as_ref(), "draft/event-playback");
-        assert_eq!(Capability::MessageRedaction.as_ref(), "draft/message-redaction");
+        assert_eq!(
+            Capability::MessageRedaction.as_ref(),
+            "draft/message-redaction"
+        );
     }
 
     #[test]
     fn test_draft_capabilities_from_str() {
-        assert_eq!(Capability::from("draft/chathistory"), Capability::ChatHistory);
+        assert_eq!(
+            Capability::from("draft/chathistory"),
+            Capability::ChatHistory
+        );
         assert_eq!(Capability::from("draft/multiline"), Capability::Multiline);
-        assert_eq!(Capability::from("draft/read-marker"), Capability::ReadMarker);
+        assert_eq!(
+            Capability::from("draft/read-marker"),
+            Capability::ReadMarker
+        );
         assert_eq!(Capability::from("typing"), Capability::Typing);
-        assert_eq!(Capability::from("draft/event-playback"), Capability::EventPlayback);
-        assert_eq!(Capability::from("draft/message-redaction"), Capability::MessageRedaction);
+        assert_eq!(
+            Capability::from("draft/event-playback"),
+            Capability::EventPlayback
+        );
+        assert_eq!(
+            Capability::from("draft/message-redaction"),
+            Capability::MessageRedaction
+        );
     }
 
     #[test]

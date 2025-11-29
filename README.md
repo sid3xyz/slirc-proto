@@ -105,7 +105,7 @@ use tokio::net::TcpStream;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let stream = TcpStream::connect("irc.libera.chat:6667").await?;
-    let mut transport = Transport::tcp(stream);
+    let mut transport = Transport::tcp(stream)?;
 
     // Send registration
     transport.write_message(&Message::from(Command::NICK("mybot".into())).to_string()).await?;
@@ -129,7 +129,7 @@ For high-throughput servers, upgrade from `Transport` to `ZeroCopyTransport` aft
 use slirc_proto::transport::{Transport, ZeroCopyTransportEnum};
 
 // Use Transport for handshake
-let transport = Transport::tcp(stream);
+let transport = Transport::tcp(stream)?;
 // ... perform CAP negotiation ...
 
 // Upgrade to zero-copy for the hot loop (no allocations!)

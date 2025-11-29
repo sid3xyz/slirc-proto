@@ -187,7 +187,7 @@ async fn connect_and_parse_isupport(
     println!("Connecting to {}...", server);
 
     let stream = TcpStream::connect(server).await?;
-    let mut transport = Transport::tcp(stream);
+    let mut transport = Transport::tcp(stream)?;
 
     // Send registration
     transport

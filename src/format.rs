@@ -24,22 +24,6 @@
 //! Note: Formatting codes are permitted in message **content** but MUST NOT
 //! appear in nicknames, usernames, or channel names per RFC 2812.
 
-/// IRC formatting control characters that are permitted in message content.
-///
-/// These are defined by the modern IRC formatting specification.
-pub const IRC_FORMAT_CODES: &[char] = &[
-    '\x01', // CTCP delimiter
-    '\x02', // Bold
-    '\x03', // Color
-    '\x04', // Hex color
-    '\x0F', // Reset
-    '\x11', // Monospace
-    '\x16', // Reverse
-    '\x1D', // Italic
-    '\x1E', // Strikethrough
-    '\x1F', // Underline
-];
-
 /// Returns true if the character is a valid IRC formatting code.
 ///
 /// These characters are permitted in message content for text formatting.
@@ -57,7 +41,10 @@ pub const IRC_FORMAT_CODES: &[char] = &[
 /// ```
 #[inline]
 pub fn is_irc_format_code(ch: char) -> bool {
-    matches!(ch, '\x01' | '\x02' | '\x03' | '\x04' | '\x0F' | '\x11' | '\x16' | '\x1D' | '\x1E' | '\x1F')
+    matches!(
+        ch,
+        '\x01' | '\x02' | '\x03' | '\x04' | '\x0F' | '\x11' | '\x16' | '\x1D' | '\x1E' | '\x1F'
+    )
 }
 
 /// Returns true if a control character is illegal in IRC messages.

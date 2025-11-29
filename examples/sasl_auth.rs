@@ -37,9 +37,9 @@ impl SaslClient {
         let transport = if use_external {
             // For EXTERNAL, you would typically use TLS with client certificates
             // This is a simplified example - would need TLS stream setup
-            Transport::tcp(stream)
+            Transport::tcp(stream)?
         } else {
-            Transport::tcp(stream)
+            Transport::tcp(stream)?
         };
 
         Ok(SaslClient {
@@ -376,52 +376,50 @@ impl SaslClient {
         self.transport.write_message(&message).await?;
         Ok(())
     }
+}
 
-    async fn demonstrate_mechanisms(&self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("\n🔍 SASL Mechanism Demonstration:\n");
+fn demonstrate_mechanisms() {
+    println!("\n🔍 SASL Mechanism Demonstration:\n");
 
-        // Demonstrate PLAIN encoding
-        println!("PLAIN mechanism:");
-        let plain_encoded = encode_plain("testuser", "testpass");
+    // Demonstrate PLAIN encoding
+    println!("PLAIN mechanism:");
+    let plain_encoded = encode_plain("testuser", "testpass");
+    println!(
+        "  encode_plain(\"testuser\", \"testpass\") = \"{}\"",
+        plain_encoded
+    );
+
+    // Show what the base64 decodes to (for educational purposes)
+    use base64::Engine;
+    if let Ok(decoded) = base64::engine::general_purpose::STANDARD.decode(&plain_encoded) {
+        let decoded_str = String::from_utf8_lossy(&decoded);
         println!(
-            "  encode_plain(\"testuser\", \"testpass\") = \"{}\"",
-            plain_encoded
+            "  Decoded format: {:?} (authzid\\0username\\0password)",
+            decoded_str
         );
-
-        // Show what the base64 decodes to (for educational purposes)
-        use base64::Engine;
-        if let Ok(decoded) = base64::engine::general_purpose::STANDARD.decode(&plain_encoded) {
-            let decoded_str = String::from_utf8_lossy(&decoded);
-            println!(
-                "  Decoded format: {:?} (authzid\\0username\\0password)",
-                decoded_str
-            );
-        }
-
-        // Demonstrate EXTERNAL encoding
-        println!("\nEXTERNAL mechanism:");
-        let external_encoded = encode_external(Some("testuser"));
-        println!(
-            "  encode_external(Some(\"testuser\")) = \"{}\"",
-            external_encoded
-        );
-
-        let external_empty = encode_external(None);
-        println!("  encode_external(None) = \"{}\"", external_empty);
-
-        // Show supported mechanisms
-        println!("\nSupported mechanisms:");
-        println!(
-            "  {:?} - Username/password authentication",
-            SaslMechanism::Plain
-        );
-        println!(
-            "  {:?} - Client certificate authentication",
-            SaslMechanism::External
-        );
-
-        Ok(())
     }
+
+    // Demonstrate EXTERNAL encoding
+    println!("\nEXTERNAL mechanism:");
+    let external_encoded = encode_external(Some("testuser"));
+    println!(
+        "  encode_external(Some(\"testuser\")) = \"{}\"",
+        external_encoded
+    );
+
+    let external_empty = encode_external(None);
+    println!("  encode_external(None) = \"{}\"", external_empty);
+
+    // Show supported mechanisms
+    println!("\nSupported mechanisms:");
+    println!(
+        "  {:?} - Username/password authentication",
+        SaslMechanism::Plain
+    );
+    println!(
+        "  {:?} - Client certificate authentication",
+        SaslMechanism::External
+    );
 }
 
 #[tokio::main]
@@ -432,20 +430,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Demonstrate SASL encoding without connecting
     println!("=== SASL Authentication Example ===\n");
 
-    let demo_client = SaslClient {
-        transport: Transport::tcp(
-            tokio::net::TcpStream::connect("")
-                .await
-                .unwrap_or_else(|_| unreachable!()),
-        ),
-
-        nick: "demo".to_string(),
-        username: "demo".to_string(),
-        password: "demo".to_string(),
-        use_external: false,
-    };
-
-    demo_client.demonstrate_mechanisms().await?;
+    demonstrate_mechanisms();
 
     println!("\n=== Live Connection Example ===");
     println!("Note: This example requires valid credentials and a SASL-enabled server");
