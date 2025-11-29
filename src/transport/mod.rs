@@ -1,11 +1,15 @@
 //! IRC transport layer for async I/O.
 //!
 //! This module provides transport types for reading and writing IRC messages
-//! over TCP, TLS, and WebSocket connections.
+//! over TCP, TLS (server and client), and WebSocket connections.
 //!
 //! # Features
 //!
 //! - [`Transport`]: High-level transport using `Framed` codec for owned [`Message`] types
+//!   - [`Transport::tcp`]: Plain TCP connections
+//!   - [`Transport::tls`]: Server-side TLS (for IRC servers)
+//!   - [`Transport::client_tls`]: Client-side TLS (for IRC clients connecting to port 6697)
+//!   - [`Transport::websocket`] / [`Transport::websocket_tls`]: WebSocket connections
 //! - [`ZeroCopyTransport`]: Zero-allocation transport yielding borrowed [`MessageRef`] types
 //! - [`LendingStream`]: Trait for streams that yield borrowed data
 //!

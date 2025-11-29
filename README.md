@@ -29,7 +29,7 @@ This library is a core component of **STRAYLIGHT**, an experimental IRC ecosyste
 - **IRCv3 Extensions** — Capability negotiation, message tags, batch processing, server-time, and message IDs
 - **Zero-Copy Parsing** — Efficient `MessageRef` and `CommandRef` types for borrowing without allocation
 - **Zero-Copy Transport** — `ZeroCopyTransport` yields `MessageRef<'_>` with zero heap allocations in hot loops
-- **Async Transport** — TCP, TLS (via rustls), and WebSocket connections with Tokio
+- **Async Transport** — TCP, TLS (server and client), and WebSocket connections with Tokio
 - **SASL Authentication** — PLAIN and EXTERNAL mechanism support with chunked encoding
 - **CTCP Handling** — Parse and construct CTCP messages (ACTION, VERSION, PING, etc.)
 - **Mode Parsing** — User and channel mode parsing and serialization
@@ -117,6 +117,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("← {}", msg);
     }
 
+    Ok(())
+}
+```
+
+### TLS Client Connection
+
+For secure connections to IRC servers (port 6697):
+
+```rust
+use slirc_proto::transport::Transport;
+use slirc_proto::Message;
+use tokio::net::TcpStream;
+use tokio_rustls::TlsConnector;
+use tokio_rustls::rustls::{ClientConfig, RootCertStore};
+use std::sync::Arc;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Set up TLS with system root certificates
+    let mut root_store = RootCertStore::empty();
+    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    
+    let config = ClientConfig::builder()
+        .with_root_certificates(root_store)
+        .with_no_client_auth();
+    let connector = TlsConnector::from(Arc::new(config));
+    
+    // Connect with TLS
+    let tcp_stream = TcpStream::connect("irc.libera.chat:6697").await?;
+    let server_name = "irc.libera.chat".try_into()?;
+    let tls_stream = connector.connect(server_name, tcp_stream).await?;
+    
+    // Create client TLS transport
+    let mut transport = Transport::client_tls(tls_stream)?;
+    
+    // Use like any other transport
+    transport.write_message(&Message::nick("mybot")).await?;
+    transport.write_message(&Message::user("bot", "My Bot")).await?;
+    
+    while let Ok(Some(msg)) = transport.read_message().await {
+        println!("← {}", msg);
+    }
+    
     Ok(())
 }
 ```

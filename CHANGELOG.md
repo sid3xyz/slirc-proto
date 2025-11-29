@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Client-side TLS support** — New `Transport::ClientTls` variant and `Transport::client_tls()` constructor for IRC clients connecting to TLS-enabled servers (port 6697)
+  - `Transport::client_tls(stream)` — Create transport from `tokio_rustls::client::TlsStream`
+  - `Transport::is_client_tls()` — Check if transport uses client-side TLS
+  - `Transport::is_server_tls()` — Check if transport uses server-side TLS
+  - `ZeroCopyTransportEnum::ClientTls` — Zero-copy variant for client TLS
+  - `ZeroCopyTransportEnum::client_tls()` and `client_tls_with_buffer()` constructors
+  - `TransportStream::ClientTls`, `TransportReadHalf::ClientTls`, `TransportWriteHalf::ClientTls` for stream splitting
 - **New user modes:**
   - `UserMode::Registered` - Maps to `+r`, indicates user is registered with services
   - `UserMode::Service` - Maps to `+S`, indicates user is a network service
