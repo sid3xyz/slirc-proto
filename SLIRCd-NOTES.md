@@ -81,3 +81,27 @@ Added deprecated alias for backward compatibility:
 #[deprecated(note = "Typo: use ERR_ALREADYREGISTERED")]
 pub const ERR_ALREADYREGISTRED: Response = Response::ERR_ALREADYREGISTERED;
 ```
+
+---
+
+## BREAKING: Transport Constructors Now Return Result
+
+### Changed: 2025-11-28
+
+`Transport::tcp()` and `Transport::tls()` now return `Result<Self>` instead of `Self`.
+
+**Before:**
+```rust
+let transport = Transport::tcp(stream);
+```
+
+**After:**
+```rust
+let transport = Transport::tcp(stream)?;
+// or
+let transport = Transport::tcp(stream).expect("framing failed");
+```
+
+**Rationale**: The previous implementation used `.expect()` internally, which could panic if the `Framed` wrapper failed to initialize. Returning `Result` lets callers handle errors gracefully.
+
+**Migration**: Add `?` or `.unwrap()` to all `Transport::tcp()` and `Transport::tls()` calls. In practice, these operations rarely fail, but the API is now honest about the possibility.
