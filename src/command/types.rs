@@ -249,6 +249,155 @@ pub struct CommandRef<'a> {
     pub args: Vec<&'a str>,
 }
 
+impl Command {
+    /// Get the command name as a static string.
+    ///
+    /// Returns the IRC command name (e.g., "PRIVMSG", "NICK", "JOIN").
+    /// For `Response` variants, returns "RESPONSE".
+    /// For `Raw` variants, this allocates - prefer using `Command::raw_name()` for those.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use slirc_proto::Command;
+    ///
+    /// let cmd = Command::PRIVMSG("#channel".into(), "Hello".into());
+    /// assert_eq!(cmd.name(), "PRIVMSG");
+    ///
+    /// let cmd = Command::NICK("user".into());
+    /// assert_eq!(cmd.name(), "NICK");
+    /// ```
+    #[inline]
+    pub fn name(&self) -> &'static str {
+        match self {
+            // Connection Registration
+            Command::PASS(_) => "PASS",
+            Command::NICK(_) => "NICK",
+            Command::USER(..) => "USER",
+            Command::OPER(..) => "OPER",
+            Command::UserMODE(..) => "MODE",
+            Command::SERVICE(..) => "SERVICE",
+            Command::QUIT(_) => "QUIT",
+            Command::SQUIT(..) => "SQUIT",
+
+            // Channel Operations
+            Command::JOIN(..) => "JOIN",
+            Command::PART(..) => "PART",
+            Command::ChannelMODE(..) => "MODE",
+            Command::TOPIC(..) => "TOPIC",
+            Command::NAMES(..) => "NAMES",
+            Command::LIST(..) => "LIST",
+            Command::INVITE(..) => "INVITE",
+            Command::KICK(..) => "KICK",
+
+            // Messaging
+            Command::PRIVMSG(..) => "PRIVMSG",
+            Command::NOTICE(..) => "NOTICE",
+
+            // Server Queries
+            Command::MOTD(_) => "MOTD",
+            Command::LUSERS(..) => "LUSERS",
+            Command::VERSION(_) => "VERSION",
+            Command::STATS(..) => "STATS",
+            Command::LINKS(..) => "LINKS",
+            Command::TIME(_) => "TIME",
+            Command::CONNECT(..) => "CONNECT",
+            Command::TRACE(_) => "TRACE",
+            Command::ADMIN(_) => "ADMIN",
+            Command::INFO(_) => "INFO",
+
+            // Service Queries
+            Command::SERVLIST(..) => "SERVLIST",
+            Command::SQUERY(..) => "SQUERY",
+
+            // User Queries
+            Command::WHO(..) => "WHO",
+            Command::WHOIS(..) => "WHOIS",
+            Command::WHOWAS(..) => "WHOWAS",
+
+            // Miscellaneous
+            Command::KILL(..) => "KILL",
+            Command::PING(..) => "PING",
+            Command::PONG(..) => "PONG",
+            Command::ERROR(_) => "ERROR",
+
+            // Optional Features
+            Command::AWAY(_) => "AWAY",
+            Command::REHASH => "REHASH",
+            Command::DIE => "DIE",
+            Command::RESTART => "RESTART",
+            Command::SUMMON(..) => "SUMMON",
+            Command::USERS(_) => "USERS",
+            Command::WALLOPS(_) => "WALLOPS",
+            Command::USERHOST(_) => "USERHOST",
+            Command::ISON(_) => "ISON",
+
+            // Operator Ban Commands
+            Command::KLINE(..) => "KLINE",
+            Command::DLINE(..) => "DLINE",
+            Command::UNKLINE(_) => "UNKLINE",
+            Command::UNDLINE(_) => "UNDLINE",
+
+            // Channel Extensions
+            Command::KNOCK(..) => "KNOCK",
+
+            // Services Commands
+            Command::SAJOIN(..) => "SAJOIN",
+            Command::SAMODE(..) => "SAMODE",
+            Command::SANICK(..) => "SANICK",
+            Command::SAPART(..) => "SAPART",
+            Command::SAQUIT(..) => "SAQUIT",
+            Command::NICKSERV(_) => "NICKSERV",
+            Command::CHANSERV(_) => "CHANSERV",
+            Command::OPERSERV(_) => "OPERSERV",
+            Command::BOTSERV(_) => "BOTSERV",
+            Command::HOSTSERV(_) => "HOSTSERV",
+            Command::MEMOSERV(_) => "MEMOSERV",
+            Command::NS(_) => "NS",
+            Command::CS(_) => "CS",
+            Command::OS(_) => "OS",
+            Command::BS(_) => "BS",
+            Command::HS(_) => "HS",
+            Command::MS(_) => "MS",
+
+            // IRCv3 Extensions
+            Command::CAP(..) => "CAP",
+            Command::AUTHENTICATE(_) => "AUTHENTICATE",
+            Command::ACCOUNT(_) => "ACCOUNT",
+            Command::MONITOR(..) => "MONITOR",
+            Command::BATCH(..) => "BATCH",
+            Command::CHGHOST(..) => "CHGHOST",
+            Command::SETNAME(_) => "SETNAME",
+            Command::TAGMSG(_) => "TAGMSG",
+            Command::WEBIRC(..) => "WEBIRC",
+            Command::CHATHISTORY { .. } => "CHATHISTORY",
+
+            // Standard Replies
+            Command::FAIL(..) => "FAIL",
+            Command::WARN(..) => "WARN",
+            Command::NOTE(..) => "NOTE",
+
+            // Numeric Response
+            Command::Response(..) => "RESPONSE",
+
+            // Raw - returns "RAW", use raw_name() for the actual command
+            Command::Raw(..) => "RAW",
+        }
+    }
+
+    /// Get the raw command name for `Raw` variants.
+    ///
+    /// Returns `Some(&str)` for `Raw` commands, `None` for typed commands.
+    /// Use `name()` for typed commands.
+    #[inline]
+    pub fn raw_name(&self) -> Option<&str> {
+        match self {
+            Command::Raw(name, _) => Some(name),
+            _ => None,
+        }
+    }
+}
+
 impl<'a> CommandRef<'a> {
     /// Create a new command reference.
     pub fn new(name: &'a str, args: Vec<&'a str>) -> Self {
