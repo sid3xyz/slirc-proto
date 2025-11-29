@@ -362,8 +362,10 @@ pub fn get_cap_list(version: u32, tls_port: Option<u16>) -> String {
                     } else {
                         cap.name.to_string()
                     }
+                } else if let Some(value) = cap.value {
+                    format!("{}={}", cap.name, value)
                 } else {
-                    format!("{}={}", cap.name, cap.value.unwrap())
+                    cap.name.to_string()
                 }
             } else {
                 cap.name.to_string()

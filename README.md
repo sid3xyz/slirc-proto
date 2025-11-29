@@ -99,7 +99,8 @@ println!("{}", tagged); // Serializes to IRC wire format
 ### Async Client with Transport
 
 ```rust
-use slirc_proto::{Command, Message, Transport};
+use slirc_proto::transport::Transport;
+use slirc_proto::Message;
 use tokio::net::TcpStream;
 
 #[tokio::main]
@@ -108,12 +109,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut transport = Transport::tcp(stream)?;
 
     // Send registration
-    transport.write_message(&Message::from(Command::NICK("mybot".into())).to_string()).await?;
-    transport.write_message(&Message::from(Command::USER("bot".into(), "0".into(), "My Bot".into())).to_string()).await?;
+    transport.write_message(&Message::nick("mybot")).await?;
+    transport.write_message(&Message::user("bot", "My Bot")).await?;
 
     // Read messages
-    while let Ok(Some(line)) = transport.read_message().await {
-        let msg: Message = line.parse()?;
+    while let Ok(Some(msg)) = transport.read_message().await {
         println!("← {}", msg);
     }
 
@@ -172,11 +172,11 @@ let action = Ctcp::action("waves hello");
 ```rust
 use slirc_proto::mode::{Mode, ChannelMode, UserMode};
 
-// Parse channel modes
-let modes: Vec<Mode<ChannelMode>> = "+ov nick1 nick2".parse().unwrap();
+// Parse channel modes from command arguments
+let modes = Mode::as_channel_modes(&["+ov", "nick1", "nick2"]).unwrap();
 
 // Parse user modes
-let user_modes: Vec<Mode<UserMode>> = "+iw".parse().unwrap();
+let user_modes = Mode::as_user_modes(&["+iw"]).unwrap();
 ```
 
 ### ISUPPORT and Mode Disambiguation

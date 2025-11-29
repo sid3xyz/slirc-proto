@@ -314,10 +314,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### TLS Transport
 
 ```rust
-use slirc_proto::Transport;
+use slirc_proto::transport::Transport;
+use tokio::net::TcpStream;
+use tokio_rustls::TlsConnector;
+use std::sync::Arc;
 
-// Connect with TLS (rustls)
-let transport = Transport::connect_tls("irc.libera.chat", 6697).await?;
+// Establish TLS connection first, then wrap with Transport
+let stream = TcpStream::connect("irc.libera.chat:6697").await?;
+let connector: TlsConnector = /* configure rustls */;
+let tls_stream = connector.connect(server_name, stream).await?;
+let transport = Transport::tls(tls_stream)?;
 ```
 
 ### Using IrcCodec with Framed
@@ -327,9 +333,10 @@ use futures::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
 use tokio_util::codec::Framed;
 use slirc_proto::IrcCodec;
+use slirc_proto::Message;
 
 let stream = TcpStream::connect("irc.example.com:6667").await?;
-let mut framed = Framed::new(stream, IrcCodec::new());
+let mut framed = Framed::new(stream, IrcCodec::new("utf-8")?);
 
 // Send
 framed.send(Message::nick("mybot")).await?;
@@ -446,20 +453,20 @@ if let Some(time) = msg.tag_value("time") {
 ### PLAIN Authentication
 
 ```rust
-use slirc_proto::sasl::{encode_plain, SaslMechanism, chunk_response};
-use slirc_proto::{Command, Message};
+use slirc_proto::sasl::encode_plain;
+use slirc_proto::Command;
 
-// Start SASL
+// Start SASL negotiation
 let authenticate = Command::AUTHENTICATE("PLAIN".to_string());
 
-// Encode credentials
+// Encode credentials (returns base64)
 let encoded = encode_plain("username", "password");
 
-// Chunk if needed (SASL has 400-byte limit per message)
-for chunk in chunk_response(&encoded) {
-    let auth_msg = Command::AUTHENTICATE(chunk);
-    // Send auth_msg...
-}
+// Send the encoded response
+// Note: IRC limits SASL responses to 400 bytes per message.
+// For most passwords, this is sufficient.
+let auth_msg = Command::AUTHENTICATE(encoded);
+// Send auth_msg...
 ```
 
 ### EXTERNAL Authentication (Client Certificates)

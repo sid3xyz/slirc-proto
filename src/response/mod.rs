@@ -818,6 +818,7 @@ impl std::fmt::Display for Response {
 
 /// Error when parsing a response code
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ParseResponseError {
     /// The string was not a valid number
     InvalidFormat,

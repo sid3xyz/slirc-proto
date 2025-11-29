@@ -116,11 +116,7 @@ impl Message {
         T: Into<String>,
         M: Into<String>,
     {
-        Message {
-            tags: None,
-            prefix: None,
-            command: Command::PRIVMSG(target.into(), text.into()),
-        }
+        Command::PRIVMSG(target.into(), text.into()).into()
     }
 
     /// Create a NOTICE message to a target with text
@@ -129,11 +125,7 @@ impl Message {
         T: Into<String>,
         M: Into<String>,
     {
-        Message {
-            tags: None,
-            prefix: None,
-            command: Command::NOTICE(target.into(), text.into()),
-        }
+        Command::NOTICE(target.into(), text.into()).into()
     }
 
     /// Create a JOIN message for a channel
@@ -141,11 +133,7 @@ impl Message {
     where
         C: Into<String>,
     {
-        Message {
-            tags: None,
-            prefix: None,
-            command: Command::JOIN(channel.into(), None, None),
-        }
+        Command::JOIN(channel.into(), None, None).into()
     }
 
     /// Create a JOIN message for a channel with a key
@@ -154,11 +142,7 @@ impl Message {
         C: Into<String>,
         K: Into<String>,
     {
-        Message {
-            tags: None,
-            prefix: None,
-            command: Command::JOIN(channel.into(), Some(key.into()), None),
-        }
+        Command::JOIN(channel.into(), Some(key.into()), None).into()
     }
 
     /// Create a PART message to leave a channel
@@ -166,11 +150,7 @@ impl Message {
     where
         C: Into<String>,
     {
-        Message {
-            tags: None,
-            prefix: None,
-            command: Command::PART(channel.into(), None),
-        }
+        Command::PART(channel.into(), None).into()
     }
 
     /// Create a PART message to leave a channel with a message
@@ -179,11 +159,7 @@ impl Message {
         C: Into<String>,
         M: Into<String>,
     {
-        Message {
-            tags: None,
-            prefix: None,
-            command: Command::PART(channel.into(), Some(message.into())),
-        }
+        Command::PART(channel.into(), Some(message.into())).into()
     }
 
     /// Create a NICK message to change nickname
@@ -191,11 +167,7 @@ impl Message {
     where
         N: Into<String>,
     {
-        Message {
-            tags: None,
-            prefix: None,
-            command: Command::NICK(nickname.into()),
-        }
+        Command::NICK(nickname.into()).into()
     }
 
     /// Create a USER message for registration
@@ -204,11 +176,7 @@ impl Message {
         U: Into<String>,
         R: Into<String>,
     {
-        Message {
-            tags: None,
-            prefix: None,
-            command: Command::USER(username.into(), "0".into(), realname.into()),
-        }
+        Command::USER(username.into(), "0".into(), realname.into()).into()
     }
 
     /// Create a PING message to a server
@@ -216,11 +184,7 @@ impl Message {
     where
         S: Into<String>,
     {
-        Message {
-            tags: None,
-            prefix: None,
-            command: Command::PING(server.into(), None),
-        }
+        Command::PING(server.into(), None).into()
     }
 
     /// Create a PONG message in response to a PING
@@ -228,20 +192,12 @@ impl Message {
     where
         S: Into<String>,
     {
-        Message {
-            tags: None,
-            prefix: None,
-            command: Command::PONG(server.into(), None),
-        }
+        Command::PONG(server.into(), None).into()
     }
 
     /// Create a QUIT message
     pub fn quit() -> Self {
-        Message {
-            tags: None,
-            prefix: None,
-            command: Command::QUIT(None),
-        }
+        Command::QUIT(None).into()
     }
 
     /// Create a QUIT message with a quit message
@@ -249,11 +205,7 @@ impl Message {
     where
         M: Into<String>,
     {
-        Message {
-            tags: None,
-            prefix: None,
-            command: Command::QUIT(Some(message.into())),
-        }
+        Command::QUIT(Some(message.into())).into()
     }
 
     /// Create a KICK message
@@ -262,11 +214,7 @@ impl Message {
         C: Into<String>,
         N: Into<String>,
     {
-        Message {
-            tags: None,
-            prefix: None,
-            command: Command::KICK(channel.into(), nickname.into(), None),
-        }
+        Command::KICK(channel.into(), nickname.into(), None).into()
     }
 
     /// Create a KICK message with a reason
@@ -276,20 +224,12 @@ impl Message {
         N: Into<String>,
         R: Into<String>,
     {
-        Message {
-            tags: None,
-            prefix: None,
-            command: Command::KICK(channel.into(), nickname.into(), Some(reason.into())),
-        }
+        Command::KICK(channel.into(), nickname.into(), Some(reason.into())).into()
     }
 
     /// Create an AWAY message
     pub fn away() -> Self {
-        Message {
-            tags: None,
-            prefix: None,
-            command: Command::AWAY(None),
-        }
+        Command::AWAY(None).into()
     }
 
     /// Create an AWAY message with a message
@@ -297,11 +237,7 @@ impl Message {
     where
         M: Into<String>,
     {
-        Message {
-            tags: None,
-            prefix: None,
-            command: Command::AWAY(Some(message.into())),
-        }
+        Command::AWAY(Some(message.into())).into()
     }
 
     /// Add IRCv3 tags to this message
