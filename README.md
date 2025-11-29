@@ -3,28 +3,40 @@
 > **Straylight IRC Protocol Library**
 > A robust, zero-copy IRCv3 parsing and serialization library for Rust.
 
-![Crates.io](https://img.shields.io/crates/v/slirc-proto.svg)
-![License](https://img.shields.io/badge/license-Unlicense-blue)
-![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)
-![Status](https://img.shields.io/badge/status-stable-green)
+[![Crates.io](https://img.shields.io/crates/v/slirc-proto.svg)](https://crates.io/crates/slirc-proto)
+[![Documentation](https://docs.rs/slirc-proto/badge.svg)](https://docs.rs/slirc-proto)
+[![License](https://img.shields.io/badge/license-Unlicense-blue)](LICENSE)
+[![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)](https://blog.rust-lang.org/2023/06/01/Rust-1.70.0.html)
+[![Status](https://img.shields.io/badge/status-stable-green)]()
 
 `slirc-proto` is the backbone of the Straylight IRC ecosystem. It provides a high-performance, type-safe foundation for building IRC clients, servers, and bots. It prioritizes correctness, utilizing strongly typed enums for all protocol primitives to make invalid states unrepresentable.
 
 ## 🚀 Key Features
 
 ### Performance First
+
 * **Zero-Copy Parsing:** `MessageRef<'a>` borrows directly from the input buffer, avoiding heap allocations in hot loops.
 * **Zero-Copy Transport:** Specialized `ZeroCopyTransport` for high-throughput server implementations.
 * **Optimized Serialization:** Mode changes and command parameters are serialized efficiently without intermediate strings.
 
 ### Modern IRCv3 Support
+
 * **Full Capability Negotiation:** `CAP LS/REQ/ACK` flow with version negotiation (301/302).
 * **Tags:** First-class support for message tags (`@time`, `@account`, `@batch`).
 * **Extensions:** Helpers for `BATCH`, `CHATHISTORY`, `MONITOR`, and `SASL` (PLAIN/EXTERNAL).
 
+### Transport Options
+
+* **TCP:** Plain-text connections via `Transport::tcp()`.
+* **TLS (Server):** Server-side TLS via `Transport::tls()` for IRC daemons.
+* **TLS (Client):** Client-side TLS via `Transport::client_tls()` for connecting to port 6697 (v1.2.0+).
+* **WebSocket:** IRC-over-WebSocket via `Transport::websocket()` and `Transport::websocket_tls()`.
+
 ### Developer Experience
+
 * **Typed Commands:** `Command::PRIVMSG`, `Command::JOIN`, etc., instead of error-prone string arrays.
 * **Typed Modes:** `UserMode` and `ChannelMode` enums (including `+r` Registered, `+S` Service).
+* **Typed Responses:** `Response` enum covering all RFC 2812 numerics with helper methods.
 * **Builders:** Ergonomic constructors for Messages and Prefixes.
 
 ---
@@ -38,11 +50,13 @@ Add this to your `Cargo.toml`:
 slirc-proto = "1.2"
 ```
 
-#### Feature Flags
+### Feature Flags
 
-* `tokio` (Default): Enables async transport and codecs.
-* `encoding`: Adds support for non-UTF8 text encodings.
-* `proptest`: Enables property-based testing strategies.
+| Feature | Default | Description |
+|---------|---------|-------------|
+| `tokio` | ✓ | Async transport (TCP, TLS, WebSocket) via Tokio |
+| `encoding` | | Character encoding support via `encoding_rs` |
+| `proptest` | | Property-based testing strategies |
 
 ---
 
@@ -107,11 +121,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 The library is structured into specialized modules:
 
+### Core Protocol
+
+* **`message`**: `Message` and `MessageRef<'a>` types for owned/borrowed parsing.
 * **`command`**: Strongly typed `Command` enum covering RFC 2812 + IRCv3.
-* **`mode`**: Type-safe Mode string parsing/serialization.
-* **`sasl`**: Mechanics for PLAIN/EXTERNAL authentication.
-* **`transport`**: Tokio-based framing (owned) and zero-copy streams.
-* **`isupport`**: Helpers for parsing server capability bursts (005).
+* **`prefix`**: `Prefix` and `PrefixRef<'a>` for source (nick!user@host) parsing.
+* **`response`**: `Response` enum for all IRC numeric replies (001-999).
+* **`mode`**: Type-safe `UserMode` and `ChannelMode` parsing/serialization.
+
+### IRCv3 Extensions
+
+* **`caps`**: Capability negotiation (`Capability` enum, version 301/302).
+* **`ircv3`**: Helpers for `BATCH`, server-time, message IDs.
+* **`sasl`**: PLAIN/EXTERNAL authentication mechanics.
+* **`ctcp`**: CTCP message parsing (ACTION, VERSION, PING, etc.).
+
+### Transport (requires `tokio` feature)
+
+* **`transport`**: `Transport` enum with TCP/TLS/WebSocket variants.
+* **`transport::ZeroCopyTransport`**: Zero-allocation message streaming.
+* **`websocket`**: WebSocket handshake helpers.
+
+### Utilities
+
+* **`isupport`**: Parse `RPL_ISUPPORT` (005) server capability tokens.
+* **`casemap`**: IRC-compliant case-insensitive string comparison.
+* **`colors`**: IRC color/formatting code helpers via `FormattedStringExt`.
+* **`compliance`**: Message validation against protocol rules.
+* **`scanner`**: Protocol detection (IRC vs HTTP/TLS/SSH).
+
+---
+
+## 📚 Documentation
+
+* **[API Documentation](https://docs.rs/slirc-proto)** — Full rustdoc reference
+* **[Crates.io](https://crates.io/crates/slirc-proto)** — Package registry
+* **[GitHub](https://github.com/sid3xyz/slirc-proto)** — Source repository
 
 ---
 
