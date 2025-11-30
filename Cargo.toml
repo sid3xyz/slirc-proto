@@ -16,9 +16,6 @@ readme = "README.md"
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
-[workspace]
-exclude = ["fuzz"]
-
 [features]
 default = ["tokio"]
 tokio = ["bytes", "dep:tokio", "tokio-util", "futures-util", "anyhow", "socket2", "tokio-rustls", "tokio-tungstenite", "tracing"]
