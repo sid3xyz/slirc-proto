@@ -7,16 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2025-11-30
+
 ### Added
 
-- **Write support for zero-copy transports** — `ZeroCopyTransportEnum::write_message()` enables unified read/write operations in a single `tokio::select!` loop without needing separate writer infrastructure
-  - `ZeroCopyTransport::write_message(&Message)` — Write to TCP/TLS streams
-  - `ZeroCopyWebSocketTransport::write_message(&Message)` — Write to WebSocket streams
-  - `ZeroCopyTransportEnum::write_message(&Message)` — Unified write across all transport types
-- **Zero-copy message forwarding** — `write_message_ref(&MessageRef)` methods for S2S forwarding and relay scenarios without allocating owned `Message`
-  - `ZeroCopyTransport::write_message_ref(&MessageRef)` — Forward borrowed messages on TCP/TLS
-  - `ZeroCopyWebSocketTransport::write_message_ref(&MessageRef)` — Forward on WebSocket
-  - `ZeroCopyTransportEnum::write_message_ref(&MessageRef)` — Unified forwarding API
+- **`IrcEncode` trait** — Zero-copy encoding for IRC messages directly to `impl Write`
+  - `IrcEncode::encode(&self, writer)` — Write to any `std::io::Write` implementor
+  - `IrcEncode::to_bytes(&self)` — Convenience method for `Vec<u8>` output
+  - Implementations for `Message`, `MessageRef`, `Command`, `Prefix`, `Tag`
+  - New module: `src/encode.rs`
+
+- **Sans-IO `HandshakeMachine`** — Runtime-agnostic IRC connection state machine
+  - `ConnectionState` enum: Disconnected → CapabilityNegotiation → Authenticating → Registering → Connected
+  - `HandshakeConfig` struct for nickname, username, realname, SASL credentials
+  - `HandshakeMachine::start()` → initial CAP LS / PASS / NICK / USER actions
+  - `HandshakeMachine::feed(&MessageRef)` → process server responses, emit actions
+  - `HandshakeAction` enum: Send, Complete, Error, Timeout
+  - New module: `src/state.rs`
+
+- **Optional Serde support** — Enable with `serde` feature flag
+  - `#[derive(Serialize, Deserialize)]` on `Message`, `Command`, `Tag`, `Prefix`
+  - `#[derive(Serialize, Deserialize)]` on `Response`, `UserMode`, `ChannelMode`, `Mode<T>`
+  - `#[derive(Serialize, Deserialize)]` on `ConnectionState`, `HandshakeAction`, `HandshakeConfig`
+  - `#[derive(Serialize, Deserialize)]` on subcommands: `CapSubCommand`, `BatchSubCommand`, `ChatHistorySubCommand`
+
+- **SCRAM-SHA-256 placeholder** — Prepared for future implementation
+  - `ScramClient` struct with state machine for SCRAM authentication flow
+  - `ScramState` enum: Initial → ClientFirstSent → ServerFirstReceived → ClientFinalSent → Complete
+  - `ScramError` enum for SCRAM-specific error handling
+  - Note: Full implementation awaits optional crypto dependencies (sha2, hmac, pbkdf2)
+
+- **`#[must_use]` annotations** — Prevent accidental discard of important return values
+  - `MessageRef::parse()` — parsing result should be handled
+  - `Message::new()`, `Message::with_tags()` — message creation result should be handled
+  - All `Message` convenience constructors: `privmsg`, `notice`, `join`, `part`, `nick`, `kick`, `quit`, `ping`, `pong`, `user`, `away`
+
+- **Zero-copy tag escaping** — `escape_tag_value_to_writer()` for `IrcEncode` support
+
+### Changed
+
+- Bumped version to 1.3.0
+
+### Internal
+
+- Fixed clippy `large_enum_variant` warning: `HandshakeAction::Send` now uses `Box<Message>`
+- Fixed clippy `single_match` warning: Converted match to if-let in `handle_cap_negotiation`
+- Added `#[allow(dead_code)]` to `ScramClient.password` (awaiting crypto implementation)
 
 ## [1.2.0] - 2025-11-29
 

@@ -33,6 +33,7 @@ pub trait ModeType: fmt::Display + fmt::Debug + Clone + PartialEq {
 /// User modes modify the behavior of how the server and other users
 /// interact with a particular user.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub enum UserMode {
     /// 'a' - User is away
@@ -116,6 +117,7 @@ impl fmt::Display for UserMode {
 ///
 /// Channel modes control channel behavior and user privileges within channels.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub enum ChannelMode {
     // === List modes (always take argument) ===
@@ -244,6 +246,7 @@ impl fmt::Display for ChannelMode {
 ///
 /// Represents a single mode change that can be applied to a target.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Mode<T: ModeType> {
     /// Mode is being added (+)
     Plus(T, Option<String>),

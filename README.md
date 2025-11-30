@@ -16,20 +16,22 @@
 ### Performance First
 
 * **Zero-Copy Parsing:** `MessageRef<'a>` borrows directly from the input buffer, avoiding heap allocations in hot loops.
+* **Zero-Copy Encoding:** `IrcEncode` trait writes directly to `impl Write` without intermediate `String` allocations.
 * **Zero-Copy Transport:** Specialized `ZeroCopyTransport` for high-throughput server implementations.
-* **Optimized Serialization:** Mode changes and command parameters are serialized efficiently without intermediate strings.
+* **Optimized Serialization:** Mode changes and command parameters are serialized efficiently.
 
 ### Modern IRCv3 Support
 
 * **Full Capability Negotiation:** `CAP LS/REQ/ACK` flow with version negotiation (301/302).
 * **Tags:** First-class support for message tags (`@time`, `@account`, `@batch`).
-* **Extensions:** Helpers for `BATCH`, `CHATHISTORY`, `MONITOR`, and `SASL` (PLAIN/EXTERNAL).
+* **Extensions:** Helpers for `BATCH`, `CHATHISTORY`, `MONITOR`, and `SASL` (PLAIN/EXTERNAL/SCRAM-SHA-256).
+* **Sans-IO State Machine:** `HandshakeMachine` for runtime-agnostic connection handling.
 
 ### Transport Options
 
 * **TCP:** Plain-text connections via `Transport::tcp()`.
 * **TLS (Server):** Server-side TLS via `Transport::tls()` for IRC daemons.
-* **TLS (Client):** Client-side TLS via `Transport::client_tls()` for connecting to port 6697 (v1.2.0+).
+* **TLS (Client):** Client-side TLS via `Transport::client_tls()` for connecting to port 6697.
 * **WebSocket:** IRC-over-WebSocket via `Transport::websocket()` and `Transport::websocket_tls()`.
 
 ### Developer Experience
@@ -38,6 +40,7 @@
 * **Typed Modes:** `UserMode` and `ChannelMode` enums (including `+r` Registered, `+S` Service).
 * **Typed Responses:** `Response` enum covering all RFC 2812 numerics with helper methods.
 * **Builders:** Ergonomic constructors for Messages and Prefixes.
+* **Optional Serde:** Enable `serde` feature for serialization support.
 
 ---
 
@@ -47,7 +50,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-slirc-proto = "1.2"
+slirc-proto = "1.3"
 ```
 
 ### Feature Flags
@@ -55,6 +58,7 @@ slirc-proto = "1.2"
 | Feature | Default | Description |
 |---------|---------|-------------|
 | `tokio` | ✓ | Async transport (TCP, TLS, WebSocket) via Tokio |
+| `serde` | | Serialize/Deserialize derives for Message, Command, etc. |
 | `encoding` | | Character encoding support via `encoding_rs` |
 | `proptest` | | Property-based testing strategies |
 
@@ -128,12 +132,14 @@ The library is structured into specialized modules:
 * **`prefix`**: `Prefix` and `PrefixRef<'a>` for source (nick!user@host) parsing.
 * **`response`**: `Response` enum for all IRC numeric replies (001-999).
 * **`mode`**: Type-safe `UserMode` and `ChannelMode` parsing/serialization.
+* **`encode`**: `IrcEncode` trait for zero-copy message serialization.
+* **`state`**: Sans-IO `HandshakeMachine` for connection lifecycle management.
 
 ### IRCv3 Extensions
 
 * **`caps`**: Capability negotiation (`Capability` enum, version 301/302).
 * **`ircv3`**: Helpers for `BATCH`, server-time, message IDs.
-* **`sasl`**: PLAIN/EXTERNAL authentication mechanics.
+* **`sasl`**: PLAIN/EXTERNAL/SCRAM-SHA-256 authentication mechanics.
 * **`ctcp`**: CTCP message parsing (ACTION, VERSION, PING, etc.).
 
 ### Transport (requires `tokio` feature)

@@ -15,6 +15,7 @@ use crate::error::MessageParseError;
 /// A prefix can be either a server name (containing a dot) or a user's
 /// nick!user@host identifier.
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Prefix {
     /// Server name (e.g., "irc.example.com")
     ServerName(String),

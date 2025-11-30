@@ -67,6 +67,7 @@ impl<'a> MessageRef<'a> {
     /// let msg = MessageRef::parse(":server PING :timestamp").unwrap();
     /// assert_eq!(msg.command_name(), "PING");
     /// ```
+    #[must_use = "parsing result should be handled"]
     pub fn parse(s: &'a str) -> Result<MessageRef<'a>, MessageParseError> {
         if s.is_empty() {
             return Err(MessageParseError::EmptyMessage);

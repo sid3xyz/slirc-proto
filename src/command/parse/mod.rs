@@ -36,6 +36,7 @@ fn parse_mode_command(original_cmd: &str, args: Vec<&str>) -> Result<Command, Me
 
 impl Command {
     /// Parse a command from its name and arguments.
+    #[must_use = "command parsing result should be handled"]
     pub fn new(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseError> {
         let cmd_upper = cmd.to_ascii_uppercase();
         let cmd_str = cmd_upper.as_str();

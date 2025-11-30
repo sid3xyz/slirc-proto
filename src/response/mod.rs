@@ -20,6 +20,7 @@ use std::str::FromStr;
 /// - 400-599: Error replies
 /// - 600-999: Extended/modern numerics
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u16)]
 #[non_exhaustive]
 pub enum Response {

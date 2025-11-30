@@ -11,6 +11,7 @@ use crate::error::MessageParseError;
 ///
 /// BATCH is used to group related messages together.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub enum BatchSubCommand {
     /// Network split indication

@@ -11,6 +11,7 @@ use crate::error::MessageParseError;
 ///
 /// CHATHISTORY is used to request message history from the server.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub enum ChatHistorySubCommand {
     /// Request the latest messages: `LATEST <target> <* | msgref> <limit>`
@@ -70,6 +71,7 @@ impl std::fmt::Display for ChatHistorySubCommand {
 ///
 /// Can be either a timestamp or a message ID.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum MessageReference {
     /// Timestamp reference: `timestamp=YYYY-MM-DDThh:mm:ss.sssZ`
     Timestamp(String),

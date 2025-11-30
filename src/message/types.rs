@@ -23,6 +23,7 @@ use crate::prefix::Prefix;
 /// let msg = Message::privmsg("#channel", "Hello!");
 /// ```
 #[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Message {
     /// IRCv3 message tags (e.g., `time`, `msgid`).
     pub tags: Option<Vec<Tag>>,
@@ -34,6 +35,7 @@ pub struct Message {
 
 impl Message {
     /// Create a new message from raw components.
+    #[must_use = "message creation result should be handled"]
     pub fn new(
         prefix: Option<&str>,
         command: &str,
@@ -43,6 +45,7 @@ impl Message {
     }
 
     /// Create a new message with tags from raw components.
+    #[must_use = "message creation result should be handled"]
     pub fn with_tags(
         tags: Option<Vec<Tag>>,
         prefix: Option<&str>,
@@ -111,6 +114,7 @@ impl Message {
         self.tag_value("account")
     }
     /// Create a PRIVMSG message to a target with text
+    #[must_use]
     pub fn privmsg<T, M>(target: T, text: M) -> Self
     where
         T: Into<String>,
@@ -120,6 +124,7 @@ impl Message {
     }
 
     /// Create a NOTICE message to a target with text
+    #[must_use]
     pub fn notice<T, M>(target: T, text: M) -> Self
     where
         T: Into<String>,
@@ -129,6 +134,7 @@ impl Message {
     }
 
     /// Create a JOIN message for a channel
+    #[must_use]
     pub fn join<C>(channel: C) -> Self
     where
         C: Into<String>,
@@ -137,6 +143,7 @@ impl Message {
     }
 
     /// Create a JOIN message for a channel with a key
+    #[must_use]
     pub fn join_with_key<C, K>(channel: C, key: K) -> Self
     where
         C: Into<String>,
@@ -146,6 +153,7 @@ impl Message {
     }
 
     /// Create a PART message to leave a channel
+    #[must_use]
     pub fn part<C>(channel: C) -> Self
     where
         C: Into<String>,
@@ -154,6 +162,7 @@ impl Message {
     }
 
     /// Create a PART message to leave a channel with a message
+    #[must_use]
     pub fn part_with_message<C, M>(channel: C, message: M) -> Self
     where
         C: Into<String>,
@@ -163,6 +172,7 @@ impl Message {
     }
 
     /// Create a NICK message to change nickname
+    #[must_use]
     pub fn nick<N>(nickname: N) -> Self
     where
         N: Into<String>,
@@ -171,6 +181,7 @@ impl Message {
     }
 
     /// Create a USER message for registration
+    #[must_use]
     pub fn user<U, R>(username: U, realname: R) -> Self
     where
         U: Into<String>,
@@ -180,6 +191,7 @@ impl Message {
     }
 
     /// Create a PING message to a server
+    #[must_use]
     pub fn ping<S>(server: S) -> Self
     where
         S: Into<String>,
@@ -188,6 +200,7 @@ impl Message {
     }
 
     /// Create a PONG message in response to a PING
+    #[must_use]
     pub fn pong<S>(server: S) -> Self
     where
         S: Into<String>,
@@ -196,11 +209,13 @@ impl Message {
     }
 
     /// Create a QUIT message
+    #[must_use]
     pub fn quit() -> Self {
         Command::QUIT(None).into()
     }
 
     /// Create a QUIT message with a quit message
+    #[must_use]
     pub fn quit_with_message<M>(message: M) -> Self
     where
         M: Into<String>,
@@ -209,6 +224,7 @@ impl Message {
     }
 
     /// Create a KICK message
+    #[must_use]
     pub fn kick<C, N>(channel: C, nickname: N) -> Self
     where
         C: Into<String>,
@@ -218,6 +234,7 @@ impl Message {
     }
 
     /// Create a KICK message with a reason
+    #[must_use]
     pub fn kick_with_reason<C, N, R>(channel: C, nickname: N, reason: R) -> Self
     where
         C: Into<String>,
@@ -228,11 +245,13 @@ impl Message {
     }
 
     /// Create an AWAY message
+    #[must_use]
     pub fn away() -> Self {
         Command::AWAY(None).into()
     }
 
     /// Create an AWAY message with a message
+    #[must_use]
     pub fn away_with_message<M>(message: M) -> Self
     where
         M: Into<String>,
@@ -241,12 +260,14 @@ impl Message {
     }
 
     /// Add IRCv3 tags to this message
+    #[must_use]
     pub fn with_message_tags(mut self, tags: Vec<Tag>) -> Self {
         self.tags = Some(tags);
         self
     }
 
     /// Add a single IRCv3 tag to this message
+    #[must_use]
     pub fn with_tag<K, V>(mut self, key: K, value: Option<V>) -> Self
     where
         K: Into<String>,
@@ -262,6 +283,7 @@ impl Message {
     }
 
     /// Set the prefix/source of this message
+    #[must_use]
     pub fn with_prefix(mut self, prefix: crate::prefix::Prefix) -> Self {
         self.prefix = Some(prefix);
         self
@@ -283,6 +305,7 @@ impl From<Command> for Message {
 /// Tags are key-value pairs that can be attached to messages.
 /// The value is optional (some tags are presence-only flags).
 #[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Tag(
     /// Tag key (e.g., `time`, `msgid`).
     pub Cow<'static, str>,

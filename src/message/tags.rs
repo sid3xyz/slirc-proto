@@ -1,6 +1,7 @@
 //! IRCv3 message tag escaping utilities.
 
 use std::fmt::{Result as FmtResult, Write};
+use std::io::{self, Write as IoWrite};
 
 /// Escape a tag value for serialization.
 ///
@@ -17,6 +18,28 @@ pub fn escape_tag_value(f: &mut dyn Write, value: &str) -> FmtResult {
         }
     }
     Ok(())
+}
+
+/// Escape a tag value directly to an `io::Write` implementor.
+///
+/// This is the zero-copy version that avoids intermediate string allocation.
+/// Used by the [`IrcEncode`](crate::encode::IrcEncode) trait.
+pub fn escape_tag_value_to_writer<W: IoWrite>(w: &mut W, value: &str) -> io::Result<usize> {
+    let mut written = 0;
+    for c in value.chars() {
+        written += match c {
+            ';' => w.write(b"\\:")?,
+            ' ' => w.write(b"\\s")?,
+            '\\' => w.write(b"\\\\")?,
+            '\r' => w.write(b"\\r")?,
+            '\n' => w.write(b"\\n")?,
+            c => {
+                let mut buf = [0u8; 4];
+                w.write(c.encode_utf8(&mut buf).as_bytes())?
+            }
+        };
+    }
+    Ok(written)
 }
 
 /// Unescape a tag value from wire format.
@@ -51,7 +74,7 @@ mod tests {
     /// IRCv3 specifies these escape sequences:
     /// - `\:` → `;` (semicolon)
     /// - `\s` → ` ` (space)
-    /// - `\\` → `\` (backslash)  
+    /// - `\\` → `\` (backslash)
     /// - `\r` → CR (carriage return)
     /// - `\n` → LF (line feed)
     #[test]

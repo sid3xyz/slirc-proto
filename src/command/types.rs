@@ -17,6 +17,7 @@ use super::subcommands::{BatchSubCommand, CapSubCommand, ChatHistorySubCommand, 
 /// This enum represents all known IRC commands with type-safe parameters.
 /// Unknown commands are captured in the `Raw` variant.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub enum Command {
     // === Connection Registration (RFC 2812 Section 3.1) ===

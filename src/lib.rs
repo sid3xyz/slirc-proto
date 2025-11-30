@@ -64,6 +64,7 @@ pub mod colors;
 pub mod command;
 pub mod compliance;
 pub mod ctcp;
+pub mod encode;
 pub mod error;
 pub mod format;
 #[cfg(feature = "tokio")]
@@ -76,6 +77,7 @@ pub mod mode;
 pub mod prefix;
 pub mod response;
 pub mod sasl;
+pub mod state;
 pub mod util;
 
 pub use self::caps::{Capability, NegotiationVersion};
@@ -86,6 +88,7 @@ pub use self::command::{
 };
 pub use self::compliance::{check_compliance, ComplianceConfig, ComplianceError};
 pub use self::ctcp::{Ctcp, CtcpKind, CtcpOwned};
+pub use self::encode::IrcEncode;
 
 pub use self::command::CommandRef;
 #[cfg(feature = "tokio")]
@@ -100,7 +103,7 @@ pub use self::response::Response;
 pub use self::sasl::{
     choose_mechanism, chunk_response, decode_base64, encode_external, encode_plain,
     encode_plain_with_authzid, needs_chunking, parse_mechanisms, SaslMechanism, SaslState,
-    SASL_CHUNK_SIZE,
+    ScramClient, ScramError, ScramState, SASL_CHUNK_SIZE,
 };
 
 pub mod casemap;
