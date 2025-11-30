@@ -505,6 +505,196 @@ mod commands {
 }
 
 // =============================================================================
+// WEBIRC COMMAND (WebSocket Gateway Support)
+// =============================================================================
+
+mod webirc {
+    use super::*;
+
+    #[test]
+    fn test_webirc_basic() {
+        // Standard WEBIRC format: WEBIRC password gateway hostname ip
+        let raw = "WEBIRC secret_password TheLounge client.example.com 192.168.1.100";
+        let msg: Message = raw.parse().expect("Should parse WEBIRC");
+
+        match msg.command {
+            Command::WEBIRC(password, gateway, hostname, ip, options) => {
+                assert_eq!(password, "secret_password");
+                assert_eq!(gateway, "TheLounge");
+                assert_eq!(hostname, "client.example.com");
+                assert_eq!(ip, "192.168.1.100");
+                assert!(options.is_none());
+            }
+            other => panic!("Expected WEBIRC, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_webirc_with_options() {
+        // WEBIRC with optional flags/options (trailing parameter)
+        let raw = "WEBIRC password KiwiIRC user.host.org 10.0.0.50 :secure";
+        let msg: Message = raw.parse().expect("Should parse WEBIRC with options");
+
+        match msg.command {
+            Command::WEBIRC(password, gateway, hostname, ip, options) => {
+                assert_eq!(password, "password");
+                assert_eq!(gateway, "KiwiIRC");
+                assert_eq!(hostname, "user.host.org");
+                assert_eq!(ip, "10.0.0.50");
+                assert_eq!(options, Some("secure".to_string()));
+            }
+            other => panic!("Expected WEBIRC with options, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_webirc_ipv6() {
+        // WEBIRC with IPv6 address
+        let raw = "WEBIRC pass gateway hostname.com 2001:db8::1";
+        let msg: Message = raw.parse().expect("Should parse WEBIRC with IPv6");
+
+        match msg.command {
+            Command::WEBIRC(_, _, _, ip, _) => {
+                assert_eq!(ip, "2001:db8::1");
+            }
+            other => panic!("Expected WEBIRC, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_webirc_with_prefix() {
+        // WEBIRC shouldn't normally have a prefix, but test it doesn't break
+        let raw = ":gateway.server WEBIRC pass gateway host 1.2.3.4";
+        let msg: Message = raw.parse().expect("Should parse WEBIRC with prefix");
+
+        match msg.command {
+            Command::WEBIRC(password, gateway, hostname, ip, _) => {
+                assert_eq!(password, "pass");
+                assert_eq!(gateway, "gateway");
+                assert_eq!(hostname, "host");
+                assert_eq!(ip, "1.2.3.4");
+            }
+            other => panic!("Expected WEBIRC, got {:?}", other),
+        }
+        assert!(msg.prefix.is_some());
+    }
+
+    #[test]
+    fn test_webirc_roundtrip() {
+        let test_cases = vec![
+            "WEBIRC secret_password TheLounge client.example.com 192.168.1.100",
+            "WEBIRC pass KiwiIRC host.org 10.0.0.1 :secure",
+            "WEBIRC p gateway hostname 2001:db8:85a3::8a2e:370:7334",
+        ];
+
+        for original in test_cases {
+            let message: Message = original
+                .parse()
+                .unwrap_or_else(|e| panic!("Failed to parse '{}': {}", original, e));
+            let serialized = message.to_string();
+            let reparsed: Message = serialized
+                .parse()
+                .unwrap_or_else(|e| panic!("Failed to reparse '{}': {}", serialized, e));
+            assert_eq!(message, reparsed, "Round-trip failed for '{}'", original);
+        }
+    }
+
+    #[test]
+    fn test_webirc_insufficient_args_falls_back_to_raw() {
+        // WEBIRC with less than 4 arguments should fall back to Raw
+        let raw = "WEBIRC password gateway hostname";
+        let msg: Message = raw.parse().expect("Should parse as Raw");
+
+        match &msg.command {
+            Command::Raw(cmd, args) => {
+                assert_eq!(cmd, "WEBIRC");
+                assert_eq!(args.len(), 3);
+            }
+            other => panic!("Expected Raw for insufficient WEBIRC args, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_webirc_common_gateways() {
+        // Test parsing for common WebSocket IRC gateways
+        let gateways = vec![
+            (
+                "WEBIRC pass TheLounge webclient.example.com 192.168.1.1",
+                "TheLounge",
+            ),
+            ("WEBIRC pass KiwiIRC kiwi.host.net 10.0.0.100", "KiwiIRC"),
+            (
+                "WEBIRC pass IRCCloud irccloud-user.host 172.16.0.50",
+                "IRCCloud",
+            ),
+            ("WEBIRC pass Mibbit mibbit.user.host 8.8.8.8", "Mibbit"),
+            (
+                "WEBIRC pass Glowing-Bear gb.user.host 1.1.1.1",
+                "Glowing-Bear",
+            ),
+        ];
+
+        for (raw, expected_gateway) in gateways {
+            let msg: Message = raw.parse().unwrap_or_else(|e| {
+                panic!("Failed to parse gateway '{}': {}", expected_gateway, e)
+            });
+
+            match msg.command {
+                Command::WEBIRC(_, gateway, _, _, _) => {
+                    assert_eq!(gateway, expected_gateway);
+                }
+                other => panic!("Expected WEBIRC for {}, got {:?}", expected_gateway, other),
+            }
+        }
+    }
+
+    #[test]
+    fn test_webirc_serialization() {
+        // Test that serialization produces valid IRC protocol output
+        let msg = Message {
+            tags: None,
+            prefix: None,
+            command: Command::WEBIRC(
+                "password".to_string(),
+                "Gateway".to_string(),
+                "client.host".to_string(),
+                "192.168.1.1".to_string(),
+                None,
+            ),
+        };
+
+        let serialized = msg.to_string();
+        // to_string() includes trailing CRLF
+        assert_eq!(
+            serialized,
+            "WEBIRC password Gateway client.host 192.168.1.1\r\n"
+        );
+    }
+
+    #[test]
+    fn test_webirc_serialization_with_options() {
+        let msg = Message {
+            tags: None,
+            prefix: None,
+            command: Command::WEBIRC(
+                "password".to_string(),
+                "Gateway".to_string(),
+                "client.host".to_string(),
+                "192.168.1.1".to_string(),
+                Some("secure tls".to_string()),
+            ),
+        };
+
+        let serialized = msg.to_string();
+        // to_string() includes trailing CRLF
+        assert_eq!(
+            serialized,
+            "WEBIRC password Gateway client.host 192.168.1.1 :secure tls\r\n"
+        );
+    }
+}
+
+// =============================================================================
 // OPERATOR COMMANDS (KLINE, DLINE, KNOCK, etc.)
 // =============================================================================
 

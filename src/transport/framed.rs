@@ -1,6 +1,7 @@
 //! Framed IRC transport over TCP, TLS, and WebSocket.
 
 use anyhow::Result;
+use bytes::BytesMut;
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream as ClientTlsStream;
@@ -205,7 +206,19 @@ impl Transport {
                 })
             }
             #[cfg(feature = "tokio")]
-            _ => Err(WebSocketNotSupportedError),
+            Transport::WebSocket { stream } => Ok(TransportParts {
+                stream: TransportStream::WebSocket(Box::new(stream)),
+                read_buf: BytesMut::new(),
+                write_buf: BytesMut::new(),
+                codec: IrcCodec::new("utf-8").map_err(|_| WebSocketNotSupportedError)?,
+            }),
+            #[cfg(feature = "tokio")]
+            Transport::WebSocketTls { stream } => Ok(TransportParts {
+                stream: TransportStream::WebSocketTls(Box::new(stream)),
+                read_buf: BytesMut::new(),
+                write_buf: BytesMut::new(),
+                codec: IrcCodec::new("utf-8").map_err(|_| WebSocketNotSupportedError)?,
+            }),
         }
     }
 

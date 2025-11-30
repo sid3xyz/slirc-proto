@@ -48,12 +48,12 @@ fn message_text_strategy() -> impl Strategy<Value = String> {
 fn dangerous_message_text_strategy() -> impl Strategy<Value = String> {
     prop_oneof![
         // Edge cases for colon prefixing
-        Just("".to_string()),         // Empty (needs colon prefix)
-        Just(" ".to_string()),        // Single space (needs colon prefix)
-        Just(":".to_string()),        // Single colon (needs colon prefix)
-        Just("::".to_string()),       // Double colon
+        Just("".to_string()),           // Empty (needs colon prefix)
+        Just(" ".to_string()),          // Single space (needs colon prefix)
+        Just(":".to_string()),          // Single colon (needs colon prefix)
+        Just("::".to_string()),         // Double colon
         Just(": trailing".to_string()), // Colon followed by space
-        Just(":leading".to_string()), // Colon at start
+        Just(":leading".to_string()),   // Colon at start
         // Multi-word messages that need colon prefix
         Just("hello world".to_string()),
         Just("param with spaces".to_string()),
@@ -166,15 +166,25 @@ fn dangerous_command_strategy() -> impl Strategy<Value = Command> {
         (channel_strategy(), dangerous_message_text_strategy())
             .prop_map(|(target, text)| Command::NOTICE(target, text)),
         // PART with dangerous reason
-        (channel_strategy(), prop::option::of(dangerous_message_text_strategy()))
+        (
+            channel_strategy(),
+            prop::option::of(dangerous_message_text_strategy())
+        )
             .prop_map(|(chan, msg)| Command::PART(chan, msg)),
         // QUIT with dangerous message
         prop::option::of(dangerous_message_text_strategy()).prop_map(Command::QUIT),
         // TOPIC with dangerous text
-        (channel_strategy(), prop::option::of(dangerous_message_text_strategy()))
+        (
+            channel_strategy(),
+            prop::option::of(dangerous_message_text_strategy())
+        )
             .prop_map(|(chan, topic)| Command::TOPIC(chan, topic)),
         // KICK with dangerous reason
-        (channel_strategy(), nickname_strategy(), prop::option::of(dangerous_message_text_strategy()))
+        (
+            channel_strategy(),
+            nickname_strategy(),
+            prop::option::of(dangerous_message_text_strategy())
+        )
             .prop_map(|(chan, nick, reason)| Command::KICK(chan, nick, reason)),
     ]
 }

@@ -786,24 +786,33 @@ impl From<Transport> for ZeroCopyTransportEnum {
     /// zero-copy transport, ensuring no data is lost during the upgrade.
     ///
     /// All transport types are now supported, including WebSocket.
+    /// The conversion uses `into_parts()` internally to extract the
+    /// underlying stream and any buffered data.
     fn from(transport: Transport) -> Self {
-        match transport {
-            Transport::Tcp { framed } => {
-                let parts = framed.into_parts();
-                ZeroCopyTransportEnum::tcp_with_buffer(parts.io, parts.read_buf)
+        // Use into_parts() which now supports all transport types including WebSocket.
+        // This is infallible because into_parts() succeeds for all variants.
+        let parts = transport
+            .into_parts()
+            .expect("into_parts should succeed for all transport types");
+
+        match parts.stream {
+            super::parts::TransportStream::Tcp(stream) => {
+                ZeroCopyTransportEnum::tcp_with_buffer(stream, parts.read_buf)
             }
-            Transport::Tls { framed } => {
-                let parts = framed.into_parts();
-                ZeroCopyTransportEnum::tls_with_buffer(parts.io, parts.read_buf)
+            super::parts::TransportStream::Tls(stream) => {
+                ZeroCopyTransportEnum::tls_with_buffer(*stream, parts.read_buf)
             }
-            Transport::ClientTls { framed } => {
-                let parts = framed.into_parts();
-                ZeroCopyTransportEnum::client_tls_with_buffer(parts.io, parts.read_buf)
+            super::parts::TransportStream::ClientTls(stream) => {
+                ZeroCopyTransportEnum::client_tls_with_buffer(*stream, parts.read_buf)
             }
             #[cfg(feature = "tokio")]
-            Transport::WebSocket { stream } => ZeroCopyTransportEnum::websocket(stream),
+            super::parts::TransportStream::WebSocket(stream) => {
+                ZeroCopyTransportEnum::websocket_with_buffer(*stream, parts.read_buf)
+            }
             #[cfg(feature = "tokio")]
-            Transport::WebSocketTls { stream } => ZeroCopyTransportEnum::websocket_tls(stream),
+            super::parts::TransportStream::WebSocketTls(stream) => {
+                ZeroCopyTransportEnum::websocket_tls_with_buffer(*stream, parts.read_buf)
+            }
         }
     }
 }

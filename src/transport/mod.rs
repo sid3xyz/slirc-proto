@@ -63,9 +63,9 @@ pub use parts::{
     TransportParts, TransportRead, TransportReadHalf, TransportStream, TransportWrite,
     TransportWriteHalf,
 };
-pub use zero_copy::{LendingStream, ZeroCopyTransport, ZeroCopyTransportEnum};
 #[cfg(feature = "tokio")]
 pub use zero_copy::ZeroCopyWebSocketTransport;
+pub use zero_copy::{LendingStream, ZeroCopyTransport, ZeroCopyTransportEnum};
 
 /// Maximum IRC line length (8191 bytes as per modern IRC conventions).
 pub const MAX_IRC_LINE_LEN: usize = 8191;
