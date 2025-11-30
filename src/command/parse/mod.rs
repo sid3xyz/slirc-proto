@@ -63,7 +63,7 @@ impl Command {
             }
 
             "CAP" | "AUTHENTICATE" | "ACCOUNT" | "BATCH" | "CHGHOST" | "SETNAME" | "MONITOR"
-            | "TAGMSG" | "WEBIRC" | "CHATHISTORY" => ircv3::parse(cmd_str, args),
+            | "TAGMSG" | "WEBIRC" | "CHATHISTORY" | "ACK" => ircv3::parse(cmd_str, args),
 
             "MODE" => parse_mode_command(cmd, args),
 

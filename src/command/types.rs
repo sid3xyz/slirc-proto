@@ -199,6 +199,8 @@ pub enum Command {
     SETNAME(String),
     /// `TAGMSG target` - IRCv3 message-tags: message with only tags, no text
     TAGMSG(String),
+    /// `ACK` - IRCv3 labeled-response: acknowledgment for labeled commands with no output
+    ACK,
     /// `WEBIRC password gateway hostname ip [:options]` - WebIRC/CGI:IRC identification
     WEBIRC(String, String, String, String, Option<String>),
     /// `CHATHISTORY subcommand target/params...` - IRCv3 chat history retrieval
@@ -369,6 +371,7 @@ impl Command {
             Command::CHGHOST(..) => "CHGHOST",
             Command::SETNAME(_) => "SETNAME",
             Command::TAGMSG(_) => "TAGMSG",
+            Command::ACK => "ACK",
             Command::WEBIRC(..) => "WEBIRC",
             Command::CHATHISTORY { .. } => "CHATHISTORY",
 

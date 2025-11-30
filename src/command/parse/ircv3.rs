@@ -106,6 +106,10 @@ pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseE
                 raw(cmd, args)
             }
         }
+        "ACK" => {
+            // ACK takes no parameters
+            Command::ACK
+        }
         "WEBIRC" => {
             if args.len() >= 4 {
                 Command::WEBIRC(
