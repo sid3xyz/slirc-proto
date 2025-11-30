@@ -13,12 +13,16 @@ use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream as ClientTlsStream;
 use tokio_rustls::server::TlsStream as ServerTlsStream;
 
+#[cfg(feature = "tokio")]
+use futures_util::{Stream, StreamExt};
+#[cfg(feature = "tokio")]
+use tokio_tungstenite::{tungstenite::Message as WsMessage, WebSocketStream};
+
 use crate::error::ProtocolError;
 use crate::message::MessageRef;
 
 use super::error::TransportReadError;
-use super::framed::{Transport, WebSocketNotSupportedError};
-use super::parts::TransportStream;
+use super::framed::Transport;
 use super::MAX_IRC_LINE_LEN;
 
 // =============================================================================
@@ -372,13 +376,293 @@ impl<S: AsyncRead + Unpin> LendingStream for ZeroCopyTransport<S> {
 }
 
 // =============================================================================
+// WebSocket Zero-Copy Transport
+// =============================================================================
+
+/// Zero-copy transport wrapper for WebSocket streams.
+///
+/// WebSocket uses frame-based messaging rather than byte streaming, so this
+/// wrapper extracts text payloads from frames and writes them to an internal
+/// buffer for zero-copy parsing.
+#[cfg(feature = "tokio")]
+pub struct ZeroCopyWebSocketTransport<S> {
+    stream: WebSocketStream<S>,
+    buffer: BytesMut,
+    consumed: usize,
+    max_line_len: usize,
+}
+
+#[cfg(feature = "tokio")]
+impl<S> ZeroCopyWebSocketTransport<S> {
+    /// Create a new zero-copy WebSocket transport.
+    pub fn new(stream: WebSocketStream<S>) -> Self {
+        Self {
+            stream,
+            buffer: BytesMut::with_capacity(8192),
+            consumed: 0,
+            max_line_len: MAX_IRC_LINE_LEN,
+        }
+    }
+
+    /// Create with an existing buffer (for upgrade from Transport).
+    pub fn with_buffer(stream: WebSocketStream<S>, buffer: BytesMut) -> Self {
+        Self {
+            stream,
+            buffer,
+            consumed: 0,
+            max_line_len: MAX_IRC_LINE_LEN,
+        }
+    }
+
+    /// Advance the buffer by the consumed amount.
+    fn advance_consumed(&mut self) {
+        if self.consumed > 0 {
+            self.buffer.advance(self.consumed);
+            self.consumed = 0;
+        }
+    }
+
+    /// Find the position of the next line ending (LF) in the buffer.
+    fn find_line_end(&self) -> Option<usize> {
+        self.buffer.iter().position(|&b| b == b'\n')
+    }
+
+    /// Validate a line slice as valid UTF-8 and check for control characters.
+    fn validate_line(slice: &[u8]) -> Result<&str, TransportReadError> {
+        let s = std::str::from_utf8(slice).map_err(|e| {
+            TransportReadError::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Invalid UTF-8: {}", e),
+            ))
+        })?;
+
+        let trimmed = s.trim_end_matches(['\r', '\n']);
+
+        for ch in trimmed.chars() {
+            if crate::format::is_illegal_control_char(ch) {
+                return Err(TransportReadError::Protocol(
+                    ProtocolError::IllegalControlChar(ch),
+                ));
+            }
+        }
+
+        Ok(s)
+    }
+}
+
+#[cfg(feature = "tokio")]
+impl<S> ZeroCopyWebSocketTransport<S>
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+{
+    /// Read the next message from the WebSocket transport.
+    pub async fn next(&mut self) -> Option<Result<MessageRef<'_>, TransportReadError>> {
+        self.advance_consumed();
+
+        loop {
+            // Check if we have a complete line in the buffer
+            if let Some(newline_pos) = self.find_line_end() {
+                let line_len = newline_pos + 1;
+
+                if line_len > self.max_line_len {
+                    return Some(Err(TransportReadError::Protocol(
+                        ProtocolError::MessageTooLong {
+                            actual: line_len,
+                            limit: self.max_line_len,
+                        },
+                    )));
+                }
+
+                let line_slice = &self.buffer[..line_len];
+                match Self::validate_line(line_slice) {
+                    Ok(line_str) => {
+                        self.consumed = line_len;
+
+                        match MessageRef::parse(line_str) {
+                            Ok(msg) => return Some(Ok(msg)),
+                            Err(e) => {
+                                return Some(Err(TransportReadError::Protocol(
+                                    ProtocolError::InvalidMessage {
+                                        string: line_str.to_string(),
+                                        cause: e,
+                                    },
+                                )))
+                            }
+                        }
+                    }
+                    Err(e) => return Some(Err(e)),
+                }
+            }
+
+            // Check buffer size limit
+            if self.buffer.len() > self.max_line_len {
+                return Some(Err(TransportReadError::Protocol(
+                    ProtocolError::MessageTooLong {
+                        actual: self.buffer.len(),
+                        limit: self.max_line_len,
+                    },
+                )));
+            }
+
+            // Need more data - read from WebSocket
+            match self.stream.next().await {
+                Some(Ok(WsMessage::Text(text))) => {
+                    // WebSocket IRC messages may or may not have CRLF
+                    // Append the text, ensuring it ends with LF for our line parser
+                    let text = text.trim_end_matches(['\r', '\n']);
+                    self.buffer.extend_from_slice(text.as_bytes());
+                    self.buffer.extend_from_slice(b"\n");
+                }
+                Some(Ok(WsMessage::Close(_))) | None => {
+                    if self.buffer.is_empty() {
+                        return None;
+                    } else {
+                        return Some(Err(TransportReadError::Io(std::io::Error::new(
+                            std::io::ErrorKind::UnexpectedEof,
+                            "WebSocket closed with incomplete message",
+                        ))));
+                    }
+                }
+                Some(Ok(WsMessage::Ping(_) | WsMessage::Pong(_) | WsMessage::Frame(_))) => {
+                    // Ignore control frames, continue reading
+                    continue;
+                }
+                Some(Ok(WsMessage::Binary(_))) => {
+                    // IRC is text-only, skip binary frames
+                    continue;
+                }
+                Some(Err(e)) => {
+                    return Some(Err(TransportReadError::Io(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!("WebSocket error: {}", e),
+                    ))));
+                }
+            }
+        }
+    }
+}
+
+#[cfg(feature = "tokio")]
+impl<S> LendingStream for ZeroCopyWebSocketTransport<S>
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+{
+    type Item<'a>
+        = MessageRef<'a>
+    where
+        Self: 'a;
+    type Error = TransportReadError;
+
+    fn poll_next(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<Self::Item<'_>, Self::Error>>> {
+        self.advance_consumed();
+
+        loop {
+            // Check if we have a complete line in the buffer
+            if let Some(newline_pos) = self.find_line_end() {
+                let line_len = newline_pos + 1;
+
+                if line_len > self.max_line_len {
+                    return Poll::Ready(Some(Err(TransportReadError::Protocol(
+                        ProtocolError::MessageTooLong {
+                            actual: line_len,
+                            limit: self.max_line_len,
+                        },
+                    ))));
+                }
+
+                // Validate line first
+                {
+                    let line_slice = &self.buffer[..line_len];
+                    if let Err(e) = Self::validate_line(line_slice) {
+                        return Poll::Ready(Some(Err(e)));
+                    }
+                }
+
+                self.consumed = line_len;
+
+                // SAFETY: Same reasoning as ZeroCopyTransport - Pin<&mut Self> prevents
+                // concurrent access, buffer advancement is deferred.
+                let line_str: &str = unsafe {
+                    let slice = &self.buffer[..line_len];
+                    let s = std::str::from_utf8(slice).expect("Already validated as UTF-8");
+                    std::mem::transmute::<&str, &str>(s)
+                };
+
+                match MessageRef::parse(line_str) {
+                    Ok(msg) => return Poll::Ready(Some(Ok(msg))),
+                    Err(e) => {
+                        return Poll::Ready(Some(Err(TransportReadError::Protocol(
+                            ProtocolError::InvalidMessage {
+                                string: line_str.to_string(),
+                                cause: e,
+                            },
+                        ))))
+                    }
+                }
+            }
+
+            // Check buffer size limit
+            if self.buffer.len() > self.max_line_len {
+                return Poll::Ready(Some(Err(TransportReadError::Protocol(
+                    ProtocolError::MessageTooLong {
+                        actual: self.buffer.len(),
+                        limit: self.max_line_len,
+                    },
+                ))));
+            }
+
+            // Need more data - poll WebSocket
+            let this = self.as_mut().get_mut();
+            match Pin::new(&mut this.stream).poll_next(cx) {
+                Poll::Ready(Some(Ok(WsMessage::Text(text)))) => {
+                    let text = text.trim_end_matches(['\r', '\n']);
+                    this.buffer.extend_from_slice(text.as_bytes());
+                    this.buffer.extend_from_slice(b"\n");
+                    // Loop to check buffer again
+                }
+                Poll::Ready(Some(Ok(WsMessage::Close(_)))) | Poll::Ready(None) => {
+                    if this.buffer.is_empty() {
+                        return Poll::Ready(None);
+                    } else {
+                        return Poll::Ready(Some(Err(TransportReadError::Io(
+                            std::io::Error::new(
+                                std::io::ErrorKind::UnexpectedEof,
+                                "WebSocket closed with incomplete message",
+                            ),
+                        ))));
+                    }
+                }
+                Poll::Ready(Some(Ok(
+                    WsMessage::Ping(_) | WsMessage::Pong(_) | WsMessage::Frame(_),
+                ))) => {
+                    continue;
+                }
+                Poll::Ready(Some(Ok(WsMessage::Binary(_)))) => {
+                    continue;
+                }
+                Poll::Ready(Some(Err(e))) => {
+                    return Poll::Ready(Some(Err(TransportReadError::Io(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!("WebSocket error: {}", e),
+                    )))));
+                }
+                Poll::Pending => return Poll::Pending,
+            }
+        }
+    }
+}
+
+// =============================================================================
 // ZeroCopyTransportEnum
 // =============================================================================
 
 /// Enum wrapper for zero-copy transports over different stream types.
 ///
 /// This provides a unified interface for zero-copy message reading
-/// over TCP and TLS connections.
+/// over TCP, TLS, and WebSocket connections.
 #[allow(clippy::large_enum_variant)]
 #[non_exhaustive]
 pub enum ZeroCopyTransportEnum {
@@ -388,6 +672,12 @@ pub enum ZeroCopyTransportEnum {
     Tls(ZeroCopyTransport<ServerTlsStream<TcpStream>>),
     /// Client-side TLS zero-copy transport.
     ClientTls(ZeroCopyTransport<ClientTlsStream<TcpStream>>),
+    /// WebSocket zero-copy transport.
+    #[cfg(feature = "tokio")]
+    WebSocket(ZeroCopyWebSocketTransport<TcpStream>),
+    /// WebSocket over TLS zero-copy transport.
+    #[cfg(feature = "tokio")]
+    WebSocketTls(ZeroCopyWebSocketTransport<ServerTlsStream<TcpStream>>),
 }
 
 impl ZeroCopyTransportEnum {
@@ -421,12 +711,43 @@ impl ZeroCopyTransportEnum {
         Self::ClientTls(ZeroCopyTransport::with_buffer(stream, buffer))
     }
 
+    /// Create a new WebSocket zero-copy transport.
+    #[cfg(feature = "tokio")]
+    pub fn websocket(stream: WebSocketStream<TcpStream>) -> Self {
+        Self::WebSocket(ZeroCopyWebSocketTransport::new(stream))
+    }
+
+    /// Create a new WebSocket zero-copy transport with an existing buffer.
+    #[cfg(feature = "tokio")]
+    pub fn websocket_with_buffer(stream: WebSocketStream<TcpStream>, buffer: BytesMut) -> Self {
+        Self::WebSocket(ZeroCopyWebSocketTransport::with_buffer(stream, buffer))
+    }
+
+    /// Create a new WebSocket over TLS zero-copy transport.
+    #[cfg(feature = "tokio")]
+    pub fn websocket_tls(stream: WebSocketStream<ServerTlsStream<TcpStream>>) -> Self {
+        Self::WebSocketTls(ZeroCopyWebSocketTransport::new(stream))
+    }
+
+    /// Create a new WebSocket over TLS zero-copy transport with an existing buffer.
+    #[cfg(feature = "tokio")]
+    pub fn websocket_tls_with_buffer(
+        stream: WebSocketStream<ServerTlsStream<TcpStream>>,
+        buffer: BytesMut,
+    ) -> Self {
+        Self::WebSocketTls(ZeroCopyWebSocketTransport::with_buffer(stream, buffer))
+    }
+
     /// Read the next message from the transport.
     pub async fn next(&mut self) -> Option<Result<MessageRef<'_>, TransportReadError>> {
         match self {
             Self::Tcp(t) => t.next().await,
             Self::Tls(t) => t.next().await,
             Self::ClientTls(t) => t.next().await,
+            #[cfg(feature = "tokio")]
+            Self::WebSocket(t) => t.next().await,
+            #[cfg(feature = "tokio")]
+            Self::WebSocketTls(t) => t.next().await,
         }
     }
 }
@@ -446,44 +767,43 @@ impl LendingStream for ZeroCopyTransportEnum {
             Self::Tcp(t) => Pin::new(t).poll_next(cx),
             Self::Tls(t) => Pin::new(t).poll_next(cx),
             Self::ClientTls(t) => Pin::new(t).poll_next(cx),
+            #[cfg(feature = "tokio")]
+            Self::WebSocket(t) => Pin::new(t).poll_next(cx),
+            #[cfg(feature = "tokio")]
+            Self::WebSocketTls(t) => Pin::new(t).poll_next(cx),
         }
     }
 }
 
 // =============================================================================
-// TryFrom<Transport> for ZeroCopyTransportEnum
+// From<Transport> for ZeroCopyTransportEnum
 // =============================================================================
 
-impl TryFrom<Transport> for ZeroCopyTransportEnum {
-    type Error = WebSocketNotSupportedError;
-
+impl From<Transport> for ZeroCopyTransportEnum {
     /// Convert a `Transport` to a `ZeroCopyTransportEnum`.
     ///
     /// This performs a buffer handover from the `Framed` codec to the
     /// zero-copy transport, ensuring no data is lost during the upgrade.
     ///
-    /// # Errors
-    ///
-    /// Returns `Err(WebSocketNotSupportedError)` if the transport is a
-    /// WebSocket variant, as WebSocket requires different framing.
-    fn try_from(transport: Transport) -> Result<Self, Self::Error> {
-        let parts = transport.into_parts()?;
-        match parts.stream {
-            TransportStream::Tcp(io) => {
-                Ok(ZeroCopyTransportEnum::tcp_with_buffer(io, parts.read_buf))
+    /// All transport types are now supported, including WebSocket.
+    fn from(transport: Transport) -> Self {
+        match transport {
+            Transport::Tcp { framed } => {
+                let parts = framed.into_parts();
+                ZeroCopyTransportEnum::tcp_with_buffer(parts.io, parts.read_buf)
             }
-            TransportStream::Tls(io) => {
-                Ok(ZeroCopyTransportEnum::tls_with_buffer(*io, parts.read_buf))
+            Transport::Tls { framed } => {
+                let parts = framed.into_parts();
+                ZeroCopyTransportEnum::tls_with_buffer(parts.io, parts.read_buf)
             }
-            TransportStream::ClientTls(io) => Ok(ZeroCopyTransportEnum::client_tls_with_buffer(
-                *io,
-                parts.read_buf,
-            )),
+            Transport::ClientTls { framed } => {
+                let parts = framed.into_parts();
+                ZeroCopyTransportEnum::client_tls_with_buffer(parts.io, parts.read_buf)
+            }
             #[cfg(feature = "tokio")]
-            _ => unreachable!("WebSocket transports cannot be converted to zero-copy"),
-            // WebSocket variants are already handled by `into_parts` returning
-            // a `WebSocketNotSupportedError` earlier, so we don't handle them
-            // here.
+            Transport::WebSocket { stream } => ZeroCopyTransportEnum::websocket(stream),
+            #[cfg(feature = "tokio")]
+            Transport::WebSocketTls { stream } => ZeroCopyTransportEnum::websocket_tls(stream),
         }
     }
 }

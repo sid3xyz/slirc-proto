@@ -43,6 +43,30 @@ fn message_text_strategy() -> impl Strategy<Value = String> {
     prop::string::string_regex("[^\r\n\0]{0,400}").expect("valid regex")
 }
 
+/// "Dangerous" message text that tests edge cases in serialization.
+/// These strings probe colon handling, space handling, and potential injection.
+fn dangerous_message_text_strategy() -> impl Strategy<Value = String> {
+    prop_oneof![
+        // Edge cases for colon prefixing
+        Just("".to_string()),         // Empty (needs colon prefix)
+        Just(" ".to_string()),        // Single space (needs colon prefix)
+        Just(":".to_string()),        // Single colon (needs colon prefix)
+        Just("::".to_string()),       // Double colon
+        Just(": trailing".to_string()), // Colon followed by space
+        Just(":leading".to_string()), // Colon at start
+        // Multi-word messages that need colon prefix
+        Just("hello world".to_string()),
+        Just("param with spaces".to_string()),
+        Just("multiple   spaces   here".to_string()),
+        // Special characters that are valid in trailing
+        Just("test;with;semicolons".to_string()),
+        Just("backslash\\here".to_string()),
+        Just("mixed :colon and space".to_string()),
+        // Very long messages (near limits)
+        Just("x".repeat(400)),
+    ]
+}
+
 /// Tag key: alphanumeric with optional vendor prefix
 fn tag_key_strategy() -> impl Strategy<Value = String> {
     prop::string::string_regex("[a-zA-Z][a-zA-Z0-9\\-]{0,30}").expect("valid regex")
@@ -131,12 +155,50 @@ fn command_strategy() -> impl Strategy<Value = Command> {
     ]
 }
 
+/// Generate commands with "dangerous" edge-case text that tests serialization robustness.
+/// These specifically probe colon prefixing, space handling, and empty values.
+fn dangerous_command_strategy() -> impl Strategy<Value = Command> {
+    prop_oneof![
+        // PRIVMSG with dangerous text
+        (channel_strategy(), dangerous_message_text_strategy())
+            .prop_map(|(target, text)| Command::PRIVMSG(target, text)),
+        // NOTICE with dangerous text
+        (channel_strategy(), dangerous_message_text_strategy())
+            .prop_map(|(target, text)| Command::NOTICE(target, text)),
+        // PART with dangerous reason
+        (channel_strategy(), prop::option::of(dangerous_message_text_strategy()))
+            .prop_map(|(chan, msg)| Command::PART(chan, msg)),
+        // QUIT with dangerous message
+        prop::option::of(dangerous_message_text_strategy()).prop_map(Command::QUIT),
+        // TOPIC with dangerous text
+        (channel_strategy(), prop::option::of(dangerous_message_text_strategy()))
+            .prop_map(|(chan, topic)| Command::TOPIC(chan, topic)),
+        // KICK with dangerous reason
+        (channel_strategy(), nickname_strategy(), prop::option::of(dangerous_message_text_strategy()))
+            .prop_map(|(chan, nick, reason)| Command::KICK(chan, nick, reason)),
+    ]
+}
+
 /// Generate a complete valid Message
 fn message_strategy() -> impl Strategy<Value = Message> {
     (
         tags_strategy(),
         prop::option::of(prefix_strategy()),
         command_strategy(),
+    )
+        .prop_map(|(tags, prefix, command)| Message {
+            tags,
+            prefix,
+            command,
+        })
+}
+
+/// Generate a message with dangerous edge-case content
+fn dangerous_message_strategy() -> impl Strategy<Value = Message> {
+    (
+        tags_strategy(),
+        prop::option::of(prefix_strategy()),
+        dangerous_command_strategy(),
     )
         .prop_map(|(tags, prefix, command)| Message {
             tags,
@@ -284,5 +346,81 @@ proptest! {
             let found = parsed_tags.iter().any(|t| t.0 == tag.0 && t.1 == tag.1);
             prop_assert!(found, "Tag {:?} not found in parsed message", tag);
         }
+    }
+}
+
+// =============================================================================
+// DANGEROUS INPUT TESTS - Serialization Edge Cases
+// =============================================================================
+
+proptest! {
+    /// Messages with dangerous edge-case content should roundtrip correctly.
+    /// This tests colon prefixing, space handling, and empty values.
+    #[test]
+    fn dangerous_message_roundtrip(msg in dangerous_message_strategy()) {
+        let serialized = msg.to_string();
+
+        // The serialized form should end with CRLF and have no embedded CRLF
+        prop_assert!(serialized.ends_with("\r\n"),
+            "Serialized message should end with CRLF: {:?}", serialized);
+
+        let without_trailing = &serialized[..serialized.len() - 2];
+        let has_crlf_in_middle = without_trailing.contains("\r\n")
+            || without_trailing.contains('\r')
+            || without_trailing.contains('\n');
+        prop_assert!(!has_crlf_in_middle,
+            "Serialized message has embedded CR/LF: {:?}", serialized);
+
+        // Parse it back
+        let parsed: Message = serialized.parse()
+            .expect("Dangerous message should be parseable");
+
+        // Should be semantically equal
+        prop_assert_eq!(&msg, &parsed,
+            "Roundtrip failed for dangerous message. Serialized: {:?}", serialized);
+    }
+
+    /// Specifically test PRIVMSG with various dangerous text values
+    #[test]
+    fn privmsg_dangerous_text_roundtrip(
+        target in channel_strategy(),
+        text in dangerous_message_text_strategy()
+    ) {
+        let msg = Message {
+            tags: None,
+            prefix: None,
+            command: Command::PRIVMSG(target, text),
+        };
+
+        let serialized = msg.to_string();
+        let parsed: Message = serialized.parse()
+            .expect("PRIVMSG with dangerous text should parse");
+
+        prop_assert_eq!(msg, parsed,
+            "PRIVMSG roundtrip failed. Serialized: {:?}", serialized);
+    }
+
+    /// Test that serialized wire format is always valid IRC protocol
+    #[test]
+    fn wire_format_validity(msg in dangerous_message_strategy()) {
+        let serialized = msg.to_string();
+
+        // Wire format rules:
+        // 1. No NUL characters
+        prop_assert!(!serialized.contains('\0'),
+            "Wire format contains NUL: {:?}", serialized);
+
+        // 2. Message should end with CRLF (added by Message::fmt)
+        prop_assert!(serialized.ends_with("\r\n"),
+            "Wire format should end with CRLF: {:?}", serialized);
+
+        // 3. No bare CR or LF except at the very end
+        let without_trailing = &serialized[..serialized.len() - 2];
+        prop_assert!(!without_trailing.contains('\r') && !without_trailing.contains('\n'),
+            "Wire format contains embedded CR or LF: {:?}", serialized);
+
+        // 4. Should parse back successfully
+        let _: Message = serialized.parse()
+            .expect("Valid wire format should parse");
     }
 }
