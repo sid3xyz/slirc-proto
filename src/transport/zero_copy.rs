@@ -185,6 +185,28 @@ impl<S: AsyncWrite + Unpin> ZeroCopyTransport<S> {
         self.stream.write_all(serialized.as_bytes()).await?;
         self.stream.flush().await
     }
+
+    /// Write a borrowed IRC message to the transport (zero-copy forwarding).
+    ///
+    /// This is optimized for S2S message forwarding and relay scenarios
+    /// where you receive a `MessageRef` and want to forward it without
+    /// allocating an owned `Message`.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Forward message from one server to another
+    /// let msg_ref = incoming_transport.next().await?;
+    /// outgoing_transport.write_message_ref(&msg_ref).await?;
+    /// ```
+    pub async fn write_message_ref(&mut self, message: &MessageRef<'_>) -> std::io::Result<()> {
+        use std::fmt::Write;
+        // Use a small stack buffer for typical messages, heap-allocate only if needed
+        let mut buf = String::with_capacity(512);
+        write!(&mut buf, "{}", message).expect("fmt::Write to String cannot fail");
+        self.stream.write_all(buf.as_bytes()).await?;
+        self.stream.flush().await
+    }
 }
 
 impl<S: AsyncRead + Unpin> ZeroCopyTransport<S> {
@@ -572,6 +594,22 @@ where
             .await
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
     }
+
+    /// Write a borrowed IRC message to the WebSocket transport (zero-copy forwarding).
+    ///
+    /// This is optimized for relay scenarios where you receive a `MessageRef`
+    /// and want to forward it without allocating an owned `Message`.
+    pub async fn write_message_ref(&mut self, message: &MessageRef<'_>) -> std::io::Result<()> {
+        use std::fmt::Write;
+        let mut buf = String::with_capacity(512);
+        write!(&mut buf, "{}", message).expect("fmt::Write to String cannot fail");
+        // Strip CRLF for WebSocket (uses frame boundaries)
+        let text = buf.trim_end_matches(&['\r', '\n'][..]);
+        self.stream
+            .send(WsMessage::Text(text.to_string()))
+            .await
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+    }
 }
 
 #[cfg(feature = "tokio")]
@@ -812,6 +850,35 @@ impl ZeroCopyTransportEnum {
             Self::WebSocket(t) => t.write_message(message).await,
             #[cfg(feature = "tokio")]
             Self::WebSocketTls(t) => t.write_message(message).await,
+        }
+    }
+
+    /// Write a borrowed IRC message to the transport (zero-copy forwarding).
+    ///
+    /// This is optimized for S2S message forwarding and relay scenarios
+    /// where you receive a `MessageRef` and want to forward it without
+    /// allocating an owned `Message`.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // S2S forwarding: receive from one server, forward to another
+    /// while let Some(result) = server_a.next().await {
+    ///     let msg_ref = result?;
+    ///     if should_forward(&msg_ref) {
+    ///         server_b.write_message_ref(&msg_ref).await?;
+    ///     }
+    /// }
+    /// ```
+    pub async fn write_message_ref(&mut self, message: &MessageRef<'_>) -> std::io::Result<()> {
+        match self {
+            Self::Tcp(t) => t.write_message_ref(message).await,
+            Self::Tls(t) => t.write_message_ref(message).await,
+            Self::ClientTls(t) => t.write_message_ref(message).await,
+            #[cfg(feature = "tokio")]
+            Self::WebSocket(t) => t.write_message_ref(message).await,
+            #[cfg(feature = "tokio")]
+            Self::WebSocketTls(t) => t.write_message_ref(message).await,
         }
     }
 }

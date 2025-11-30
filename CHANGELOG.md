@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]\n\n### Added\n\n- **Write support for zero-copy transports** — `ZeroCopyTransportEnum::write_message()` enables unified read/write operations in a single `tokio::select!` loop without needing separate writer infrastructure\n  - `ZeroCopyTransport::write_message(&Message)` — Write to TCP/TLS streams\n  - `ZeroCopyWebSocketTransport::write_message(&Message)` — Write to WebSocket streams\n  - `ZeroCopyTransportEnum::write_message(&Message)` — Unified write across all transport types\n\n## [1.2.0] - 2025-11-29
+## [Unreleased]\n\n### Added\n\n- **Write support for zero-copy transports** — `ZeroCopyTransportEnum::write_message()` enables unified read/write operations in a single `tokio::select!` loop without needing separate writer infrastructure\n  - `ZeroCopyTransport::write_message(&Message)` — Write to TCP/TLS streams\n  - `ZeroCopyWebSocketTransport::write_message(&Message)` — Write to WebSocket streams\n  - `ZeroCopyTransportEnum::write_message(&Message)` — Unified write across all transport types\n- **Zero-copy message forwarding** — `write_message_ref(&MessageRef)` methods for S2S forwarding and relay scenarios without allocating owned `Message`\n  - `ZeroCopyTransport::write_message_ref(&MessageRef)` — Forward borrowed messages on TCP/TLS\n  - `ZeroCopyWebSocketTransport::write_message_ref(&MessageRef)` — Forward on WebSocket\n  - `ZeroCopyTransportEnum::write_message_ref(&MessageRef)` — Unified forwarding API\n\n## [1.2.0] - 2025-11-29
 
 ### Added
 
