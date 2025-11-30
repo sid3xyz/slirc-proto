@@ -8,18 +8,19 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use bytes::{Buf, BytesMut};
-use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream as ClientTlsStream;
 use tokio_rustls::server::TlsStream as ServerTlsStream;
 
 #[cfg(feature = "tokio")]
-use futures_util::{Stream, StreamExt};
+use futures_util::{SinkExt, Stream, StreamExt};
 #[cfg(feature = "tokio")]
 use tokio_tungstenite::{tungstenite::Message as WsMessage, WebSocketStream};
 
 use crate::error::ProtocolError;
 use crate::message::MessageRef;
+use crate::Message;
 
 use super::error::TransportReadError;
 use super::framed::Transport;
@@ -165,6 +166,24 @@ impl<S> ZeroCopyTransport<S> {
         }
 
         Ok(s)
+    }
+}
+
+impl<S: AsyncWrite + Unpin> ZeroCopyTransport<S> {
+    /// Write an IRC message to the transport.
+    ///
+    /// This serializes the message with CRLF terminator and writes it
+    /// to the underlying stream, then flushes.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// transport.write_message(&Message::pong("server")).await?;
+    /// ```
+    pub async fn write_message(&mut self, message: &Message) -> std::io::Result<()> {
+        let serialized = message.to_string();
+        self.stream.write_all(serialized.as_bytes()).await?;
+        self.stream.flush().await
     }
 }
 
@@ -540,6 +559,19 @@ where
             }
         }
     }
+
+    /// Write an IRC message to the WebSocket transport.
+    ///
+    /// This sends the message as a WebSocket text frame. The CRLF
+    /// terminator is stripped since WebSocket uses frame boundaries.
+    pub async fn write_message(&mut self, message: &Message) -> std::io::Result<()> {
+        let text = message.to_string();
+        let text = text.trim_end_matches(&['\r', '\n'][..]);
+        self.stream
+            .send(WsMessage::Text(text.to_string()))
+            .await
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+    }
 }
 
 #[cfg(feature = "tokio")]
@@ -748,6 +780,38 @@ impl ZeroCopyTransportEnum {
             Self::WebSocket(t) => t.next().await,
             #[cfg(feature = "tokio")]
             Self::WebSocketTls(t) => t.next().await,
+        }
+    }
+
+    /// Write an IRC message to the transport.
+    ///
+    /// This enables unified read/write operations in a single `tokio::select!`
+    /// loop without needing separate writer infrastructure.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// loop {
+    ///     tokio::select! {
+    ///         Some(result) = transport.next() => {
+    ///             let msg = result?;
+    ///             // handle incoming message
+    ///         }
+    ///         Some(outgoing) = rx.recv() => {
+    ///             transport.write_message(&outgoing).await?;
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub async fn write_message(&mut self, message: &Message) -> std::io::Result<()> {
+        match self {
+            Self::Tcp(t) => t.write_message(message).await,
+            Self::Tls(t) => t.write_message(message).await,
+            Self::ClientTls(t) => t.write_message(message).await,
+            #[cfg(feature = "tokio")]
+            Self::WebSocket(t) => t.write_message(message).await,
+            #[cfg(feature = "tokio")]
+            Self::WebSocketTls(t) => t.write_message(message).await,
         }
     }
 }
