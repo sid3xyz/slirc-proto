@@ -141,6 +141,80 @@ impl<'a> Iterator for SplitMessage<'a> {
     }
 }
 
+/// Match a string against a wildcard pattern with IRC case-insensitivity.
+///
+/// Supports:
+/// - `*` matches zero or more characters
+/// - `?` matches exactly one character
+///
+/// Uses RFC 1459 case mapping for case-insensitive comparison, where
+/// `[]\~` are equivalent to `{}|^`.
+///
+/// # Examples
+///
+/// ```
+/// use slirc_proto::util::wildcard_match;
+///
+/// // Basic wildcards
+/// assert!(wildcard_match("*", "anything"));
+/// assert!(wildcard_match("test*", "testing"));
+/// assert!(wildcard_match("*test", "unittest"));
+/// assert!(wildcard_match("*test*", "unittesting"));
+/// assert!(wildcard_match("te?t", "test"));
+///
+/// // IRC case-insensitive (RFC 1459)
+/// assert!(wildcard_match("TEST*", "testing"));
+/// assert!(wildcard_match("*.example.com", "USER.EXAMPLE.COM"));
+///
+/// // IRC special chars are case-equivalent
+/// assert!(wildcard_match("#channel[*]", "#CHANNEL{test}"));
+/// ```
+pub fn wildcard_match(pattern: &str, text: &str) -> bool {
+    use crate::casemap::irc_lower_char;
+    
+    // Convert both to IRC lowercase for case-insensitive matching
+    let pattern_lower: Vec<char> = pattern.chars().map(irc_lower_char).collect();
+    let text_lower: Vec<char> = text.chars().map(irc_lower_char).collect();
+    
+    wildcard_match_impl(&pattern_lower, &text_lower)
+}
+
+/// Internal recursive wildcard matcher operating on char slices.
+fn wildcard_match_impl(pattern: &[char], text: &[char]) -> bool {
+    let mut p = 0; // pattern index
+    let mut t = 0; // text index
+    let mut star_p = None; // position after last '*' in pattern
+    let mut star_t = 0; // text position when we matched '*'
+    
+    while t < text.len() {
+        if p < pattern.len() && (pattern[p] == '?' || pattern[p] == text[t]) {
+            // Character match or '?' wildcard
+            p += 1;
+            t += 1;
+        } else if p < pattern.len() && pattern[p] == '*' {
+            // '*' wildcard - remember position for backtracking
+            star_p = Some(p);
+            star_t = t;
+            p += 1;
+        } else if let Some(sp) = star_p {
+            // Mismatch - backtrack to last '*' and try consuming one more char
+            p = sp + 1;
+            star_t += 1;
+            t = star_t;
+        } else {
+            // No match and no '*' to backtrack to
+            return false;
+        }
+    }
+    
+    // Check remaining pattern is all '*'
+    while p < pattern.len() && pattern[p] == '*' {
+        p += 1;
+    }
+    
+    p == pattern.len()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -226,5 +300,65 @@ mod tests {
         assert_eq!(MAX_CLIENT_TAG_DATA, 4094);
         assert_eq!(MAX_SERVER_TAG_DATA, 4094);
         assert_eq!(MAX_MESSAGE_BODY, 512);
+    }
+
+    #[test]
+    fn test_wildcard_match_basic() {
+        // Star matches anything
+        assert!(wildcard_match("*", "anything"));
+        assert!(wildcard_match("*", ""));
+        
+        // Prefix/suffix matching
+        assert!(wildcard_match("test*", "testing"));
+        assert!(wildcard_match("*test", "unittest"));
+        assert!(wildcard_match("*test*", "unittesting"));
+        
+        // Question mark matches single char
+        assert!(wildcard_match("te?t", "test"));
+        assert!(!wildcard_match("te?t", "tests"));
+        assert!(!wildcard_match("te?t", "tet"));
+        
+        // Hostname patterns
+        assert!(wildcard_match("*.example.com", "user.example.com"));
+        assert!(wildcard_match("*!*@*.net", "nick!user@irc.example.net"));
+    }
+
+    #[test]
+    fn test_wildcard_match_case_insensitive() {
+        // ASCII case
+        assert!(wildcard_match("TEST*", "testing"));
+        assert!(wildcard_match("test*", "TESTING"));
+        assert!(wildcard_match("Hello", "hELLO"));
+        
+        // IRC special chars (RFC 1459 case mapping)
+        assert!(wildcard_match("#channel[*]", "#CHANNEL{test}"));
+        assert!(wildcard_match("nick\\test", "NICK|TEST"));
+        assert!(wildcard_match("test~name", "TEST^NAME"));
+    }
+
+    #[test]
+    fn test_wildcard_match_edge_cases() {
+        // Exact match
+        assert!(wildcard_match("exact", "exact"));
+        assert!(!wildcard_match("exact", "exactx"));
+        assert!(!wildcard_match("exact", "xexact"));
+        
+        // Multiple stars
+        assert!(wildcard_match("*a*b*c*", "xaybzc"));
+        assert!(wildcard_match("**", "anything"));
+        
+        // Empty pattern/text
+        assert!(wildcard_match("", ""));
+        assert!(!wildcard_match("", "something"));
+        assert!(wildcard_match("*", ""));
+    }
+
+    #[test]
+    fn test_wildcard_match_hostmask() {
+        // Typical IRC hostmask patterns
+        assert!(wildcard_match("*!*@*", "nick!user@host"));
+        assert!(wildcard_match("*!*@*.freenode.net", "nick!user@gateway.freenode.net"));
+        assert!(wildcard_match("spammer*!*@*", "spammer123!spam@evil.com"));
+        assert!(!wildcard_match("admin!*@*", "user!admin@host"));
     }
 }

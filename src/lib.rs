@@ -106,6 +106,8 @@ pub use self::sasl::{
 pub mod casemap;
 pub use self::casemap::{irc_eq, irc_lower_char, irc_to_lower};
 
+pub use self::util::wildcard_match;
+
 pub mod ircv3;
 pub use self::ircv3::{format_server_time, format_timestamp, generate_batch_ref, generate_msgid};
 pub mod scanner;
