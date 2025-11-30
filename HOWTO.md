@@ -311,19 +311,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### TLS Transport
+### TLS Transport (Client-Side)
 
 ```rust
 use slirc_proto::transport::Transport;
 use tokio::net::TcpStream;
 use tokio_rustls::TlsConnector;
-use std::sync::Arc;
 
 // Establish TLS connection first, then wrap with Transport
 let stream = TcpStream::connect("irc.libera.chat:6697").await?;
 let connector: TlsConnector = /* configure rustls */;
 let tls_stream = connector.connect(server_name, stream).await?;
-let transport = Transport::tls(tls_stream)?;
+let transport = Transport::client_tls(tls_stream)?;  // client_tls for outgoing connections
 ```
 
 ### Using IrcCodec with Framed
@@ -361,7 +360,7 @@ let mut transport = Transport::tcp(stream)?;
 // ... perform CAP negotiation, SASL auth, etc ...
 
 // Phase 2: Upgrade to zero-copy for the hot loop
-let mut zc: ZeroCopyTransportEnum = transport.try_into()?;
+let mut zc: ZeroCopyTransportEnum = transport.into();
 
 while let Some(result) = zc.next().await {
     let msg_ref: MessageRef<'_> = result?;
@@ -661,14 +660,14 @@ match check_compliance(&msg, Some(raw.len()), &config) {
 
 ```toml
 [dependencies]
-slirc-proto = { version = "1.1", default-features = false }
+slirc-proto = { version = "1.2", default-features = false }
 ```
 
 ### With All Features
 
 ```toml
 [dependencies]
-slirc-proto = { version = "1.1", features = ["tokio", "encoding"] }
+slirc-proto = { version = "1.2", features = ["tokio", "encoding"] }
 ```
 
 ---
