@@ -93,13 +93,19 @@ pub use self::encode::IrcEncode;
 pub use self::command::CommandRef;
 #[cfg(feature = "tokio")]
 pub use self::irc::IrcCodec;
-pub use self::isupport::{ChanModes, Isupport, IsupportEntry, MaxList, PrefixSpec, TargMax};
+pub use self::isupport::{
+    ChanModes, Isupport, IsupportBuilder, IsupportEntry, MaxList, PrefixSpec, TargMax,
+};
 pub use self::message::MessageRef;
 pub use self::message::{Message, Tag};
 pub use self::mode::{ChannelMode, Mode, UserMode};
 pub use self::prefix::Prefix;
 pub use self::prefix::PrefixRef;
 pub use self::response::Response;
+pub use self::state::{
+    ConnectionState, HandshakeAction, HandshakeConfig, HandshakeError, HandshakeMachine,
+    SaslCredentials,
+};
 pub use self::sasl::{
     choose_mechanism, chunk_response, decode_base64, encode_external, encode_plain,
     encode_plain_with_authzid, needs_chunking, parse_mechanisms, SaslMechanism, SaslState,
