@@ -98,9 +98,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.0] - 2025-11-28
 
 ### Changed
+
 - Improved `Clone` implementation for `MessageParseError::ParseContext` to preserve source error message instead of discarding it
 
 ### Fixed
+
 - `ParseContext` clone no longer loses source error information (now stores error message string)
 
 ## [1.0.0] - 2025-11-27
@@ -141,9 +143,10 @@ and follows semantic versioning guarantees.
 ### Fixed
 - Example compilation errors from API changes
 
-## [0.2.0] - 2025-01-01
+## [0.3.0] - 2025-11-24
 
 ### Changed
+
 - Complete clean-room rewrite of all protocol types
 - Implemented IRC numeric response codes from RFC 2812 and modern IRC docs
 - Implemented Command enum with all RFC 2812 commands and IRCv3 extensions
