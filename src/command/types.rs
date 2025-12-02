@@ -83,6 +83,12 @@ pub enum Command {
     ADMIN(Option<String>),
     /// `INFO [target]`
     INFO(Option<String>),
+    /// `MAP` - Display server map (network topology)
+    MAP,
+    /// `RULES` - Display server rules
+    RULES,
+    /// `USERIP nicknames...` - Get IP addresses of users (oper-only)
+    USERIP(Vec<String>),
 
     // === Service Queries (RFC 2812 Section 3.5) ===
     /// `SERVLIST [mask] [type]`
@@ -324,6 +330,9 @@ impl Command {
             Command::TRACE(_) => "TRACE",
             Command::ADMIN(_) => "ADMIN",
             Command::INFO(_) => "INFO",
+            Command::MAP => "MAP",
+            Command::RULES => "RULES",
+            Command::USERIP(_) => "USERIP",
 
             // Service Queries
             Command::SERVLIST(..) => "SERVLIST",

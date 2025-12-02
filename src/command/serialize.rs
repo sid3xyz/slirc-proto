@@ -219,6 +219,16 @@ impl fmt::Display for Command {
             Command::ADMIN(None) => write_cmd(f, "ADMIN", &[]),
             Command::INFO(Some(t)) => write_cmd(f, "INFO", &[t]),
             Command::INFO(None) => write_cmd(f, "INFO", &[]),
+            Command::MAP => write_cmd(f, "MAP", &[]),
+            Command::RULES => write_cmd(f, "RULES", &[]),
+            Command::USERIP(u) => {
+                f.write_str("USERIP")?;
+                for nick in u {
+                    f.write_char(' ')?;
+                    f.write_str(nick)?;
+                }
+                Ok(())
+            }
             Command::SERVLIST(Some(m), Some(t)) => write_cmd(f, "SERVLIST", &[m, t]),
             Command::SERVLIST(Some(m), None) => write_cmd(f, "SERVLIST", &[m]),
             Command::SERVLIST(None, _) => write_cmd(f, "SERVLIST", &[]),

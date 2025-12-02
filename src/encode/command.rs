@@ -156,6 +156,13 @@ impl IrcEncode for Command {
             Command::ADMIN(None) => w.write(b"ADMIN"),
             Command::INFO(Some(t)) => write_cmd(w, b"INFO", &[t]),
             Command::INFO(None) => w.write(b"INFO"),
+            Command::MAP => w.write(b"MAP"),
+            Command::RULES => w.write(b"RULES"),
+            Command::USERIP(u) => {
+                let mut written = w.write(b"USERIP")?;
+                written += write_service_args(w, u)?;
+                Ok(written)
+            }
             Command::SERVLIST(Some(m), Some(t)) => write_cmd(w, b"SERVLIST", &[m, t]),
             Command::SERVLIST(Some(m), None) => write_cmd(w, b"SERVLIST", &[m]),
             Command::SERVLIST(None, _) => w.write(b"SERVLIST"),

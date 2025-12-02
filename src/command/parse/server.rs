@@ -98,6 +98,21 @@ pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseE
                 raw(cmd, args)
             }
         }
+        "MAP" => {
+            if args.is_empty() {
+                Command::MAP
+            } else {
+                raw(cmd, args)
+            }
+        }
+        "RULES" => {
+            if args.is_empty() {
+                Command::RULES
+            } else {
+                raw(cmd, args)
+            }
+        }
+        "USERIP" => Command::USERIP(args.into_iter().map(|s| s.to_owned()).collect()),
         "SERVLIST" => {
             if args.is_empty() {
                 Command::SERVLIST(None, None)
