@@ -31,6 +31,7 @@ tokio = [
 ]
 proptest = ["dep:proptest"]
 serde = ["dep:serde"]
+scram = ["sha2", "hmac", "pbkdf2", "getrandom"]
 
 [dependencies]
 encoding = { package = "encoding_rs", version = "0.8", optional = true }
@@ -57,6 +58,12 @@ tokio-tungstenite = { version = "0.21", optional = true }
 tracing = { version = "0.1", optional = true }
 base64 = "0.22.1"
 proptest = { version = "1.4", optional = true }
+
+# SCRAM-SHA-256 crypto dependencies (optional)
+sha2 = { version = "0.10", optional = true }
+hmac = { version = "0.12", optional = true }
+pbkdf2 = { version = "0.12", default-features = false, optional = true }
+getrandom = { version = "0.2", optional = true }
 
 [dev-dependencies]
 proptest = "1.4"

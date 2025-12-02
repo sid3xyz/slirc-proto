@@ -88,6 +88,13 @@ impl SaslMechanism {
     }
 
     /// Check if this mechanism is supported for encoding.
+    #[cfg(feature = "scram")]
+    pub fn is_supported(&self) -> bool {
+        matches!(self, Self::Plain | Self::External | Self::ScramSha256)
+    }
+
+    /// Check if this mechanism is supported for encoding.
+    #[cfg(not(feature = "scram"))]
     pub fn is_supported(&self) -> bool {
         matches!(self, Self::Plain | Self::External)
     }
@@ -291,6 +298,9 @@ mod tests {
     fn test_mechanism_is_supported() {
         assert!(SaslMechanism::Plain.is_supported());
         assert!(SaslMechanism::External.is_supported());
+        #[cfg(feature = "scram")]
+        assert!(SaslMechanism::ScramSha256.is_supported());
+        #[cfg(not(feature = "scram"))]
         assert!(!SaslMechanism::ScramSha256.is_supported());
         assert!(!SaslMechanism::Unknown("FOO".to_owned()).is_supported());
     }

@@ -1,14 +1,14 @@
-//! SCRAM-SHA-256 SASL mechanism (RFC 7677).
+//! SCRAM-SHA-256 SASL mechanism (RFC 5802, RFC 7677).
 //!
-//! Challenge-response authentication mechanism with partial support.
+//! Challenge-response authentication mechanism.
 //!
-//! # SCRAM Support
+//! # Feature Flag
 //!
-//! SCRAM-SHA-256 is recognized and preferred, but full client-side
-//! implementation requires cryptographic dependencies (sha2, hmac, pbkdf2).
-//! The [`ScramClient`] struct provides the state machine; actual payload
-//! generation will be added in a future release with an optional `scram`
-//! feature flag.
+//! Full SCRAM-SHA-256 support requires the `scram` feature flag, which enables
+//! the cryptographic dependencies (`sha2`, `hmac`, `pbkdf2`, `getrandom`).
+//!
+//! Without the `scram` feature, the state machine is available but
+//! `process_server_first()` returns `ScramError::CryptoNotAvailable`.
 //!
 //! # SCRAM Protocol Flow
 //!
@@ -17,17 +17,38 @@
 //! 3. Client sends `client-final-message`: `c=biws,r=nonce+server,p=proof`
 //! 4. Server sends `server-final-message`: `v=verifier`
 //!
+//! # Example
+//!
+//! ```ignore
+//! use slirc_proto::sasl::ScramClient;
+//!
+//! let mut client = ScramClient::new("username", "password");
+//! let first = client.client_first_message();
+//! // Send first to server, receive server_first back
+//! # #[cfg(feature = "scram")]
+//! let final_msg = client.process_server_first(&server_first)?;
+//! // Send final_msg to server, receive server_final back
+//! # #[cfg(feature = "scram")]
+//! client.verify_server_final(&server_final)?;
+//! ```
+//!
 //! # Reference
+//! - RFC 5802: <https://tools.ietf.org/html/rfc5802>
 //! - RFC 7677: <https://tools.ietf.org/html/rfc7677>
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 
 use super::decode_base64;
 
+#[cfg(feature = "scram")]
+use hmac::{Hmac, Mac};
+#[cfg(feature = "scram")]
+use sha2::{Digest, Sha256};
+
 /// SCRAM-SHA-256 client state machine.
 ///
-/// This provides the state machine for SCRAM authentication. Full payload
-/// generation requires enabling the `scram` feature (not yet implemented).
+/// Provides the full SCRAM-SHA-256 authentication flow when the `scram`
+/// feature is enabled.
 ///
 /// # Example
 ///
@@ -41,12 +62,16 @@ use super::decode_base64;
 #[derive(Clone, Debug)]
 pub struct ScramClient {
     username: String,
-    /// Password for SCRAM authentication.
-    /// Not yet used - full SCRAM requires crypto dependencies (sha2, hmac, pbkdf2).
-    #[allow(dead_code)]
     password: String,
     client_nonce: String,
+    /// Stored for AuthMessage computation
+    client_first_message_bare: String,
+    /// Stored server-first-message for AuthMessage
+    server_first_message: String,
     state: ScramState,
+    /// Stored for server verification (only with scram feature)
+    #[cfg(feature = "scram")]
+    server_signature: Option<Vec<u8>>,
 }
 
 /// Internal state of SCRAM authentication.
@@ -77,14 +102,17 @@ impl ScramClient {
     /// Create a new SCRAM client with the given credentials.
     #[must_use]
     pub fn new(username: &str, password: &str) -> Self {
-        // Generate a random nonce (in production, use a CSPRNG)
         let nonce = generate_nonce();
 
         Self {
             username: username.to_string(),
             password: password.to_string(),
             client_nonce: nonce,
+            client_first_message_bare: String::new(),
+            server_first_message: String::new(),
             state: ScramState::Initial,
+            #[cfg(feature = "scram")]
+            server_signature: None,
         }
     }
 
@@ -105,7 +133,8 @@ impl ScramClient {
         // gs2-header: n,, (no channel binding, no authzid)
         // client-first-message-bare: n=username,r=nonce
         let bare = format!("n={},r={}", saslprep(&self.username), self.client_nonce);
-        let full = format!("n,,{}", bare);
+        self.client_first_message_bare = bare.clone();
+        let full = format!("n,,{bare}");
 
         BASE64.encode(full.as_bytes())
     }
@@ -120,13 +149,15 @@ impl ScramClient {
     ///
     /// The base64-encoded client-final-message, or an error.
     ///
-    /// # Note
+    /// # Errors
     ///
-    /// Full implementation requires cryptographic operations (PBKDF2, HMAC-SHA256).
-    /// This is a placeholder that returns an error indicating the feature is not available.
+    /// Returns `ScramError::CryptoNotAvailable` if the `scram` feature is not enabled.
     pub fn process_server_first(&mut self, server_first: &str) -> Result<String, ScramError> {
         let decoded = decode_base64(server_first).map_err(|_| ScramError::InvalidEncoding)?;
         let message = String::from_utf8(decoded).map_err(|_| ScramError::InvalidEncoding)?;
+
+        // Store for AuthMessage computation
+        self.server_first_message = message.clone();
 
         // Parse server-first-message: r=nonce,s=salt,i=iterations
         let mut nonce = None;
@@ -154,28 +185,128 @@ impl ScramClient {
 
         self.state = ScramState::ServerFirstReceived {
             nonce: nonce.clone(),
-            salt,
+            salt: salt.clone(),
             iterations,
         };
 
-        // Note: Full implementation would compute:
-        // - SaltedPassword = Hi(password, salt, iterations)  // PBKDF2
-        // - ClientKey = HMAC(SaltedPassword, "Client Key")
-        // - StoredKey = SHA256(ClientKey)
-        // - ClientSignature = HMAC(StoredKey, AuthMessage)
-        // - ClientProof = ClientKey XOR ClientSignature
-        //
-        // For now, return an error indicating crypto is not available
-        Err(ScramError::CryptoNotAvailable)
+        #[cfg(feature = "scram")]
+        {
+            self.compute_client_final(&nonce, &salt, iterations)
+        }
+
+        #[cfg(not(feature = "scram"))]
+        {
+            let _ = (nonce, salt, iterations);
+            Err(ScramError::CryptoNotAvailable)
+        }
+    }
+
+    /// Compute and return the client-final-message (requires `scram` feature).
+    #[cfg(feature = "scram")]
+    fn compute_client_final(
+        &mut self,
+        nonce: &str,
+        salt: &[u8],
+        iterations: u32,
+    ) -> Result<String, ScramError> {
+        // Compute SaltedPassword = Hi(Normalize(password), salt, i)
+        let salted_password = hi(&self.password, salt, iterations);
+
+        // ClientKey = HMAC(SaltedPassword, "Client Key")
+        let client_key = hmac_sha256(&salted_password, b"Client Key");
+
+        // StoredKey = H(ClientKey)
+        let stored_key = sha256(&client_key);
+
+        // client-final-message-without-proof = c=biws,r=nonce
+        // biws = base64("n,,") for no channel binding
+        let client_final_without_proof = format!("c=biws,r={nonce}");
+
+        // AuthMessage = client-first-message-bare + "," +
+        //               server-first-message + "," +
+        //               client-final-message-without-proof
+        let auth_message = format!(
+            "{},{},{}",
+            self.client_first_message_bare, self.server_first_message, client_final_without_proof
+        );
+
+        // ClientSignature = HMAC(StoredKey, AuthMessage)
+        let client_signature = hmac_sha256(&stored_key, auth_message.as_bytes());
+
+        // ClientProof = ClientKey XOR ClientSignature
+        let client_proof: Vec<u8> = client_key
+            .iter()
+            .zip(client_signature.iter())
+            .map(|(a, b)| a ^ b)
+            .collect();
+
+        // ServerKey = HMAC(SaltedPassword, "Server Key")
+        let server_key = hmac_sha256(&salted_password, b"Server Key");
+
+        // ServerSignature = HMAC(ServerKey, AuthMessage)
+        let server_signature = hmac_sha256(&server_key, auth_message.as_bytes());
+        self.server_signature = Some(server_signature);
+
+        // Build client-final-message
+        let client_final = format!(
+            "{},p={}",
+            client_final_without_proof,
+            BASE64.encode(&client_proof)
+        );
+
+        self.state = ScramState::ClientFinalSent;
+
+        Ok(BASE64.encode(client_final.as_bytes()))
     }
 
     /// Verify the server-final-message.
     ///
-    /// # Note
+    /// # Arguments
     ///
-    /// Requires cryptographic verification. Placeholder implementation.
-    pub fn verify_server_final(&mut self, _server_final: &str) -> Result<(), ScramError> {
-        Err(ScramError::CryptoNotAvailable)
+    /// * `server_final` - The base64-encoded server-final-message.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if verification succeeds, or an error.
+    ///
+    /// # Errors
+    ///
+    /// - `ScramError::CryptoNotAvailable` if `scram` feature not enabled
+    /// - `ScramError::ServerVerificationFailed` if signature doesn't match
+    pub fn verify_server_final(&mut self, server_final: &str) -> Result<(), ScramError> {
+        #[cfg(feature = "scram")]
+        {
+            let decoded =
+                decode_base64(server_final).map_err(|_| ScramError::InvalidEncoding)?;
+            let message = String::from_utf8(decoded).map_err(|_| ScramError::InvalidEncoding)?;
+
+            // Parse v=verifier
+            let verifier = message
+                .strip_prefix("v=")
+                .ok_or(ScramError::ServerVerificationFailed)?;
+
+            let server_sig =
+                decode_base64(verifier).map_err(|_| ScramError::InvalidEncoding)?;
+
+            let expected = self
+                .server_signature
+                .as_ref()
+                .ok_or(ScramError::ServerVerificationFailed)?;
+
+            if server_sig == *expected {
+                self.state = ScramState::Complete;
+                Ok(())
+            } else {
+                self.state = ScramState::Failed("server verification failed".to_string());
+                Err(ScramError::ServerVerificationFailed)
+            }
+        }
+
+        #[cfg(not(feature = "scram"))]
+        {
+            let _ = server_final;
+            Err(ScramError::CryptoNotAvailable)
+        }
     }
 }
 
@@ -219,9 +350,52 @@ impl std::fmt::Display for ScramError {
 
 impl std::error::Error for ScramError {}
 
+// ============================================================================
+// Cryptographic primitives (only with scram feature)
+// ============================================================================
+
+/// Hi() function from RFC 5802 - essentially PBKDF2-HMAC-SHA256.
+#[cfg(feature = "scram")]
+fn hi(password: &str, salt: &[u8], iterations: u32) -> [u8; 32] {
+    let mut output = [0u8; 32];
+    pbkdf2::pbkdf2::<Hmac<Sha256>>(password.as_bytes(), salt, iterations, &mut output)
+        .expect("32 bytes is valid output length for SHA-256");
+    output
+}
+
+/// HMAC-SHA-256.
+#[cfg(feature = "scram")]
+fn hmac_sha256(key: &[u8], data: &[u8]) -> Vec<u8> {
+    let mut mac = Hmac::<Sha256>::new_from_slice(key).expect("HMAC accepts any key length");
+    mac.update(data);
+    mac.finalize().into_bytes().to_vec()
+}
+
+/// SHA-256 hash.
+#[cfg(feature = "scram")]
+fn sha256(data: &[u8]) -> Vec<u8> {
+    let mut hasher = Sha256::new();
+    hasher.update(data);
+    hasher.finalize().to_vec()
+}
+
+// ============================================================================
+// Nonce generation
+// ============================================================================
+
 /// Generate a random nonce for SCRAM.
 ///
-/// Uses a simple timestamp-based nonce. In production, use a CSPRNG.
+/// With the `scram` feature, uses a cryptographically secure random generator.
+/// Without it, falls back to a timestamp-based nonce (not secure, but functional
+/// for the state machine skeleton).
+#[cfg(feature = "scram")]
+fn generate_nonce() -> String {
+    let mut bytes = [0u8; 24];
+    getrandom::getrandom(&mut bytes).expect("getrandom failed");
+    BASE64.encode(bytes)
+}
+
+#[cfg(not(feature = "scram"))]
 fn generate_nonce() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -229,19 +403,143 @@ fn generate_nonce() -> String {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default();
 
-    // Simple nonce based on time - not cryptographically secure
-    // A real implementation should use getrandom or similar
     format!("{}_{}", now.as_nanos(), std::process::id())
 }
 
-/// Perform SASLprep normalization on a string.
+// ============================================================================
+// SASLprep (simplified)
+// ============================================================================
+
+/// Perform SASLprep normalization on a string (RFC 4013).
 ///
-/// This is a simplified version that handles common cases.
-/// A full implementation would follow RFC 4013.
+/// This is a simplified version that handles ASCII usernames/passwords.
+/// Full RFC 4013 compliance requires Unicode NFKC normalization.
 fn saslprep(s: &str) -> String {
-    // For now, just pass through. A real implementation would:
-    // 1. Map certain characters
-    // 2. Normalize to NFKC
-    // 3. Check for prohibited characters
+    // For ASCII-only inputs, SASLprep is essentially a pass-through.
+    // A full implementation would:
+    // 1. Map certain characters (e.g., NFKC normalization)
+    // 2. Check for prohibited characters
+    // 3. Check bidirectional text rules
     s.to_string()
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_client_first_message_format() {
+        let mut client = ScramClient::new("user", "pencil");
+        let first = client.client_first_message();
+        let decoded = String::from_utf8(BASE64.decode(&first).unwrap()).unwrap();
+
+        assert!(decoded.starts_with("n,,n=user,r="));
+        assert!(matches!(client.state(), ScramState::ClientFirstSent));
+    }
+
+    #[test]
+    fn test_parse_server_first_validates_nonce() {
+        let mut client = ScramClient::new("user", "pencil");
+        let _ = client.client_first_message();
+
+        // Server nonce that doesn't start with client nonce
+        let bad_server_first = BASE64.encode(b"r=wrong_nonce,s=QSXCR+Q6sek8bf92,i=4096");
+        let result = client.process_server_first(&bad_server_first);
+
+        assert_eq!(result.unwrap_err(), ScramError::NonceMismatch);
+    }
+
+    #[test]
+    fn test_missing_fields_error() {
+        let mut client = ScramClient::new("user", "pencil");
+        let _ = client.client_first_message();
+
+        // Missing salt
+        let nonce = &client.client_nonce;
+        let bad = BASE64.encode(format!("r={nonce}server,i=4096").as_bytes());
+        assert_eq!(
+            client.process_server_first(&bad).unwrap_err(),
+            ScramError::MissingSalt
+        );
+    }
+
+    /// RFC 7677 test vector.
+    /// Username: user, Password: pencil
+    #[cfg(feature = "scram")]
+    #[test]
+    fn test_scram_sha256_rfc7677_vector() {
+        // Create client with the exact nonce from RFC 7677
+        let mut client = ScramClient {
+            username: "user".to_string(),
+            password: "pencil".to_string(),
+            client_nonce: "rOprNGfwEbeRWgbNEkqO".to_string(),
+            client_first_message_bare: String::new(),
+            server_first_message: String::new(),
+            state: ScramState::Initial,
+            server_signature: None,
+        };
+
+        // Step 1: Client first message
+        let client_first = client.client_first_message();
+        let decoded_first = String::from_utf8(BASE64.decode(&client_first).unwrap()).unwrap();
+        assert_eq!(decoded_first, "n,,n=user,r=rOprNGfwEbeRWgbNEkqO");
+
+        // Step 2: Server first message (from RFC 7677 example)
+        let server_first = BASE64.encode(
+            b"r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096",
+        );
+        let client_final = client.process_server_first(&server_first).unwrap();
+
+        // Decode and verify client-final structure
+        let decoded_final = String::from_utf8(BASE64.decode(&client_final).unwrap()).unwrap();
+        assert!(decoded_final.starts_with("c=biws,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,p="));
+
+        // Extract proof and verify it matches RFC 7677 expected value
+        let proof_part = decoded_final.split(",p=").nth(1).unwrap();
+        assert_eq!(proof_part, "dHzbZapWIk4jUhN+Ute9ytag9zjfMHgsqmmiz7AndVQ=");
+
+        // Step 3: Verify server final (RFC 7677 expected server signature)
+        let server_final = BASE64.encode(b"v=6rriTRBi23WpRR/wtup+mMhUZUn/dB5nLTJRsjl95G4=");
+        client.verify_server_final(&server_final).unwrap();
+
+        assert!(matches!(client.state(), ScramState::Complete));
+    }
+
+    #[cfg(feature = "scram")]
+    #[test]
+    fn test_hi_pbkdf2() {
+        // Test vector: simple verification that Hi produces 32 bytes
+        let result = hi("password", b"salt", 4096);
+        assert_eq!(result.len(), 32);
+    }
+
+    #[cfg(feature = "scram")]
+    #[test]
+    fn test_nonce_is_cryptographically_random() {
+        let n1 = generate_nonce();
+        let n2 = generate_nonce();
+        assert_ne!(n1, n2);
+        // Base64 of 24 bytes = 32 chars
+        assert_eq!(n1.len(), 32);
+    }
+
+    #[cfg(not(feature = "scram"))]
+    #[test]
+    fn test_crypto_not_available_without_feature() {
+        let mut client = ScramClient::new("user", "pencil");
+        let _ = client.client_first_message();
+
+        let nonce = client.client_nonce.clone();
+        let server_first =
+            BASE64.encode(format!("r={nonce}server,s=QSXCR+Q6sek8bf92,i=4096").as_bytes());
+
+        assert_eq!(
+            client.process_server_first(&server_first).unwrap_err(),
+            ScramError::CryptoNotAvailable
+        );
+    }
 }
