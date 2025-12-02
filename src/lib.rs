@@ -67,6 +67,7 @@ pub mod ctcp;
 pub mod encode;
 pub mod error;
 pub mod format;
+pub mod nick;
 #[cfg(feature = "tokio")]
 pub mod irc;
 pub mod isupport;
@@ -82,6 +83,7 @@ pub mod util;
 
 pub use self::caps::{Capability, NegotiationVersion};
 pub use self::chan::ChannelExt;
+pub use self::nick::{NickExt, DEFAULT_NICK_MAX_LEN};
 pub use self::colors::FormattedStringExt;
 pub use self::command::{
     BatchSubCommand, CapSubCommand, ChatHistorySubCommand, Command, MessageReference,
@@ -115,7 +117,7 @@ pub use self::sasl::{
 pub mod casemap;
 pub use self::casemap::{irc_eq, irc_lower_char, irc_to_lower};
 
-pub use self::util::wildcard_match;
+pub use self::util::{matches_hostmask, wildcard_match};
 
 pub mod ircv3;
 pub use self::ircv3::{format_server_time, format_timestamp, generate_batch_ref, generate_msgid};

@@ -171,11 +171,11 @@ impl<'a> Iterator for SplitMessage<'a> {
 /// ```
 pub fn wildcard_match(pattern: &str, text: &str) -> bool {
     use crate::casemap::irc_lower_char;
-    
+
     // Convert both to IRC lowercase for case-insensitive matching
     let pattern_lower: Vec<char> = pattern.chars().map(irc_lower_char).collect();
     let text_lower: Vec<char> = text.chars().map(irc_lower_char).collect();
-    
+
     wildcard_match_impl(&pattern_lower, &text_lower)
 }
 
@@ -185,7 +185,7 @@ fn wildcard_match_impl(pattern: &[char], text: &[char]) -> bool {
     let mut t = 0; // text index
     let mut star_p = None; // position after last '*' in pattern
     let mut star_t = 0; // text position when we matched '*'
-    
+
     while t < text.len() {
         if p < pattern.len() && (pattern[p] == '?' || pattern[p] == text[t]) {
             // Character match or '?' wildcard
@@ -206,13 +206,40 @@ fn wildcard_match_impl(pattern: &[char], text: &[char]) -> bool {
             return false;
         }
     }
-    
+
     // Check remaining pattern is all '*'
     while p < pattern.len() && pattern[p] == '*' {
         p += 1;
     }
-    
+
     p == pattern.len()
+}
+
+/// Match an IRC hostmask against a pattern with wildcards.
+///
+/// This is a convenience wrapper around [`wildcard_match`] specifically for
+/// matching `nick!user@host` patterns against ban masks.
+///
+/// # Examples
+///
+/// ```
+/// use slirc_proto::util::matches_hostmask;
+///
+/// // Match all users from a domain
+/// assert!(matches_hostmask("*!*@*.example.com", "nick!user@host.example.com"));
+///
+/// // Match a specific nick from anywhere
+/// assert!(matches_hostmask("baduser!*@*", "baduser!evil@anywhere.net"));
+///
+/// // Match a specific user from anywhere
+/// assert!(matches_hostmask("*!spammer@*", "anynick!spammer@host.com"));
+///
+/// // No match
+/// assert!(!matches_hostmask("*!admin@*", "nick!user@host"));
+/// ```
+#[inline]
+pub fn matches_hostmask(pattern: &str, hostmask: &str) -> bool {
+    wildcard_match(pattern, hostmask)
 }
 
 #[cfg(test)]
@@ -307,17 +334,17 @@ mod tests {
         // Star matches anything
         assert!(wildcard_match("*", "anything"));
         assert!(wildcard_match("*", ""));
-        
+
         // Prefix/suffix matching
         assert!(wildcard_match("test*", "testing"));
         assert!(wildcard_match("*test", "unittest"));
         assert!(wildcard_match("*test*", "unittesting"));
-        
+
         // Question mark matches single char
         assert!(wildcard_match("te?t", "test"));
         assert!(!wildcard_match("te?t", "tests"));
         assert!(!wildcard_match("te?t", "tet"));
-        
+
         // Hostname patterns
         assert!(wildcard_match("*.example.com", "user.example.com"));
         assert!(wildcard_match("*!*@*.net", "nick!user@irc.example.net"));
@@ -329,7 +356,7 @@ mod tests {
         assert!(wildcard_match("TEST*", "testing"));
         assert!(wildcard_match("test*", "TESTING"));
         assert!(wildcard_match("Hello", "hELLO"));
-        
+
         // IRC special chars (RFC 1459 case mapping)
         assert!(wildcard_match("#channel[*]", "#CHANNEL{test}"));
         assert!(wildcard_match("nick\\test", "NICK|TEST"));
@@ -342,11 +369,11 @@ mod tests {
         assert!(wildcard_match("exact", "exact"));
         assert!(!wildcard_match("exact", "exactx"));
         assert!(!wildcard_match("exact", "xexact"));
-        
+
         // Multiple stars
         assert!(wildcard_match("*a*b*c*", "xaybzc"));
         assert!(wildcard_match("**", "anything"));
-        
+
         // Empty pattern/text
         assert!(wildcard_match("", ""));
         assert!(!wildcard_match("", "something"));

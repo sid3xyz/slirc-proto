@@ -105,23 +105,23 @@ slirc-proto = "1.3"
 
 ### Feature Flags
 
-| Feature | Default | Description |
-|---------|---------|-------------|
-| `tokio` | ✅ | Async transport (TCP, TLS, WebSocket) |
-| `serde` | ❌ | Serialize/Deserialize support |
-| `scram` | ❌ | SCRAM-SHA-256 SASL authentication |
-| `proptest` | ❌ | Property-based testing strategies |
+| Feature    | Default | Description                           |
+| ---------- | ------- | ------------------------------------- |
+| `tokio`    | ✅       | Async transport (TCP, TLS, WebSocket) |
+| `serde`    | ❌       | Serialize/Deserialize support         |
+| `scram`    | ❌       | SCRAM-SHA-256 SASL authentication     |
+| `proptest` | ❌       | Property-based testing strategies     |
 
 ## Core Types
 
-| Type | Description | Use Case |
-|------|-------------|----------|
-| `Message` | Owned IRC message | Storage, cross-thread |
-| `MessageRef<'a>` | Zero-copy borrowed message | Hot loops, parsing |
-| `Command` | Strongly-typed command enum | Type-safe handling |
-| `Prefix` / `PrefixRef` | Message source (nick!user@host) | Sender identification |
-| `Tag` | IRCv3 message tags | Timestamps, msgid, etc. |
-| `Response` | Numeric reply codes | Server responses |
+| Type                   | Description                     | Use Case                |
+| ---------------------- | ------------------------------- | ----------------------- |
+| `Message`              | Owned IRC message               | Storage, cross-thread   |
+| `MessageRef<'a>`       | Zero-copy borrowed message      | Hot loops, parsing      |
+| `Command`              | Strongly-typed command enum     | Type-safe handling      |
+| `Prefix` / `PrefixRef` | Message source (nick!user@host) | Sender identification   |
+| `Tag`                  | IRCv3 message tags              | Timestamps, msgid, etc. |
+| `Response`             | Numeric reply codes             | Server responses        |
 
 ## Command Coverage
 
