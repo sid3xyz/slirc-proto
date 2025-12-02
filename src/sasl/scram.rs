@@ -62,6 +62,7 @@ use sha2::{Digest, Sha256};
 #[derive(Clone, Debug)]
 pub struct ScramClient {
     username: String,
+    #[cfg(feature = "scram")]
     password: String,
     client_nonce: String,
     /// Stored for AuthMessage computation
@@ -101,11 +102,13 @@ pub enum ScramState {
 impl ScramClient {
     /// Create a new SCRAM client with the given credentials.
     #[must_use]
+    #[allow(unused_variables)] // password used only with scram feature
     pub fn new(username: &str, password: &str) -> Self {
         let nonce = generate_nonce();
 
         Self {
             username: username.to_string(),
+            #[cfg(feature = "scram")]
             password: password.to_string(),
             client_nonce: nonce,
             client_first_message_bare: String::new(),
