@@ -44,6 +44,7 @@ impl Response {
             444 => Response::ERR_NOLOGIN,
             445 => Response::ERR_SUMMONDISABLED,
             446 => Response::ERR_USERSDISABLED,
+            447 => Response::ERR_NONICKCHANGE,
             451 => Response::ERR_NOTREGISTERED,
             461 => Response::ERR_NEEDMOREPARAMS,
             462 => Response::ERR_ALREADYREGISTERED,

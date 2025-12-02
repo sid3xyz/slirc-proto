@@ -324,6 +324,8 @@ pub enum Response {
     ERR_SUMMONDISABLED = 445,
     /// 446 - Users disabled
     ERR_USERSDISABLED = 446,
+    /// 447 - Cannot change nick while in +N channel
+    ERR_NONICKCHANGE = 447,
     /// 451 - Not registered
     ERR_NOTREGISTERED = 451,
     /// 461 - Need more params
