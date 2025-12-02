@@ -163,6 +163,8 @@ impl IrcEncode for Command {
                 written += write_service_args(w, u)?;
                 Ok(written)
             }
+            Command::HELP(Some(t)) => write_cmd(w, b"HELP", &[t]),
+            Command::HELP(None) => w.write(b"HELP"),
             Command::SERVLIST(Some(m), Some(t)) => write_cmd(w, b"SERVLIST", &[m, t]),
             Command::SERVLIST(Some(m), None) => write_cmd(w, b"SERVLIST", &[m]),
             Command::SERVLIST(None, _) => w.write(b"SERVLIST"),

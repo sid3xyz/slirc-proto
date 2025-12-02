@@ -89,6 +89,8 @@ pub enum Command {
     RULES,
     /// `USERIP nicknames...` - Get IP addresses of users (oper-only)
     USERIP(Vec<String>),
+    /// `HELP [subject]` - Request help on a command or topic
+    HELP(Option<String>),
 
     // === Service Queries (RFC 2812 Section 3.5) ===
     /// `SERVLIST [mask] [type]`
@@ -333,6 +335,7 @@ impl Command {
             Command::MAP => "MAP",
             Command::RULES => "RULES",
             Command::USERIP(_) => "USERIP",
+            Command::HELP(_) => "HELP",
 
             // Service Queries
             Command::SERVLIST(..) => "SERVLIST",

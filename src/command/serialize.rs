@@ -229,6 +229,8 @@ impl fmt::Display for Command {
                 }
                 Ok(())
             }
+            Command::HELP(Some(t)) => write_cmd(f, "HELP", &[t]),
+            Command::HELP(None) => write_cmd(f, "HELP", &[]),
             Command::SERVLIST(Some(m), Some(t)) => write_cmd(f, "SERVLIST", &[m, t]),
             Command::SERVLIST(Some(m), None) => write_cmd(f, "SERVLIST", &[m]),
             Command::SERVLIST(None, _) => write_cmd(f, "SERVLIST", &[]),

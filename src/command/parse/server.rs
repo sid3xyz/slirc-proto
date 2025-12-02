@@ -113,6 +113,13 @@ pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseE
             }
         }
         "USERIP" => Command::USERIP(args.into_iter().map(|s| s.to_owned()).collect()),
+        "HELP" => {
+            if args.is_empty() {
+                Command::HELP(None)
+            } else {
+                Command::HELP(Some(args[0].to_owned()))
+            }
+        }
         "SERVLIST" => {
             if args.is_empty() {
                 Command::SERVLIST(None, None)
