@@ -137,6 +137,22 @@ pub enum Command {
     UNKLINE(String),
     /// `UNDLINE host`
     UNDLINE(String),
+    /// `GLINE mask [reason]` - Global K-line (network-wide user@host ban)
+    GLINE(String, Option<String>),
+    /// `UNGLINE mask` - Remove global K-line
+    UNGLINE(String),
+    /// `ZLINE ip [reason]` - Global IP ban (network-wide IP-based ban)
+    ZLINE(String, Option<String>),
+    /// `UNZLINE ip` - Remove global IP ban
+    UNZLINE(String),
+    /// `RLINE pattern [reason]` - Realname/GECOS ban (ban by realname pattern)
+    RLINE(String, Option<String>),
+    /// `UNRLINE pattern` - Remove realname ban
+    UNRLINE(String),
+    /// `SHUN mask [reason]` - Silent ignore (silently drop messages from user)
+    SHUN(String, Option<String>),
+    /// `UNSHUN mask` - Remove shun
+    UNSHUN(String),
 
     // === Channel Extension Commands ===
     /// `KNOCK channel [:message]`
@@ -340,6 +356,14 @@ impl Command {
             Command::DLINE(..) => "DLINE",
             Command::UNKLINE(_) => "UNKLINE",
             Command::UNDLINE(_) => "UNDLINE",
+            Command::GLINE(..) => "GLINE",
+            Command::UNGLINE(_) => "UNGLINE",
+            Command::ZLINE(..) => "ZLINE",
+            Command::UNZLINE(_) => "UNZLINE",
+            Command::RLINE(..) => "RLINE",
+            Command::UNRLINE(_) => "UNRLINE",
+            Command::SHUN(..) => "SHUN",
+            Command::UNSHUN(_) => "UNSHUN",
 
             // Channel Extensions
             Command::KNOCK(..) => "KNOCK",

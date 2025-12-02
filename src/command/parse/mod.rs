@@ -59,7 +59,8 @@ impl Command {
             | "RESTART" | "SUMMON" | "USERS" | "WALLOPS" | "USERHOST" | "ISON" | "KILL"
             | "SAJOIN" | "SAMODE" | "SANICK" | "SAPART" | "SAQUIT" | "NICKSERV" | "CHANSERV"
             | "OPERSERV" | "BOTSERV" | "HOSTSERV" | "MEMOSERV" | "NS" | "CS" | "OS" | "BS"
-            | "HS" | "MS" | "KLINE" | "DLINE" | "UNKLINE" | "UNDLINE" | "KNOCK" => {
+            | "HS" | "MS" | "KLINE" | "DLINE" | "UNKLINE" | "UNDLINE" | "GLINE" | "UNGLINE"
+            | "ZLINE" | "UNZLINE" | "RLINE" | "UNRLINE" | "SHUN" | "UNSHUN" | "KNOCK" => {
                 messaging::parse(cmd_str, args)
             }
 

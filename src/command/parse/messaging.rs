@@ -219,6 +219,86 @@ pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseE
             }
         }
 
+        // GLINE mask [reason] - Global K-line
+        "GLINE" => {
+            if args.is_empty() || args.len() > 2 {
+                raw(cmd, args)
+            } else if args.len() == 1 {
+                Command::GLINE(args[0].to_owned(), None)
+            } else {
+                Command::GLINE(args[0].to_owned(), Some(args[1].to_owned()))
+            }
+        }
+
+        // UNGLINE mask - Remove global K-line
+        "UNGLINE" => {
+            if args.len() != 1 {
+                raw(cmd, args)
+            } else {
+                Command::UNGLINE(args[0].to_owned())
+            }
+        }
+
+        // ZLINE ip [reason] - Global IP ban
+        "ZLINE" => {
+            if args.is_empty() || args.len() > 2 {
+                raw(cmd, args)
+            } else if args.len() == 1 {
+                Command::ZLINE(args[0].to_owned(), None)
+            } else {
+                Command::ZLINE(args[0].to_owned(), Some(args[1].to_owned()))
+            }
+        }
+
+        // UNZLINE ip - Remove global IP ban
+        "UNZLINE" => {
+            if args.len() != 1 {
+                raw(cmd, args)
+            } else {
+                Command::UNZLINE(args[0].to_owned())
+            }
+        }
+
+        // RLINE pattern [reason] - Realname/GECOS ban
+        "RLINE" => {
+            if args.is_empty() || args.len() > 2 {
+                raw(cmd, args)
+            } else if args.len() == 1 {
+                Command::RLINE(args[0].to_owned(), None)
+            } else {
+                Command::RLINE(args[0].to_owned(), Some(args[1].to_owned()))
+            }
+        }
+
+        // UNRLINE pattern - Remove realname ban
+        "UNRLINE" => {
+            if args.len() != 1 {
+                raw(cmd, args)
+            } else {
+                Command::UNRLINE(args[0].to_owned())
+            }
+        }
+
+        // SHUN mask [reason] - Silent ignore
+        "SHUN" => {
+            if args.is_empty() || args.len() > 2 {
+                raw(cmd, args)
+            } else if args.len() == 1 {
+                Command::SHUN(args[0].to_owned(), None)
+            } else {
+                Command::SHUN(args[0].to_owned(), Some(args[1].to_owned()))
+            }
+        }
+
+        // UNSHUN mask - Remove shun
+        "UNSHUN" => {
+            if args.len() != 1 {
+                raw(cmd, args)
+            } else {
+                Command::UNSHUN(args[0].to_owned())
+            }
+        }
+
         "NICKSERV" => Command::NICKSERV(args.into_iter().map(|s| s.to_owned()).collect()),
         "CHANSERV" => Command::CHANSERV(args.into_iter().map(|s| s.to_owned()).collect()),
         "OPERSERV" => Command::OPERSERV(args.into_iter().map(|s| s.to_owned()).collect()),
