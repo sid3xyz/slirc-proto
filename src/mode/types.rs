@@ -149,6 +149,26 @@ pub enum ChannelMode {
     Secret,
     /// 't' - Only ops can change topic
     ProtectedTopic,
+    /// 'c' - Strip/block color codes
+    NoColors,
+    /// 'C' - No CTCP (except ACTION)
+    NoCTCP,
+    /// 'N' - No nick changes while in channel
+    NoNickChange,
+    /// 'K' - No KNOCK
+    NoKnock,
+    /// 'V' - No INVITE
+    NoInvite,
+    /// 'T' - No channel NOTICE
+    NoChannelNotice,
+    /// 'Q' - No kicks (peace mode) - distinct from founder q
+    NoKick,
+    /// 'P' - Permanent channel (persists with 0 users)
+    Permanent,
+    /// 'O' - Oper-only channel
+    OperOnly,
+    /// 'g' - Free INVITE (anyone can invite)
+    FreeInvite,
 
     // === Prefix modes (grant channel privileges) ===
     /// 'q' - Channel founder (~) - note: conflicts with Quiet on some servers
@@ -205,6 +225,16 @@ impl ModeType for ChannelMode {
             'r' => Self::RegisteredOnly,
             's' => Self::Secret,
             't' => Self::ProtectedTopic,
+            'c' => Self::NoColors,
+            'C' => Self::NoCTCP,
+            'N' => Self::NoNickChange,
+            'K' => Self::NoKnock,
+            'V' => Self::NoInvite,
+            'T' => Self::NoChannelNotice,
+            'u' => Self::NoKick, // Using 'u' to avoid conflict with Founder 'Q'
+            'P' => Self::Permanent,
+            'O' => Self::OperOnly,
+            'g' => Self::FreeInvite,
             'q' => Self::Quiet,
             'Q' => Self::Founder,
             'a' => Self::Admin,
@@ -230,6 +260,16 @@ impl fmt::Display for ChannelMode {
             Self::RegisteredOnly => 'r',
             Self::Secret => 's',
             Self::ProtectedTopic => 't',
+            Self::NoColors => 'c',
+            Self::NoCTCP => 'C',
+            Self::NoNickChange => 'N',
+            Self::NoKnock => 'K',
+            Self::NoInvite => 'V',
+            Self::NoChannelNotice => 'T',
+            Self::NoKick => 'u', // Using 'u' to avoid conflict with Founder 'Q'
+            Self::Permanent => 'P',
+            Self::OperOnly => 'O',
+            Self::FreeInvite => 'g',
             Self::Quiet => 'q',
             Self::Founder => 'Q',
             Self::Admin => 'a',
