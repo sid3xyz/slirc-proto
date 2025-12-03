@@ -130,6 +130,13 @@ pub enum Response {
     RPL_LOCALUSERS = 265,
     /// 266 - Global users
     RPL_GLOBALUSERS = 266,
+
+    // Silence list
+    /// 271 - Silence list entry
+    RPL_SILELIST = 271,
+    /// 272 - End of silence list
+    RPL_ENDOFSILELIST = 272,
+
     /// 276 - WHOIS certificate fingerprint
     RPL_WHOISCERTFP = 276,
 
@@ -378,6 +385,8 @@ pub enum Response {
     ERR_UMODEUNKNOWNFLAG = 501,
     /// 502 - Users don't match
     ERR_USERSDONTMATCH = 502,
+    /// 511 - Silence list full
+    ERR_SILELISTFULL = 511,
     /// 524 - Help not found
     ERR_HELPNOTFOUND = 524,
 

@@ -71,6 +71,7 @@ impl Response {
             491 => Response::ERR_NOOPERHOST,
             501 => Response::ERR_UMODEUNKNOWNFLAG,
             502 => Response::ERR_USERSDONTMATCH,
+            511 => Response::ERR_SILELISTFULL,
             524 => Response::ERR_HELPNOTFOUND,
             635 => Response::ERR_NORULES,
             712 => Response::ERR_TOOMANYKNOCK,

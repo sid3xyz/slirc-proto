@@ -169,6 +169,8 @@ pub enum ChannelMode {
     OperOnly,
     /// 'g' - Free INVITE (anyone can invite)
     FreeInvite,
+    /// 'z' - TLS/SSL only channel
+    TlsOnly,
 
     // === Prefix modes (grant channel privileges) ===
     /// 'q' - Channel founder (~) - note: conflicts with Quiet on some servers
@@ -235,6 +237,7 @@ impl ModeType for ChannelMode {
             'P' => Self::Permanent,
             'O' => Self::OperOnly,
             'g' => Self::FreeInvite,
+            'z' => Self::TlsOnly,
             'q' => Self::Quiet,
             'Q' => Self::Founder,
             'a' => Self::Admin,
@@ -270,6 +273,7 @@ impl fmt::Display for ChannelMode {
             Self::Permanent => 'P',
             Self::OperOnly => 'O',
             Self::FreeInvite => 'g',
+            Self::TlsOnly => 'z',
             Self::Quiet => 'q',
             Self::Founder => 'Q',
             Self::Admin => 'a',

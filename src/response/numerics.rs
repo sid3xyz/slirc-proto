@@ -57,6 +57,8 @@ impl Response {
             263 => Response::RPL_TRYAGAIN,
             265 => Response::RPL_LOCALUSERS,
             266 => Response::RPL_GLOBALUSERS,
+            271 => Response::RPL_SILELIST,
+            272 => Response::RPL_ENDOFSILELIST,
             276 => Response::RPL_WHOISCERTFP,
             300 => Response::RPL_NONE,
             301 => Response::RPL_AWAY,
