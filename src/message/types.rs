@@ -208,6 +208,19 @@ impl Message {
         Command::PONG(server.into(), None).into()
     }
 
+    /// Create a PONG message with server name and token
+    ///
+    /// The proper format is `PONG <server> <token>` where server is the
+    /// name of the responding server and token is the value from the PING.
+    #[must_use]
+    pub fn pong_with_token<S, T>(server: S, token: T) -> Self
+    where
+        S: Into<String>,
+        T: Into<String>,
+    {
+        Command::PONG(server.into(), Some(token.into())).into()
+    }
+
     /// Create a QUIT message
     #[must_use]
     pub fn quit() -> Self {
@@ -442,6 +455,18 @@ mod tests {
             Command::PONG(server, server2) => {
                 assert_eq!(server, "irc.example.com");
                 assert!(server2.is_none());
+            }
+            _ => panic!("Expected PONG command"),
+        }
+    }
+
+    #[test]
+    fn test_pong_with_token_constructor() {
+        let msg = Message::pong_with_token("irc.example.com", "test123");
+        match msg.command {
+            Command::PONG(server, token) => {
+                assert_eq!(server, "irc.example.com");
+                assert_eq!(token.as_ref().unwrap(), "test123");
             }
             _ => panic!("Expected PONG command"),
         }
