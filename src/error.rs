@@ -20,6 +20,10 @@ pub enum ProtocolError {
     #[error("decode error: {0}")]
     Decode(#[from] std::string::FromUtf8Error),
 
+    /// Invalid UTF-8 bytes in message.
+    #[error("invalid UTF-8 in message: {0}")]
+    InvalidUtf8(String),
+
     /// Message exceeded maximum allowed length.
     #[error("message too long: {actual} bytes (limit: {limit})")]
     MessageTooLong {

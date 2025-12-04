@@ -12,7 +12,7 @@ use crate::Message;
 
 use super::super::error::TransportReadError;
 use super::super::MAX_IRC_LINE_LEN;
-use super::helpers::{find_crlf, validate_line};
+use super::helpers::{find_crlf, validate_irc_line_length, validate_line};
 use super::trait_def::LendingStream;
 
 /// Zero-copy transport that yields `MessageRef<'_>` without allocations.
@@ -145,18 +145,20 @@ impl<S: AsyncRead + Unpin> ZeroCopyTransport<S> {
             if let Some(newline_pos) = find_crlf(&self.buffer) {
                 let line_len = newline_pos + 1;
 
-                // Check line length limit
-                if line_len > self.max_line_len {
-                    return Some(Err(TransportReadError::Protocol(
-                        ProtocolError::MessageTooLong {
-                            actual: line_len,
-                            limit: self.max_line_len,
-                        },
-                    )));
+                // Validate the line slice for UTF-8 first
+                let line_slice = &self.buffer[..line_len];
+
+                // Validate IRC-specific line lengths (tags vs body)
+                // This checks:
+                // - Client tag data ≤ 4094 bytes
+                // - Message body ≤ 512 bytes (including CRLF)
+                if let Err(e) = validate_irc_line_length(line_slice) {
+                    // Mark the line as consumed so we can continue reading
+                    self.consumed = line_len;
+                    return Some(Err(e));
                 }
 
-                // Validate the line
-                let line_slice = &self.buffer[..line_len];
+                // Validate UTF-8 and control characters
                 match validate_line(line_slice) {
                     Ok(line_str) => {
                         // Mark this line as consumed (will be advanced on next call)

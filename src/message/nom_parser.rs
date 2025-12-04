@@ -30,14 +30,22 @@ fn parse_command(input: &str) -> IResult<&str, &str> {
 /// Parse IRC message parameters from the remaining input after the command.
 ///
 /// Handles both regular space-separated parameters and the trailing parameter
-/// (prefixed with `:`) which may contain spaces.
+/// (prefixed with `:`) which may contain spaces. Multiple consecutive spaces
+/// are treated as a single separator (RFC compliance).
 fn parse_params(input: &str) -> (&str, Vec<&str>) {
     let mut params: Vec<&str> = Vec::new();
     let mut rest = input;
 
     while let Some(b' ') = rest.as_bytes().first().copied() {
-        // Skip the leading space
-        rest = &rest[1..];
+        // Skip all leading spaces (handles multiple consecutive spaces)
+        while rest.as_bytes().first() == Some(&b' ') {
+            rest = &rest[1..];
+        }
+
+        // Check if we've reached the end after skipping spaces
+        if rest.is_empty() || rest.starts_with('\r') || rest.starts_with('\n') {
+            break;
+        }
 
         if let Some(b':') = rest.as_bytes().first().copied() {
             // Trailing parameter - everything after `:` until line end

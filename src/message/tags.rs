@@ -45,7 +45,7 @@ pub fn escape_tag_value_to_writer<W: IoWrite>(w: &mut W, value: &str) -> io::Res
 /// Unescape a tag value from wire format.
 ///
 /// Reverses the escaping applied by [`escape_tag_value`].
-pub(crate) fn unescape_tag_value(value: &str) -> String {
+pub fn unescape_tag_value(value: &str) -> String {
     let mut unescaped = String::with_capacity(value.len());
     let mut iter = value.chars();
     while let Some(c) = iter.next() {

@@ -13,7 +13,7 @@ use crate::Message;
 
 use super::super::error::TransportReadError;
 use super::super::MAX_IRC_LINE_LEN;
-use super::helpers::{find_crlf, validate_line};
+use super::helpers::{find_crlf, validate_irc_line_length, validate_line};
 use super::trait_def::LendingStream;
 
 /// Zero-copy transport wrapper for WebSocket streams.
@@ -67,16 +67,14 @@ where
             if let Some(newline_pos) = find_crlf(&self.buffer) {
                 let line_len = newline_pos + 1;
 
-                if line_len > self.max_line_len {
-                    return Some(Err(TransportReadError::Protocol(
-                        ProtocolError::MessageTooLong {
-                            actual: line_len,
-                            limit: self.max_line_len,
-                        },
-                    )));
+                let line_slice = &self.buffer[..line_len];
+
+                // Validate IRC-specific line lengths (tags vs body)
+                if let Err(e) = validate_irc_line_length(line_slice) {
+                    self.consumed = line_len;
+                    return Some(Err(e));
                 }
 
-                let line_slice = &self.buffer[..line_len];
                 match validate_line(line_slice) {
                     Ok(line_str) => {
                         self.consumed = line_len;

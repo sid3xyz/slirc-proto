@@ -213,8 +213,11 @@ mod tests {
         let result = transport.next().await;
         assert!(result.is_some());
         match result.unwrap() {
-            Err(TransportReadError::Io(e)) => {
-                assert!(e.to_string().contains("UTF-8"));
+            Err(TransportReadError::Protocol(crate::error::ProtocolError::InvalidUtf8(_))) => {
+                // Expected - invalid UTF-8 sequence
+            }
+            Err(TransportReadError::Io(e)) if e.to_string().contains("UTF-8") => {
+                // Also acceptable - IO layer caught UTF-8 error
             }
             other => panic!("Expected UTF-8 error, got {:?}", other),
         }

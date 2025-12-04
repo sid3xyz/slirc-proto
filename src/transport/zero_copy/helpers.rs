@@ -6,11 +6,73 @@ use crate::error::ProtocolError;
 
 use super::super::error::TransportReadError;
 
+/// Maximum length for client-sent tag data (4094 bytes per IRCv3).
+/// "Clients MUST NOT send messages with tag data exceeding 4094 bytes"
+pub const MAX_CLIENT_TAG_DATA: usize = 4094;
+
+/// Maximum length for message body excluding tags (512 bytes including CRLF).
+/// This is the classic RFC 1459 limit.
+pub const MAX_MESSAGE_BODY: usize = 512;
+
 /// Find the position of the next CRLF or LF line ending in the buffer.
 ///
 /// Returns the position of the LF byte (newline character).
 pub fn find_crlf(buffer: &BytesMut) -> Option<usize> {
     buffer.iter().position(|&b| b == b'\n')
+}
+
+/// Validate IRC line lengths according to IRCv3 message tags spec.
+///
+/// For client messages:
+/// - Tag data (excluding the leading `@` and trailing space) must be ≤ 4094 bytes
+/// - Message body (everything after tags) must be ≤ 512 bytes (including CRLF)
+///
+/// Returns Ok(()) if lengths are valid, or an appropriate error.
+pub fn validate_irc_line_length(line: &[u8]) -> Result<(), TransportReadError> {
+    // Find where tags end and body begins
+    if line.first() == Some(&b'@') {
+        // Message has tags - find the first space after the tag section
+        if let Some(space_pos) = line.iter().position(|&b| b == b' ') {
+            // Tags section is from byte 1 to space_pos (excluding @ and space)
+            let tag_data_len = space_pos - 1;
+            if tag_data_len > MAX_CLIENT_TAG_DATA {
+                return Err(TransportReadError::Protocol(ProtocolError::TagsTooLong {
+                    actual: tag_data_len,
+                    limit: MAX_CLIENT_TAG_DATA,
+                }));
+            }
+
+            // Body is everything after the space
+            let body_len = line.len() - space_pos - 1;
+            if body_len > MAX_MESSAGE_BODY {
+                return Err(TransportReadError::Protocol(
+                    ProtocolError::MessageTooLong {
+                        actual: body_len,
+                        limit: MAX_MESSAGE_BODY,
+                    },
+                ));
+            }
+        } else {
+            // Tags only, no body - just check tag length
+            let tag_data_len = line.len() - 1; // Exclude the @
+            if tag_data_len > MAX_CLIENT_TAG_DATA {
+                return Err(TransportReadError::Protocol(ProtocolError::TagsTooLong {
+                    actual: tag_data_len,
+                    limit: MAX_CLIENT_TAG_DATA,
+                }));
+            }
+        }
+    } else {
+        // No tags - entire line is the body
+        if line.len() > MAX_MESSAGE_BODY {
+            return Err(TransportReadError::Protocol(ProtocolError::MessageTooLong {
+                actual: line.len(),
+                limit: MAX_MESSAGE_BODY,
+            }));
+        }
+    }
+
+    Ok(())
 }
 
 /// Validate a line slice as valid UTF-8 and check for control characters.
@@ -20,10 +82,11 @@ pub fn find_crlf(buffer: &BytesMut) -> Option<usize> {
 /// - The line contains illegal control characters (NUL, etc.)
 pub fn validate_line(slice: &[u8]) -> Result<&str, TransportReadError> {
     let s = std::str::from_utf8(slice).map_err(|e| {
-        TransportReadError::Io(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            format!("Invalid UTF-8: {}", e),
-        ))
+        TransportReadError::Protocol(ProtocolError::InvalidUtf8(format!(
+            "byte position {}: {}",
+            e.valid_up_to(),
+            e
+        )))
     })?;
 
     // Trim CRLF for validation
