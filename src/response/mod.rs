@@ -389,6 +389,8 @@ pub enum Response {
     ERR_SILELISTFULL = 511,
     /// 524 - Help not found
     ERR_HELPNOTFOUND = 524,
+    /// 525 - Invalid channel key
+    ERR_INVALIDKEY = 525,
 
     // === Extended/Modern Numerics (600+) ===
     /// 606 - Map entry
@@ -407,6 +409,8 @@ pub enum Response {
     RPL_STATSPLINE = 646,
     /// 671 - WHOIS secure connection
     RPL_WHOISSECURE = 671,
+    /// 696 - Invalid mode parameter
+    ERR_INVALIDMODEPARAM = 696,
     /// 704 - Help start
     RPL_HELPSTART = 704,
     /// 705 - Help text
