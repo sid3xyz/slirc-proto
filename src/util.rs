@@ -384,7 +384,10 @@ mod tests {
     fn test_wildcard_match_hostmask() {
         // Typical IRC hostmask patterns
         assert!(wildcard_match("*!*@*", "nick!user@host"));
-        assert!(wildcard_match("*!*@*.freenode.net", "nick!user@gateway.freenode.net"));
+        assert!(wildcard_match(
+            "*!*@*.freenode.net",
+            "nick!user@gateway.freenode.net"
+        ));
         assert!(wildcard_match("spammer*!*@*", "spammer123!spam@evil.com"));
         assert!(!wildcard_match("admin!*@*", "user!admin@host"));
     }

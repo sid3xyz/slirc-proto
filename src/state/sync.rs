@@ -71,8 +71,7 @@ impl HandshakeMachine {
                     }
 
                     // Check if SASL is enabled and we have credentials
-                    if self.enabled_caps.contains("sasl")
-                        && self.config.sasl_credentials.is_some()
+                    if self.enabled_caps.contains("sasl") && self.config.sasl_credentials.is_some()
                     {
                         self.state = ConnectionState::Authenticating;
                         actions.push(HandshakeAction::Send(Box::new(
@@ -84,8 +83,7 @@ impl HandshakeMachine {
                 }
                 "NAK" => {
                     let caps_str = msg.arg(2).unwrap_or("");
-                    let rejected: Vec<_> =
-                        caps_str.split_whitespace().map(String::from).collect();
+                    let rejected: Vec<_> = caps_str.split_whitespace().map(String::from).collect();
                     // NAK is not fatal, proceed with registration
                     actions.extend(self.finish_cap_negotiation());
                     if !rejected.is_empty() {
@@ -130,9 +128,8 @@ impl HandshakeMachine {
                         902 | 904 | 905 | 906 | 907 => {
                             // SASL failures
                             let reason = msg.arg(1).unwrap_or("unknown error").to_string();
-                            actions.push(HandshakeAction::Error(HandshakeError::SaslFailed(
-                                reason,
-                            )));
+                            actions
+                                .push(HandshakeAction::Error(HandshakeError::SaslFailed(reason)));
                             // Still try to continue without SASL
                             actions.extend(self.finish_cap_negotiation());
                         }

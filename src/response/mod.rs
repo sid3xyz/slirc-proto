@@ -10,9 +10,9 @@
 
 #![allow(non_camel_case_types)]
 
-mod numerics;
 mod errors;
 mod helpers;
+mod numerics;
 
 // Re-export error type
 pub use helpers::ParseResponseError;

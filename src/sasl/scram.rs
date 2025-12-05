@@ -279,8 +279,7 @@ impl ScramClient {
     pub fn verify_server_final(&mut self, server_final: &str) -> Result<(), ScramError> {
         #[cfg(feature = "scram")]
         {
-            let decoded =
-                decode_base64(server_final).map_err(|_| ScramError::InvalidEncoding)?;
+            let decoded = decode_base64(server_final).map_err(|_| ScramError::InvalidEncoding)?;
             let message = String::from_utf8(decoded).map_err(|_| ScramError::InvalidEncoding)?;
 
             // Parse v=verifier
@@ -288,8 +287,7 @@ impl ScramClient {
                 .strip_prefix("v=")
                 .ok_or(ScramError::ServerVerificationFailed)?;
 
-            let server_sig =
-                decode_base64(verifier).map_err(|_| ScramError::InvalidEncoding)?;
+            let server_sig = decode_base64(verifier).map_err(|_| ScramError::InvalidEncoding)?;
 
             let expected = self
                 .server_signature
@@ -499,7 +497,8 @@ mod tests {
 
         // Decode and verify client-final structure
         let decoded_final = String::from_utf8(BASE64.decode(&client_final).unwrap()).unwrap();
-        assert!(decoded_final.starts_with("c=biws,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,p="));
+        assert!(decoded_final
+            .starts_with("c=biws,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,p="));
 
         // Extract proof and verify it matches RFC 7677 expected value
         let proof_part = decoded_final.split(",p=").nth(1).unwrap();

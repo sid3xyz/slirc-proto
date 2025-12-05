@@ -67,7 +67,6 @@ pub mod ctcp;
 pub mod encode;
 pub mod error;
 pub mod format;
-pub mod nick;
 #[cfg(feature = "tokio")]
 pub mod irc;
 pub mod isupport;
@@ -75,6 +74,7 @@ pub mod isupport;
 pub mod line;
 pub mod message;
 pub mod mode;
+pub mod nick;
 pub mod prefix;
 pub mod response;
 pub mod sasl;
@@ -83,7 +83,6 @@ pub mod util;
 
 pub use self::caps::{Capability, NegotiationVersion};
 pub use self::chan::ChannelExt;
-pub use self::nick::{NickExt, DEFAULT_NICK_MAX_LEN};
 pub use self::colors::FormattedStringExt;
 pub use self::command::{
     BatchSubCommand, CapSubCommand, ChatHistorySubCommand, Command, MessageReference,
@@ -91,6 +90,7 @@ pub use self::command::{
 pub use self::compliance::{check_compliance, ComplianceConfig, ComplianceError};
 pub use self::ctcp::{Ctcp, CtcpKind, CtcpOwned};
 pub use self::encode::IrcEncode;
+pub use self::nick::{NickExt, DEFAULT_NICK_MAX_LEN};
 
 pub use self::command::CommandRef;
 #[cfg(feature = "tokio")]
@@ -104,14 +104,14 @@ pub use self::mode::{ChannelMode, Mode, UserMode};
 pub use self::prefix::Prefix;
 pub use self::prefix::PrefixRef;
 pub use self::response::Response;
-pub use self::state::{
-    ConnectionState, HandshakeAction, HandshakeConfig, HandshakeError, HandshakeMachine,
-    SaslCredentials,
-};
 pub use self::sasl::{
     choose_mechanism, chunk_response, decode_base64, encode_external, encode_plain,
     encode_plain_with_authzid, needs_chunking, parse_mechanisms, SaslMechanism, SaslState,
     ScramClient, ScramError, ScramState, SASL_CHUNK_SIZE,
+};
+pub use self::state::{
+    ConnectionState, HandshakeAction, HandshakeConfig, HandshakeError, HandshakeMachine,
+    SaslCredentials,
 };
 
 pub mod casemap;

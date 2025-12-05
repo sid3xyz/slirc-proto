@@ -37,13 +37,13 @@
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 
-mod plain;
 mod external;
+mod plain;
 mod scram;
 
 // Re-export mechanism implementations
-pub use plain::{encode_plain, encode_plain_with_authzid};
 pub use external::encode_external;
+pub use plain::{encode_plain, encode_plain_with_authzid};
 pub use scram::{ScramClient, ScramError, ScramState};
 
 /// Maximum length of a single SASL message chunk (400 bytes).

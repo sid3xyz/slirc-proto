@@ -65,10 +65,12 @@ pub fn validate_irc_line_length(line: &[u8]) -> Result<(), TransportReadError> {
     } else {
         // No tags - entire line is the body
         if line.len() > MAX_MESSAGE_BODY {
-            return Err(TransportReadError::Protocol(ProtocolError::MessageTooLong {
-                actual: line.len(),
-                limit: MAX_MESSAGE_BODY,
-            }));
+            return Err(TransportReadError::Protocol(
+                ProtocolError::MessageTooLong {
+                    actual: line.len(),
+                    limit: MAX_MESSAGE_BODY,
+                },
+            ));
         }
     }
 

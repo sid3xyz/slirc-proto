@@ -158,21 +158,17 @@ mod tests {
 
     #[test]
     fn test_encode_with_prefix() {
-        let msg = Message::privmsg("#test", "Hello")
-            .with_prefix(Prefix::new_from_str("nick!user@host"));
+        let msg =
+            Message::privmsg("#test", "Hello").with_prefix(Prefix::new_from_str("nick!user@host"));
         let bytes = msg.to_bytes();
         assert_eq!(&bytes, b":nick!user@host PRIVMSG #test :Hello\r\n");
     }
 
     #[test]
     fn test_encode_with_tags() {
-        let msg =
-            Message::privmsg("#test", "Hi").with_tag("time", Some("2023-01-01T00:00:00Z"));
+        let msg = Message::privmsg("#test", "Hi").with_tag("time", Some("2023-01-01T00:00:00Z"));
         let bytes = msg.to_bytes();
-        assert_eq!(
-            &bytes,
-            b"@time=2023-01-01T00:00:00Z PRIVMSG #test :Hi\r\n"
-        );
+        assert_eq!(&bytes, b"@time=2023-01-01T00:00:00Z PRIVMSG #test :Hi\r\n");
     }
 
     #[test]

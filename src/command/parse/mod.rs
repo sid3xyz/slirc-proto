@@ -51,7 +51,9 @@ impl Command {
             }
 
             "MOTD" | "LUSERS" | "VERSION" | "STATS" | "LINKS" | "TIME" | "CONNECT" | "TRACE"
-            | "ADMIN" | "INFO" | "MAP" | "RULES" | "USERIP" | "HELP" | "SERVLIST" | "SQUERY" => server::parse(cmd_str, args),
+            | "ADMIN" | "INFO" | "MAP" | "RULES" | "USERIP" | "HELP" | "SERVLIST" | "SQUERY" => {
+                server::parse(cmd_str, args)
+            }
 
             "WHO" | "WHOIS" | "WHOWAS" => user::parse(cmd_str, args),
 
