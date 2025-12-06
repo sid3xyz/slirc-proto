@@ -63,6 +63,7 @@ pub mod chan;
 pub mod colors;
 pub mod command;
 pub mod compliance;
+pub mod crdt;
 pub mod ctcp;
 pub mod encode;
 pub mod error;

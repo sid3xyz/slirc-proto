@@ -61,9 +61,13 @@ hmac = { version = "0.12", optional = true }
 pbkdf2 = { version = "0.12", default-features = false, optional = true }
 getrandom = { version = "0.2", optional = true }
 
+# CRDT support
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
 [dev-dependencies]
 proptest = "1.4"
 criterion = { version = "0.5", features = ["html_reports"] }
+serde_json = "1.0"
 
 [[bench]]
 name = "parsing"
