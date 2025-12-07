@@ -214,10 +214,7 @@ mod tests {
     #[test]
     #[cfg(feature = "serde")]
     fn test_serde_roundtrip() {
-        let set: GSet<String> = ["a", "b", "c"]
-            .into_iter()
-            .map(String::from)
-            .collect();
+        let set: GSet<String> = ["a", "b", "c"].into_iter().map(String::from).collect();
         let serialized = serde_json::to_string(&set).unwrap();
         let deserialized: GSet<String> = serde_json::from_str(&serialized).unwrap();
         assert_eq!(set, deserialized);

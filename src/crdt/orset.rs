@@ -108,7 +108,10 @@ where
     /// Returns the number of unique elements in the set.
     #[must_use]
     pub fn len(&self) -> usize {
-        self.elements.values().filter(|tags| !tags.is_empty()).count()
+        self.elements
+            .values()
+            .filter(|tags| !tags.is_empty())
+            .count()
     }
 
     /// Returns `true` if the set is empty.
