@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust: [stable, beta]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-action@stable
+        if: matrix.rust == 'stable'
+      - uses: dtolnay/rust-action@beta
+        if: matrix.rust == 'beta'
+      - name: Build
+        run: cargo build --verbose
+      - name: Test (default features)
+        run: cargo test --verbose
+      - name: Test (all features)
+        run: cargo test --all-features --verbose
+      - name: Test (minimal - no default features)
+        run: cargo test --no-default-features --verbose
+
+  feature-matrix:
+    name: Feature Combinations
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          - ""  # no features
+          - "tokio"
+          - "serde"
+          - "scram"
+          - "proptest"
+          - "tokio,serde"
+          - "tokio,scram"
+          - "tokio,serde,scram"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-action@stable
+      - name: Build with features [${{ matrix.features }}]
+        run: |
+          if [ -z "${{ matrix.features }}" ]; then
+            cargo build --no-default-features
+          else
+            cargo build --no-default-features --features "${{ matrix.features }}"
+          fi
+      - name: Test with features [${{ matrix.features }}]
+        run: |
+          if [ -z "${{ matrix.features }}" ]; then
+            cargo test --no-default-features
+          else
+            cargo test --no-default-features --features "${{ matrix.features }}"
+          fi
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-action@stable
+        with:
+          components: clippy
+      - name: Clippy (default features)
+        run: cargo clippy -- -D warnings
+      - name: Clippy (all features)
+        run: cargo clippy --all-features -- -D warnings
+
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-action@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --check
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-action@stable
+      - name: Build docs
+        run: cargo doc --all-features --no-deps
+        env:
+          RUSTDOCFLAGS: -D warnings
+
+  msrv:
+    name: MSRV (1.70)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-action@1.70
+      - name: Build with MSRV
+        run: cargo build --all-features

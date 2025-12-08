@@ -199,3 +199,129 @@ fn is_valid_nickname(nick: &str) -> bool {
 fn is_special(c: char) -> bool {
     matches!(c, '[' | ']' | '\\' | '`' | '_' | '^' | '{' | '|' | '}')
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::MessageRef;
+
+    #[test]
+    fn test_valid_message() {
+        let raw = ":nick!user@host PRIVMSG #channel :Hello!";
+        let msg = MessageRef::parse(raw).unwrap();
+        let config = ComplianceConfig::default();
+        assert!(check_compliance(&msg, Some(raw.len()), &config).is_ok());
+    }
+
+    #[test]
+    fn test_line_too_long() {
+        let raw = "PING test";
+        let msg = MessageRef::parse(raw).unwrap();
+        let config = ComplianceConfig::default();
+        let result = check_compliance(&msg, Some(600), &config);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(matches!(errors[0], ComplianceError::LineTooLong(600)));
+    }
+
+    #[test]
+    fn test_missing_privmsg_params() {
+        let raw = "PRIVMSG";
+        let msg = MessageRef::parse(raw).unwrap();
+        let config = ComplianceConfig::default();
+        let result = check_compliance(&msg, None, &config);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(matches!(errors[0], ComplianceError::MissingParameter("target")));
+    }
+
+    #[test]
+    fn test_missing_privmsg_text() {
+        let raw = "PRIVMSG #channel";
+        let msg = MessageRef::parse(raw).unwrap();
+        let config = ComplianceConfig::default();
+        let result = check_compliance(&msg, None, &config);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_missing_join_channel() {
+        let raw = "JOIN";
+        let msg = MessageRef::parse(raw).unwrap();
+        let config = ComplianceConfig::default();
+        let result = check_compliance(&msg, None, &config);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(matches!(errors[0], ComplianceError::MissingParameter("channel")));
+    }
+
+    #[test]
+    fn test_strict_channel_names() {
+        let raw = "JOIN invalidchannel";
+        let msg = MessageRef::parse(raw).unwrap();
+        let config = ComplianceConfig {
+            strict_channel_names: true,
+            strict_nicknames: false,
+        };
+        let result = check_compliance(&msg, None, &config);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(matches!(errors[0], ComplianceError::InvalidChannelName(_)));
+    }
+
+    #[test]
+    fn test_valid_channel_names() {
+        for channel in ["#test", "&local", "+modeless", "!12345test"] {
+            assert!(is_valid_channel(channel), "Expected valid: {}", channel);
+        }
+    }
+
+    #[test]
+    fn test_invalid_channel_names() {
+        for channel in ["", "nochanprefix", "#has space", "#has,comma"] {
+            assert!(!is_valid_channel(channel), "Expected invalid: {}", channel);
+        }
+    }
+
+    #[test]
+    fn test_strict_nicknames() {
+        let raw = "NICK 123invalid";
+        let msg = MessageRef::parse(raw).unwrap();
+        let config = ComplianceConfig {
+            strict_channel_names: false,
+            strict_nicknames: true,
+        };
+        let result = check_compliance(&msg, None, &config);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_valid_nicknames() {
+        for nick in ["Nick", "nick123", "n1ck", "Nick_", "[nick]"] {
+            assert!(is_valid_nickname(nick), "Expected valid: {}", nick);
+        }
+    }
+
+    #[test]
+    fn test_invalid_nicknames() {
+        for nick in ["", "123nick", "verylongnickname", "nick space"] {
+            assert!(!is_valid_nickname(nick), "Expected invalid: {}", nick);
+        }
+    }
+
+    #[test]
+    fn test_error_display() {
+        let err = ComplianceError::LineTooLong(600);
+        assert!(err.to_string().contains("600"));
+        
+        let err = ComplianceError::MissingParameter("target");
+        assert!(err.to_string().contains("target"));
+    }
+
+    #[test]
+    fn test_config_default() {
+        let config = ComplianceConfig::default();
+        assert!(!config.strict_channel_names);
+        assert!(!config.strict_nicknames);
+    }
+}
