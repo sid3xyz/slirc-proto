@@ -10,6 +10,7 @@
 
 #![allow(non_camel_case_types)]
 
+mod constructors;
 mod errors;
 mod helpers;
 mod numerics;
@@ -361,8 +362,8 @@ pub enum Response {
     ERR_BADCHANNELKEY = 475,
     /// 476 - Bad channel mask
     ERR_BADCHANMASK = 476,
-    /// 477 - Need registered nick
-    ERR_NEEDREGGEDNICK = 477,
+    /// 477 - Channel doesn't support modes
+    ERR_NOCHANMODES = 477,
     /// 478 - Ban list full
     ERR_BANLISTFULL = 478,
     /// 479 - Bad channel name
@@ -489,6 +490,12 @@ pub enum Response {
 /// Modern IRC documentation uses the correct spelling "ALREADYREGISTERED".
 #[deprecated(since = "1.1.0", note = "use ERR_ALREADYREGISTERED (correct spelling)")]
 pub const ERR_ALREADYREGISTRED: Response = Response::ERR_ALREADYREGISTERED;
+
+impl Response {
+    /// Deprecated alias for [`Response::ERR_NOCHANMODES`].
+    #[deprecated(since = "1.3.0", note = "use ERR_NOCHANMODES")]
+    pub const ERR_NEEDREGGEDNICK: Response = Response::ERR_NOCHANMODES;
+}
 
 #[cfg(test)]
 mod tests {

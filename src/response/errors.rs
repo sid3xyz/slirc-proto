@@ -59,7 +59,7 @@ impl Response {
             474 => Response::ERR_BANNEDFROMCHAN,
             475 => Response::ERR_BADCHANNELKEY,
             476 => Response::ERR_BADCHANMASK,
-            477 => Response::ERR_NEEDREGGEDNICK,
+            477 => Response::ERR_NOCHANMODES,
             478 => Response::ERR_BANLISTFULL,
             479 => Response::ERR_BADCHANNAME,
             481 => Response::ERR_NOPRIVILEGES,
