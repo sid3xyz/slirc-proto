@@ -2,7 +2,18 @@
 
 ![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)
 
+> **⚠️ AI RESEARCH EXPERIMENT: This software is a proof-of-concept developed using AI agents. It is NEVER production ready. Do not deploy, do not use for any real network.**
+
 `slirc-proto` is a robust, high-performance Rust library for parsing and serializing IRC protocol messages. It provides full support for modern IRCv3 extensions, including message tags, capability negotiation, and SASL.
+
+## Why IRC?
+
+We chose IRC as the test domain because:
+
+- **40+ years of open development** provides rich training data and clear specifications (RFCs 1459, 2812, IRCv3)
+- **Goldilocks complexity**: Complex enough to be interesting (async networking, state machines, protocol parsing) but not so complex it requires domain expertise AI lacks
+- **Testable compliance**: The `irctest` suite provides objective metrics for code quality
+- **No users, no consequences**: We can experiment freely without breaking production systems
 
 ## Features
 
