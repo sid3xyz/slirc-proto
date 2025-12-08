@@ -313,7 +313,7 @@ mod tests {
     fn test_error_display() {
         let err = ComplianceError::LineTooLong(600);
         assert!(err.to_string().contains("600"));
-        
+
         let err = ComplianceError::MissingParameter("target");
         assert!(err.to_string().contains("target"));
     }
