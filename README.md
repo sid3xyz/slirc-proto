@@ -1,5 +1,7 @@
 # slirc-proto
 
+![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)
+
 `slirc-proto` is a robust, high-performance Rust library for parsing and serializing IRC protocol messages. It provides full support for modern IRCv3 extensions, including message tags, capability negotiation, and SASL.
 
 ## Features

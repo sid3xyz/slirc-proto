@@ -24,3 +24,16 @@ pub fn format_timestamp(unix_secs: u64) -> String {
         "1970-01-01T00:00:00.000Z".to_string()
     }
 }
+
+/// Parse an IRCv3 server-time string to nanoseconds since Unix epoch.
+///
+/// Accepts RFC 3339 formatted timestamps like `2023-01-01T12:00:00.000Z`.
+/// Returns 0 if parsing fails.
+pub fn parse_server_time(ts: &str) -> i64 {
+    use chrono::DateTime;
+
+    DateTime::parse_from_rfc3339(ts)
+        .ok()
+        .and_then(|dt| dt.timestamp_nanos_opt())
+        .unwrap_or(0)
+}
