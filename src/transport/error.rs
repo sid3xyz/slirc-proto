@@ -1,45 +1,86 @@
 //! Transport error types.
 
-use std::fmt;
+use thiserror::Error;
 
 use crate::error::ProtocolError;
 
 /// Errors that can occur when reading from a transport.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum TransportReadError {
     /// An I/O error occurred.
-    Io(std::io::Error),
+    #[error("transport I/O error: {0}")]
+    Io(#[from] std::io::Error),
+
     /// A protocol error occurred.
-    Protocol(ProtocolError),
+    #[error("transport protocol error: {0}")]
+    Protocol(#[from] ProtocolError),
 }
 
-impl fmt::Display for TransportReadError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Io(err) => write!(f, "transport I/O error: {}", err),
-            Self::Protocol(err) => write!(f, "transport protocol error: {}", err),
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_io_error_conversion() {
+        let io_err =
+            std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "connection refused");
+        let transport_err: TransportReadError = io_err.into();
+
+        match transport_err {
+            TransportReadError::Io(_) => {} // Expected
+            _ => panic!("Expected Io variant"),
         }
-    }
-}
 
-impl std::error::Error for TransportReadError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Io(err) => Some(err),
-            Self::Protocol(err) => Some(err),
+        assert_eq!(
+            transport_err.to_string(),
+            "transport I/O error: connection refused"
+        );
+    }
+
+    #[test]
+    fn test_protocol_error_conversion() {
+        let protocol_err = ProtocolError::MessageTooLong {
+            actual: 1024,
+            limit: 512,
+        };
+        let transport_err: TransportReadError = protocol_err.into();
+
+        match transport_err {
+            TransportReadError::Protocol(_) => {} // Expected
+            _ => panic!("Expected Protocol variant"),
         }
-    }
-}
 
-impl From<std::io::Error> for TransportReadError {
-    fn from(err: std::io::Error) -> Self {
-        Self::Io(err)
+        assert!(transport_err
+            .to_string()
+            .contains("transport protocol error"));
+        assert!(transport_err.to_string().contains("message too long"));
     }
-}
 
-impl From<ProtocolError> for TransportReadError {
-    fn from(err: ProtocolError) -> Self {
-        Self::Protocol(err)
+    #[test]
+    fn test_error_source_chaining() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::BrokenPipe, "broken pipe");
+        let transport_err: TransportReadError = io_err.into();
+
+        // Verify error source is properly chained
+        let source = std::error::Error::source(&transport_err);
+        assert!(source.is_some());
+        assert_eq!(source.unwrap().to_string(), "broken pipe");
+    }
+
+    #[test]
+    fn test_error_display() {
+        // Test I/O error display
+        let io_err = std::io::Error::new(std::io::ErrorKind::TimedOut, "timed out");
+        let transport_err: TransportReadError = io_err.into();
+        assert_eq!(transport_err.to_string(), "transport I/O error: timed out");
+
+        // Test Protocol error display
+        let protocol_err = ProtocolError::InvalidUtf8("invalid bytes".to_string());
+        let transport_err: TransportReadError = protocol_err.into();
+        assert_eq!(
+            transport_err.to_string(),
+            "transport protocol error: invalid UTF-8 in message: invalid bytes"
+        );
     }
 }

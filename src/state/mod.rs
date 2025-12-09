@@ -48,10 +48,11 @@ pub use tracker::HandshakeMachine;
 use crate::Message;
 
 /// Current state of the IRC connection handshake.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ConnectionState {
     /// Initial state, not yet connected.
+    #[default]
     Disconnected,
     /// Sent CAP LS, awaiting capability list.
     CapabilityNegotiation,
@@ -63,12 +64,6 @@ pub enum ConnectionState {
     Connected,
     /// Connection terminated (QUIT sent or ERROR received).
     Terminated,
-}
-
-impl Default for ConnectionState {
-    fn default() -> Self {
-        Self::Disconnected
-    }
 }
 
 /// Configuration for the handshake state machine.
