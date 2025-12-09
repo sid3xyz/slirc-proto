@@ -121,7 +121,9 @@ pub use self::casemap::{irc_eq, irc_lower_char, irc_to_lower};
 pub use self::util::{matches_hostmask, wildcard_match};
 
 pub mod ircv3;
-pub use self::ircv3::{format_server_time, format_timestamp, generate_batch_ref, generate_msgid, parse_server_time};
+pub use self::ircv3::{
+    format_server_time, format_timestamp, generate_batch_ref, generate_msgid, parse_server_time,
+};
 pub mod scanner;
 pub use scanner::{detect_protocol, is_non_irc_protocol, DetectedProtocol};
 

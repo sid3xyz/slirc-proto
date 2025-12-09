@@ -24,7 +24,11 @@ impl Response {
     pub fn err_nosuchnick(client: &str, nickname: &str) -> Message {
         Self::error_msg(
             Response::ERR_NOSUCHNICK,
-            vec![client.to_string(), nickname.to_string(), "No such nick/channel".to_string()],
+            vec![
+                client.to_string(),
+                nickname.to_string(),
+                "No such nick/channel".to_string(),
+            ],
         )
     }
 
@@ -33,7 +37,11 @@ impl Response {
     pub fn err_nosuchchannel(client: &str, channel: &str) -> Message {
         Self::error_msg(
             Response::ERR_NOSUCHCHANNEL,
-            vec![client.to_string(), channel.to_string(), "No such channel".to_string()],
+            vec![
+                client.to_string(),
+                channel.to_string(),
+                "No such channel".to_string(),
+            ],
         )
     }
 
@@ -42,7 +50,11 @@ impl Response {
     pub fn err_cannotsendtochan(client: &str, channel: &str) -> Message {
         Self::error_msg(
             Response::ERR_CANNOTSENDTOCHAN,
-            vec![client.to_string(), channel.to_string(), "Cannot send to channel".to_string()],
+            vec![
+                client.to_string(),
+                channel.to_string(),
+                "Cannot send to channel".to_string(),
+            ],
         )
     }
 
@@ -51,7 +63,11 @@ impl Response {
     pub fn err_toomanychannels(client: &str, channel: &str) -> Message {
         Self::error_msg(
             Response::ERR_TOOMANYCHANNELS,
-            vec![client.to_string(), channel.to_string(), "You have joined too many channels".to_string()],
+            vec![
+                client.to_string(),
+                channel.to_string(),
+                "You have joined too many channels".to_string(),
+            ],
         )
     }
 
@@ -60,13 +76,22 @@ impl Response {
     pub fn err_wasnosuchnick(client: &str, nickname: &str) -> Message {
         Self::error_msg(
             Response::ERR_WASNOSUCHNICK,
-            vec![client.to_string(), nickname.to_string(), "There was no such nickname".to_string()],
+            vec![
+                client.to_string(),
+                nickname.to_string(),
+                "There was no such nickname".to_string(),
+            ],
         )
     }
 
     /// `407 ERR_TOOMANYTARGETS`
     /// `<target> :<error code> recipients. <abort message>`
-    pub fn err_toomanytargets(client: &str, target: &str, error_code: &str, abort_msg: &str) -> Message {
+    pub fn err_toomanytargets(
+        client: &str,
+        target: &str,
+        error_code: &str,
+        abort_msg: &str,
+    ) -> Message {
         Self::error_msg(
             Response::ERR_TOOMANYTARGETS,
             vec![
@@ -91,7 +116,10 @@ impl Response {
     pub fn err_norecipient(client: &str, command: &str) -> Message {
         Self::error_msg(
             Response::ERR_NORECIPIENT,
-            vec![client.to_string(), format!("No recipient given ({})", command)],
+            vec![
+                client.to_string(),
+                format!("No recipient given ({})", command),
+            ],
         )
     }
 
@@ -109,7 +137,11 @@ impl Response {
     pub fn err_notoplevel(client: &str, mask: &str) -> Message {
         Self::error_msg(
             Response::ERR_NOTOPLEVEL,
-            vec![client.to_string(), mask.to_string(), "No toplevel domain specified".to_string()],
+            vec![
+                client.to_string(),
+                mask.to_string(),
+                "No toplevel domain specified".to_string(),
+            ],
         )
     }
 
@@ -118,7 +150,11 @@ impl Response {
     pub fn err_wildtoplevel(client: &str, mask: &str) -> Message {
         Self::error_msg(
             Response::ERR_WILDTOPLEVEL,
-            vec![client.to_string(), mask.to_string(), "Wildcard in toplevel domain".to_string()],
+            vec![
+                client.to_string(),
+                mask.to_string(),
+                "Wildcard in toplevel domain".to_string(),
+            ],
         )
     }
 
@@ -127,7 +163,11 @@ impl Response {
     pub fn err_badmask(client: &str, mask: &str) -> Message {
         Self::error_msg(
             Response::ERR_BADMASK,
-            vec![client.to_string(), mask.to_string(), "Bad Server/host mask".to_string()],
+            vec![
+                client.to_string(),
+                mask.to_string(),
+                "Bad Server/host mask".to_string(),
+            ],
         )
     }
 
@@ -136,7 +176,11 @@ impl Response {
     pub fn err_unknowncommand(client: &str, command: &str) -> Message {
         Self::error_msg(
             Response::ERR_UNKNOWNCOMMAND,
-            vec![client.to_string(), command.to_string(), "Unknown command".to_string()],
+            vec![
+                client.to_string(),
+                command.to_string(),
+                "Unknown command".to_string(),
+            ],
         )
     }
 
@@ -154,7 +198,11 @@ impl Response {
     pub fn err_noadmininfo(client: &str, server: &str) -> Message {
         Self::error_msg(
             Response::ERR_NOADMININFO,
-            vec![client.to_string(), server.to_string(), "No administrative info available".to_string()],
+            vec![
+                client.to_string(),
+                server.to_string(),
+                "No administrative info available".to_string(),
+            ],
         )
     }
 
@@ -163,7 +211,10 @@ impl Response {
     pub fn err_fileerror(client: &str, op: &str, file: &str) -> Message {
         Self::error_msg(
             Response::ERR_FILEERROR,
-            vec![client.to_string(), format!("File error doing {} on {}", op, file)],
+            vec![
+                client.to_string(),
+                format!("File error doing {} on {}", op, file),
+            ],
         )
     }
 
@@ -181,7 +232,11 @@ impl Response {
     pub fn err_erroneusnickname(client: &str, nick: &str) -> Message {
         Self::error_msg(
             Response::ERR_ERRONEOUSNICKNAME,
-            vec![client.to_string(), nick.to_string(), "Erroneous nickname".to_string()],
+            vec![
+                client.to_string(),
+                nick.to_string(),
+                "Erroneous nickname".to_string(),
+            ],
         )
     }
 
@@ -190,7 +245,11 @@ impl Response {
     pub fn err_nicknameinuse(client: &str, nick: &str) -> Message {
         Self::error_msg(
             Response::ERR_NICKNAMEINUSE,
-            vec![client.to_string(), nick.to_string(), "Nickname is already in use".to_string()],
+            vec![
+                client.to_string(),
+                nick.to_string(),
+                "Nickname is already in use".to_string(),
+            ],
         )
     }
 
@@ -212,7 +271,11 @@ impl Response {
     pub fn err_unavailresource(client: &str, resource: &str) -> Message {
         Self::error_msg(
             Response::ERR_UNAVAILRESOURCE,
-            vec![client.to_string(), resource.to_string(), "Nick/channel is temporarily unavailable".to_string()],
+            vec![
+                client.to_string(),
+                resource.to_string(),
+                "Nick/channel is temporarily unavailable".to_string(),
+            ],
         )
     }
 
@@ -221,7 +284,12 @@ impl Response {
     pub fn err_usernotinchannel(client: &str, nick: &str, channel: &str) -> Message {
         Self::error_msg(
             Response::ERR_USERNOTINCHANNEL,
-            vec![client.to_string(), nick.to_string(), channel.to_string(), "They aren't on that channel".to_string()],
+            vec![
+                client.to_string(),
+                nick.to_string(),
+                channel.to_string(),
+                "They aren't on that channel".to_string(),
+            ],
         )
     }
 
@@ -230,7 +298,11 @@ impl Response {
     pub fn err_notonchannel(client: &str, channel: &str) -> Message {
         Self::error_msg(
             Response::ERR_NOTONCHANNEL,
-            vec![client.to_string(), channel.to_string(), "You're not on that channel".to_string()],
+            vec![
+                client.to_string(),
+                channel.to_string(),
+                "You're not on that channel".to_string(),
+            ],
         )
     }
 
@@ -239,7 +311,12 @@ impl Response {
     pub fn err_useronchannel(client: &str, user: &str, channel: &str) -> Message {
         Self::error_msg(
             Response::ERR_USERONCHANNEL,
-            vec![client.to_string(), user.to_string(), channel.to_string(), "is already on channel".to_string()],
+            vec![
+                client.to_string(),
+                user.to_string(),
+                channel.to_string(),
+                "is already on channel".to_string(),
+            ],
         )
     }
 
@@ -248,7 +325,11 @@ impl Response {
     pub fn err_nologin(client: &str, user: &str) -> Message {
         Self::error_msg(
             Response::ERR_NOLOGIN,
-            vec![client.to_string(), user.to_string(), "User not logged in".to_string()],
+            vec![
+                client.to_string(),
+                user.to_string(),
+                "User not logged in".to_string(),
+            ],
         )
     }
 
@@ -284,7 +365,11 @@ impl Response {
     pub fn err_needmoreparams(client: &str, command: &str) -> Message {
         Self::error_msg(
             Response::ERR_NEEDMOREPARAMS,
-            vec![client.to_string(), command.to_string(), "Not enough parameters".to_string()],
+            vec![
+                client.to_string(),
+                command.to_string(),
+                "Not enough parameters".to_string(),
+            ],
         )
     }
 
@@ -293,7 +378,10 @@ impl Response {
     pub fn err_alreadyregistred(client: &str) -> Message {
         Self::error_msg(
             Response::ERR_ALREADYREGISTERED,
-            vec![client.to_string(), "Unauthorized command (already registered)".to_string()],
+            vec![
+                client.to_string(),
+                "Unauthorized command (already registered)".to_string(),
+            ],
         )
     }
 
@@ -302,7 +390,10 @@ impl Response {
     pub fn err_nopermforhost(client: &str) -> Message {
         Self::error_msg(
             Response::ERR_NOPERMFORHOST,
-            vec![client.to_string(), "Your host isn't among the privileged".to_string()],
+            vec![
+                client.to_string(),
+                "Your host isn't among the privileged".to_string(),
+            ],
         )
     }
 
@@ -320,7 +411,10 @@ impl Response {
     pub fn err_yourebannedcreep(client: &str) -> Message {
         Self::error_msg(
             Response::ERR_YOUREBANNEDCREEP,
-            vec![client.to_string(), "You are banned from this server".to_string()],
+            vec![
+                client.to_string(),
+                "You are banned from this server".to_string(),
+            ],
         )
     }
 
@@ -337,7 +431,11 @@ impl Response {
     pub fn err_keyset(client: &str, channel: &str) -> Message {
         Self::error_msg(
             Response::ERR_KEYSET,
-            vec![client.to_string(), channel.to_string(), "Channel key already set".to_string()],
+            vec![
+                client.to_string(),
+                channel.to_string(),
+                "Channel key already set".to_string(),
+            ],
         )
     }
 
@@ -346,7 +444,11 @@ impl Response {
     pub fn err_channelisfull(client: &str, channel: &str) -> Message {
         Self::error_msg(
             Response::ERR_CHANNELISFULL,
-            vec![client.to_string(), channel.to_string(), "Cannot join channel (+l)".to_string()],
+            vec![
+                client.to_string(),
+                channel.to_string(),
+                "Cannot join channel (+l)".to_string(),
+            ],
         )
     }
 
@@ -368,7 +470,11 @@ impl Response {
     pub fn err_inviteonlychan(client: &str, channel: &str) -> Message {
         Self::error_msg(
             Response::ERR_INVITEONLYCHAN,
-            vec![client.to_string(), channel.to_string(), "Cannot join channel (+i)".to_string()],
+            vec![
+                client.to_string(),
+                channel.to_string(),
+                "Cannot join channel (+i)".to_string(),
+            ],
         )
     }
 
@@ -377,7 +483,11 @@ impl Response {
     pub fn err_bannedfromchan(client: &str, channel: &str) -> Message {
         Self::error_msg(
             Response::ERR_BANNEDFROMCHAN,
-            vec![client.to_string(), channel.to_string(), "Cannot join channel (+b)".to_string()],
+            vec![
+                client.to_string(),
+                channel.to_string(),
+                "Cannot join channel (+b)".to_string(),
+            ],
         )
     }
 
@@ -386,7 +496,11 @@ impl Response {
     pub fn err_badchannelkey(client: &str, channel: &str) -> Message {
         Self::error_msg(
             Response::ERR_BADCHANNELKEY,
-            vec![client.to_string(), channel.to_string(), "Cannot join channel (+k)".to_string()],
+            vec![
+                client.to_string(),
+                channel.to_string(),
+                "Cannot join channel (+k)".to_string(),
+            ],
         )
     }
 
@@ -395,7 +509,11 @@ impl Response {
     pub fn err_badchanmask(client: &str, channel: &str) -> Message {
         Self::error_msg(
             Response::ERR_BADCHANMASK,
-            vec![client.to_string(), channel.to_string(), "Bad Channel Mask".to_string()],
+            vec![
+                client.to_string(),
+                channel.to_string(),
+                "Bad Channel Mask".to_string(),
+            ],
         )
     }
 
@@ -404,7 +522,11 @@ impl Response {
     pub fn err_nochanmodes(client: &str, channel: &str) -> Message {
         Self::error_msg(
             Response::ERR_NOCHANMODES,
-            vec![client.to_string(), channel.to_string(), "Channel doesn't support modes".to_string()],
+            vec![
+                client.to_string(),
+                channel.to_string(),
+                "Channel doesn't support modes".to_string(),
+            ],
         )
     }
 
@@ -427,7 +549,10 @@ impl Response {
     pub fn err_noprivileges(client: &str) -> Message {
         Self::error_msg(
             Response::ERR_NOPRIVILEGES,
-            vec![client.to_string(), "Permission Denied- You're not an IRC operator".to_string()],
+            vec![
+                client.to_string(),
+                "Permission Denied- You're not an IRC operator".to_string(),
+            ],
         )
     }
 
@@ -436,7 +561,11 @@ impl Response {
     pub fn err_chanoprivsneeded(client: &str, channel: &str) -> Message {
         Self::error_msg(
             Response::ERR_CHANOPRIVSNEEDED,
-            vec![client.to_string(), channel.to_string(), "You're not channel operator".to_string()],
+            vec![
+                client.to_string(),
+                channel.to_string(),
+                "You're not channel operator".to_string(),
+            ],
         )
     }
 
@@ -454,7 +583,10 @@ impl Response {
     pub fn err_restricted(client: &str) -> Message {
         Self::error_msg(
             Response::ERR_RESTRICTED,
-            vec![client.to_string(), "Your connection is restricted!".to_string()],
+            vec![
+                client.to_string(),
+                "Your connection is restricted!".to_string(),
+            ],
         )
     }
 
@@ -463,7 +595,10 @@ impl Response {
     pub fn err_uniqopprivsneeded(client: &str) -> Message {
         Self::error_msg(
             Response::ERR_UNIQOPPRIVSNEEDED,
-            vec![client.to_string(), "You're not the original channel operator".to_string()],
+            vec![
+                client.to_string(),
+                "You're not the original channel operator".to_string(),
+            ],
         )
     }
 
@@ -490,7 +625,10 @@ impl Response {
     pub fn err_usersdontmatch(client: &str) -> Message {
         Self::error_msg(
             Response::ERR_USERSDONTMATCH,
-            vec![client.to_string(), "Cannot change mode for other users".to_string()],
+            vec![
+                client.to_string(),
+                "Cannot change mode for other users".to_string(),
+            ],
         )
     }
 }

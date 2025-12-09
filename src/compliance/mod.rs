@@ -232,7 +232,10 @@ mod tests {
         let result = check_compliance(&msg, None, &config);
         assert!(result.is_err());
         let errors = result.unwrap_err();
-        assert!(matches!(errors[0], ComplianceError::MissingParameter("target")));
+        assert!(matches!(
+            errors[0],
+            ComplianceError::MissingParameter("target")
+        ));
     }
 
     #[test]
@@ -252,7 +255,10 @@ mod tests {
         let result = check_compliance(&msg, None, &config);
         assert!(result.is_err());
         let errors = result.unwrap_err();
-        assert!(matches!(errors[0], ComplianceError::MissingParameter("channel")));
+        assert!(matches!(
+            errors[0],
+            ComplianceError::MissingParameter("channel")
+        ));
     }
 
     #[test]
