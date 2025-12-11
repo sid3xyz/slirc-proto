@@ -214,14 +214,13 @@ where
                     }
                 }
 
-                self.consumed = line_len;
+                // Mark this line as consumed and get long-lived reference
+                let this = self.get_mut();
+                this.consumed = line_len;
 
-                // SAFETY: Same reasoning as ZeroCopyTransport - Pin<&mut Self> prevents
-                // concurrent access, buffer advancement is deferred.
-                let line_str: &str = unsafe {
-                    let slice = &self.buffer[..line_len];
-                    let s = std::str::from_utf8(slice).expect("Already validated as UTF-8");
-                    std::mem::transmute::<&str, &str>(s)
+                let line_str: &str = {
+                    let slice = &this.buffer[..line_len];
+                    std::str::from_utf8(slice).expect("Already validated as UTF-8")
                 };
 
                 match MessageRef::parse(line_str) {

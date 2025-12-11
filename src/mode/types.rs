@@ -354,10 +354,21 @@ impl<T: ModeType> Mode<T> {
 impl<T: ModeType> fmt::Display for Mode<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Plus(_, Some(arg)) | Self::Minus(_, Some(arg)) => {
-                write!(f, "{} {}", self.flag(), arg)
+            Self::Plus(m, arg) => {
+                write!(f, "+{}", m)?;
+                if let Some(a) = arg {
+                    write!(f, " {}", a)?;
+                }
+                Ok(())
             }
-            _ => write!(f, "{}", self.flag()),
+            Self::Minus(m, arg) => {
+                write!(f, "-{}", m)?;
+                if let Some(a) = arg {
+                    write!(f, " {}", a)?;
+                }
+                Ok(())
+            }
+            Self::NoPrefix(m) => write!(f, "{}", m),
         }
     }
 }

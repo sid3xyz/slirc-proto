@@ -60,6 +60,8 @@ pub enum Capability {
     // Draft/experimental capabilities
     /// Chat history retrieval (draft/chathistory)
     ChatHistory,
+    /// Account registration (draft/account-registration)
+    AccountRegistration,
     /// Multi-line messages (draft/multiline)
     Multiline,
     /// Read marker synchronization (draft/read-marker)
@@ -98,6 +100,7 @@ impl AsRef<str> for Capability {
             Self::StandardReplies => "standard-replies",
             Self::Sts => "sts",
             Self::ChatHistory => "draft/chathistory",
+            Self::AccountRegistration => "draft/account-registration",
             Self::Multiline => "draft/multiline",
             Self::ReadMarker => "draft/read-marker",
             Self::Typing => "typing",

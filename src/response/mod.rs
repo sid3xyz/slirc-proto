@@ -290,6 +290,8 @@ pub enum Response {
     ERR_NOSUCHSERVICE = 408,
     /// 409 - No origin
     ERR_NOORIGIN = 409,
+    /// 410 - Invalid CAP command
+    ERR_INVALIDCAPCMD = 410,
     /// 411 - No recipient
     ERR_NORECIPIENT = 411,
     /// 412 - No text to send

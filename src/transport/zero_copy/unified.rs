@@ -18,6 +18,7 @@ use super::super::error::TransportReadError;
 use super::super::framed::Transport;
 use super::tcp::ZeroCopyTransport;
 use super::trait_def::LendingStream;
+use crate::error::ProtocolError;
 
 #[cfg(feature = "tokio")]
 use super::websocket::ZeroCopyWebSocketTransport;
@@ -203,15 +204,16 @@ impl LendingStream for ZeroCopyTransportEnum {
 ///
 /// This performs a buffer handover from the `Framed` codec to the
 /// zero-copy transport, ensuring no data is lost during the upgrade.
-impl From<Transport> for ZeroCopyTransportEnum {
-    fn from(transport: Transport) -> Self {
+impl TryFrom<Transport> for ZeroCopyTransportEnum {
+    type Error = ProtocolError;
+
+    fn try_from(transport: Transport) -> Result<Self, Self::Error> {
         // Use into_parts() which now supports all transport types including WebSocket.
-        // This is infallible because into_parts() succeeds for all variants.
         let parts = transport
             .into_parts()
-            .expect("into_parts should succeed for all transport types");
+            .map_err(|_| ProtocolError::WebSocketNotSupported)?;
 
-        match parts.stream {
+        Ok(match parts.stream {
             super::super::parts::TransportStream::Tcp(stream) => {
                 ZeroCopyTransportEnum::tcp_with_buffer(stream, parts.read_buf)
             }
@@ -229,6 +231,6 @@ impl From<Transport> for ZeroCopyTransportEnum {
             super::super::parts::TransportStream::WebSocketTls(stream) => {
                 ZeroCopyTransportEnum::websocket_tls_with_buffer(*stream, parts.read_buf)
             }
-        }
+        })
     }
 }

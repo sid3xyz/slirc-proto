@@ -259,27 +259,15 @@ impl<S: AsyncRead + Unpin> LendingStream for ZeroCopyTransport<S> {
                     }
                 }
 
-                // Mark this line as consumed
-                self.consumed = line_len;
+                // Mark this line as consumed and get long-lived reference
+                // We use get_mut() to get a &'a mut Self from Pin<&'a mut Self>
+                // This allows us to return a reference tied to 'a.
+                let this = self.get_mut();
+                this.consumed = line_len;
 
-                // Get the line string and parse it.
-                //
-                // SAFETY: We need to extend the lifetime of the reference to match Self::Item<'_>.
-                //
-                // This is sound because:
-                // 1. The `Pin<&mut Self>` borrow prevents calling `poll_next` again while
-                //    the returned MessageRef exists (it would require another &mut borrow)
-                // 2. Buffer advancement (`advance_buffer`) is deferred until the next
-                //    `poll_next` call, so the data remains valid
-                // 3. We don't reallocate or modify the buffer before returning
-                //
-                // The transmute extends the local borrow's lifetime to match the GAT's
-                // `Item<'_>` which is tied to the self borrow via the trait bound `Self: 'a`.
-                let line_str: &str = unsafe {
-                    let slice = &self.buffer[..line_len];
-                    let s = std::str::from_utf8(slice).expect("Already validated as UTF-8");
-                    // Extend lifetime from local scope to match Pin<&mut Self>
-                    std::mem::transmute::<&str, &str>(s)
+                let line_str: &str = {
+                    let slice = &this.buffer[..line_len];
+                    std::str::from_utf8(slice).expect("Already validated as UTF-8")
                 };
 
                 match MessageRef::parse(line_str) {

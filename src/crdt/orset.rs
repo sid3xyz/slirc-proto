@@ -117,7 +117,7 @@ where
     /// Returns `true` if the set is empty.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.elements.values().all(|tags| tags.is_empty())
     }
 
     /// Returns an iterator over the elements.

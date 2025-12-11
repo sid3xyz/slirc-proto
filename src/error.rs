@@ -49,12 +49,16 @@ pub enum ProtocolError {
     /// Failed to parse an IRC message.
     #[error("invalid message: {string}")]
     InvalidMessage {
-        /// The raw message string.
+        /// The invalid message string.
         string: String,
         /// The underlying parse error.
         #[source]
         cause: MessageParseError,
     },
+
+    /// WebSocket transport not supported for this operation.
+    #[error("WebSocket transport not supported")]
+    WebSocketNotSupported,
 }
 
 /// Errors encountered when parsing IRC messages.

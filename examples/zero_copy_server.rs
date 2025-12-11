@@ -83,7 +83,7 @@ async fn handle_connection(
     processor: &mut MessageProcessor,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Convert to zero-copy transport after any initial handshake
-    let mut zc: ZeroCopyTransportEnum = transport.into();
+    let mut zc: ZeroCopyTransportEnum = transport.try_into().unwrap();
 
     println!("→ Upgraded to zero-copy transport");
 

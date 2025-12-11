@@ -111,6 +111,19 @@ impl Response {
         )
     }
 
+    /// `410 ERR_INVALIDCAPCMD`
+    /// `<subcommand> :Invalid CAP subcommand`
+    pub fn err_invalidcapcmd(client: &str, subcommand: &str) -> Message {
+        Self::error_msg(
+            Response::ERR_INVALIDCAPCMD,
+            vec![
+                client.to_string(),
+                subcommand.to_string(),
+                "Invalid CAP subcommand".to_string(),
+            ],
+        )
+    }
+
     /// `411 ERR_NORECIPIENT`
     /// `:No recipient given (<command>)`
     pub fn err_norecipient(client: &str, command: &str) -> Message {
@@ -348,6 +361,19 @@ impl Response {
         Self::error_msg(
             Response::ERR_USERSDISABLED,
             vec![client.to_string(), "USERS has been disabled".to_string()],
+        )
+    }
+
+    /// `447 ERR_NONICKCHANGE`
+    /// `<nickname> :Can't change nickname while on <channel> (+N)`
+    pub fn err_nonickchange(client: &str, nickname: &str, channel: &str) -> Message {
+        Self::error_msg(
+            Response::ERR_NONICKCHANGE,
+            vec![
+                client.to_string(),
+                nickname.to_string(),
+                format!("Can't change nickname while on {} (+N)", channel),
+            ],
         )
     }
 
@@ -629,6 +655,78 @@ impl Response {
                 client.to_string(),
                 "Cannot change mode for other users".to_string(),
             ],
+        )
+    }
+
+    // === 700-799 Help/Monitor Replies ===
+
+    /// `704 RPL_HELPSTART`
+    /// `<subject> :Start of HELP`
+    pub fn rpl_helpstart(client: &str, subject: &str) -> Message {
+        Self::error_msg(
+            Response::RPL_HELPSTART,
+            vec![client.to_string(), subject.to_string(), "Start of HELP".to_string()],
+        )
+    }
+
+    /// `705 RPL_HELPTXT`
+    /// `<subject> :<text>`
+    pub fn rpl_helptxt(client: &str, subject: &str, text: &str) -> Message {
+        Self::error_msg(
+            Response::RPL_HELPTXT,
+            vec![client.to_string(), subject.to_string(), text.to_string()],
+        )
+    }
+
+    /// `706 RPL_ENDOFHELP`
+    /// `<subject> :End of HELP`
+    pub fn rpl_endofhelp(client: &str, subject: &str) -> Message {
+        Self::error_msg(
+            Response::RPL_ENDOFHELP,
+            vec![client.to_string(), subject.to_string(), "End of HELP".to_string()],
+        )
+    }
+
+    /// `524 ERR_HELPNOTFOUND`
+    /// `<subject> :No help available on this topic`
+    pub fn err_helpnotfound(client: &str, subject: &str) -> Message {
+        Self::error_msg(
+            Response::ERR_HELPNOTFOUND,
+            vec![client.to_string(), subject.to_string(), "No help available on this topic".to_string()],
+        )
+    }
+
+    // === 900-999 SASL Replies ===
+
+    /// `900 RPL_LOGGEDIN`
+    /// `<nick>!<user>@<host> <account> :You are now logged in as <account>`
+    pub fn rpl_loggedin(client: &str, mask: &str, account: &str) -> Message {
+        Self::error_msg(
+            Response::RPL_LOGGEDIN,
+            vec![
+                client.to_string(),
+                mask.to_string(),
+                account.to_string(),
+                format!("You are now logged in as {}", account),
+            ],
+        )
+    }
+
+    /// `903 RPL_SASLSUCCESS`
+    /// `:SASL authentication successful`
+    pub fn rpl_saslsuccess(client: &str) -> Message {
+        Self::error_msg(
+            Response::RPL_SASLSUCCESS,
+            vec![client.to_string(), "SASL authentication successful".to_string()],
+        )
+    }
+
+    /// `904 ERR_SASLFAIL`
+    /// `:SASL authentication failed`
+    pub fn err_saslfail(client: &str) -> Message {
+        Self::error_msg(
+            Response::ERR_SASLFAIL,
+            vec![client.to_string(), "SASL authentication failed".to_string()],
         )
     }
 }

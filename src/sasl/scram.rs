@@ -55,7 +55,7 @@ use sha2::{Digest, Sha256};
 /// ```
 /// use slirc_proto::sasl::ScramClient;
 ///
-/// let mut client = ScramClient::new("username", "password");
+/// let mut client = ScramClient::new("username", "password").unwrap();
 /// let first_message = client.client_first_message();
 /// // Send first_message to server via AUTHENTICATE
 /// ```
@@ -72,7 +72,7 @@ pub struct ScramClient {
     state: ScramState,
     /// Stored for server verification (only with scram feature)
     #[cfg(feature = "scram")]
-    server_signature: Option<Vec<u8>>,
+    server_signature: Option<[u8; 32]>,
 }
 
 /// Internal state of SCRAM authentication.
@@ -101,12 +101,11 @@ pub enum ScramState {
 
 impl ScramClient {
     /// Create a new SCRAM client with the given credentials.
-    #[must_use]
     #[allow(unused_variables)] // password used only with scram feature
-    pub fn new(username: &str, password: &str) -> Self {
-        let nonce = generate_nonce();
+    pub fn new(username: &str, password: &str) -> Result<Self, ScramError> {
+        let nonce = generate_nonce()?;
 
-        Self {
+        Ok(Self {
             username: username.to_string(),
             #[cfg(feature = "scram")]
             password: password.to_string(),
@@ -116,7 +115,7 @@ impl ScramClient {
             state: ScramState::Initial,
             #[cfg(feature = "scram")]
             server_signature: None,
-        }
+        })
     }
 
     /// Get the current SCRAM state.
@@ -213,10 +212,10 @@ impl ScramClient {
         iterations: u32,
     ) -> Result<String, ScramError> {
         // Compute SaltedPassword = Hi(Normalize(password), salt, i)
-        let salted_password = hi(&self.password, salt, iterations);
+        let salted_password = hi(&self.password, salt, iterations)?;
 
         // ClientKey = HMAC(SaltedPassword, "Client Key")
-        let client_key = hmac_sha256(&salted_password, b"Client Key");
+        let client_key = hmac_sha256(&salted_password, b"Client Key")?;
 
         // StoredKey = H(ClientKey)
         let stored_key = sha256(&client_key);
@@ -234,7 +233,7 @@ impl ScramClient {
         );
 
         // ClientSignature = HMAC(StoredKey, AuthMessage)
-        let client_signature = hmac_sha256(&stored_key, auth_message.as_bytes());
+        let client_signature = hmac_sha256(&stored_key, auth_message.as_bytes())?;
 
         // ClientProof = ClientKey XOR ClientSignature
         let client_proof: Vec<u8> = client_key
@@ -244,10 +243,10 @@ impl ScramClient {
             .collect();
 
         // ServerKey = HMAC(SaltedPassword, "Server Key")
-        let server_key = hmac_sha256(&salted_password, b"Server Key");
+        let server_key = hmac_sha256(&salted_password, b"Server Key")?;
 
         // ServerSignature = HMAC(ServerKey, AuthMessage)
-        let server_signature = hmac_sha256(&server_key, auth_message.as_bytes());
+        let server_signature = hmac_sha256(&server_key, auth_message.as_bytes())?;
         self.server_signature = Some(server_signature);
 
         // Build client-final-message
@@ -328,6 +327,8 @@ pub enum ScramError {
     InvalidIterations,
     /// Server verification failed.
     ServerVerificationFailed,
+    /// Cryptographic error.
+    CryptoError(String),
     /// Cryptographic operations not available (requires `scram` feature).
     CryptoNotAvailable,
 }
@@ -342,6 +343,7 @@ impl std::fmt::Display for ScramError {
             Self::MissingIterations => write!(f, "missing iteration count"),
             Self::InvalidIterations => write!(f, "invalid iteration count"),
             Self::ServerVerificationFailed => write!(f, "server verification failed"),
+            Self::CryptoError(msg) => write!(f, "crypto error: {}", msg),
             Self::CryptoNotAvailable => {
                 write!(f, "SCRAM crypto not available (requires scram feature)")
             }
@@ -357,27 +359,28 @@ impl std::error::Error for ScramError {}
 
 /// Hi() function from RFC 5802 - essentially PBKDF2-HMAC-SHA256.
 #[cfg(feature = "scram")]
-fn hi(password: &str, salt: &[u8], iterations: u32) -> [u8; 32] {
+fn hi(password: &str, salt: &[u8], iterations: u32) -> Result<[u8; 32], ScramError> {
     let mut output = [0u8; 32];
     pbkdf2::pbkdf2::<Hmac<Sha256>>(password.as_bytes(), salt, iterations, &mut output)
-        .expect("32 bytes is valid output length for SHA-256");
-    output
+        .map_err(|_| ScramError::CryptoError("PBKDF2 failed".to_string()))?;
+    Ok(output)
 }
 
 /// HMAC-SHA-256.
 #[cfg(feature = "scram")]
-fn hmac_sha256(key: &[u8], data: &[u8]) -> Vec<u8> {
-    let mut mac = Hmac::<Sha256>::new_from_slice(key).expect("HMAC accepts any key length");
+fn hmac_sha256(key: &[u8], data: &[u8]) -> Result<[u8; 32], ScramError> {
+    let mut mac = Hmac::<Sha256>::new_from_slice(key)
+        .map_err(|_| ScramError::CryptoError("HMAC initialization failed".to_string()))?;
     mac.update(data);
-    mac.finalize().into_bytes().to_vec()
+    Ok(mac.finalize().into_bytes().into())
 }
 
 /// SHA-256 hash.
 #[cfg(feature = "scram")]
-fn sha256(data: &[u8]) -> Vec<u8> {
+fn sha256(data: &[u8]) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(data);
-    hasher.finalize().to_vec()
+    hasher.finalize().into()
 }
 
 // ============================================================================
@@ -390,21 +393,21 @@ fn sha256(data: &[u8]) -> Vec<u8> {
 /// Without it, falls back to a timestamp-based nonce (not secure, but functional
 /// for the state machine skeleton).
 #[cfg(feature = "scram")]
-fn generate_nonce() -> String {
+fn generate_nonce() -> Result<String, ScramError> {
     let mut bytes = [0u8; 24];
-    getrandom::getrandom(&mut bytes).expect("getrandom failed");
-    BASE64.encode(bytes)
+    getrandom::getrandom(&mut bytes).map_err(|e| ScramError::CryptoError(e.to_string()))?;
+    Ok(BASE64.encode(bytes))
 }
 
 #[cfg(not(feature = "scram"))]
-fn generate_nonce() -> String {
+fn generate_nonce() -> Result<String, ScramError> {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default();
 
-    format!("{}_{}", now.as_nanos(), std::process::id())
+    Ok(format!("{}_{}", now.as_nanos(), std::process::id()))
 }
 
 // ============================================================================
@@ -434,7 +437,7 @@ mod tests {
 
     #[test]
     fn test_client_first_message_format() {
-        let mut client = ScramClient::new("user", "pencil");
+        let mut client = ScramClient::new("user", "pencil").unwrap();
         let first = client.client_first_message();
         let decoded = String::from_utf8(BASE64.decode(&first).unwrap()).unwrap();
 
@@ -444,7 +447,7 @@ mod tests {
 
     #[test]
     fn test_parse_server_first_validates_nonce() {
-        let mut client = ScramClient::new("user", "pencil");
+        let mut client = ScramClient::new("user", "pencil").unwrap();
         let _ = client.client_first_message();
 
         // Server nonce that doesn't start with client nonce
@@ -456,7 +459,7 @@ mod tests {
 
     #[test]
     fn test_missing_fields_error() {
-        let mut client = ScramClient::new("user", "pencil");
+        let mut client = ScramClient::new("user", "pencil").unwrap();
         let _ = client.client_first_message();
 
         // Missing salt
@@ -532,7 +535,7 @@ mod tests {
     #[cfg(not(feature = "scram"))]
     #[test]
     fn test_crypto_not_available_without_feature() {
-        let mut client = ScramClient::new("user", "pencil");
+        let mut client = ScramClient::new("user", "pencil").unwrap();
         let _ = client.client_first_message();
 
         let nonce = client.client_nonce.clone();

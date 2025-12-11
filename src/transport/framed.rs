@@ -304,11 +304,11 @@ impl Transport {
             Transport::ClientTls { framed } => write_framed!(framed, message),
             #[cfg(feature = "tokio")]
             Transport::WebSocket { stream } => {
-                write_websocket_message(stream, &message.to_string()).await
+                write_websocket_message(stream, message).await
             }
             #[cfg(feature = "tokio")]
             Transport::WebSocketTls { stream } => {
-                write_websocket_message(stream, &message.to_string()).await
+                write_websocket_message(stream, message).await
             }
         }
     }
@@ -369,13 +369,20 @@ where
 }
 
 #[cfg(feature = "tokio")]
-async fn write_websocket_message<S>(stream: &mut WebSocketStream<S>, message: &str) -> Result<()>
+async fn write_websocket_message<S>(stream: &mut WebSocketStream<S>, message: &Message) -> Result<()>
 where
     S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
 {
-    let msg = message.trim_end_matches(&['\r', '\n'][..]);
+    use std::fmt::Write;
+    let mut msg = String::with_capacity(512);
+    write!(&mut msg, "{}", message).expect("fmt::Write to String cannot fail");
+
+    // Trim trailing CRLF
+    let len = msg.trim_end_matches(&['\r', '\n'][..]).len();
+    msg.truncate(len);
+
     stream
-        .send(WsMessage::Text(msg.to_string()))
+        .send(WsMessage::Text(msg))
         .await
         .map_err(|e| anyhow::anyhow!("WebSocket send error: {}", e))?;
     Ok(())

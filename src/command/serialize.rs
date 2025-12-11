@@ -387,11 +387,9 @@ impl fmt::Display for Command {
                 write_standard_reply(f, "NOTE", command.as_str(), code.as_str(), context)
             }
             Command::Response(resp, a) => {
-                // Write the 3-digit response code directly, zero-copy
+                // Write the 3-digit response code directly
                 let code = *resp as u16;
-                f.write_char((b'0' + (code / 100) as u8) as char)?;
-                f.write_char((b'0' + ((code / 10) % 10) as u8) as char)?;
-                f.write_char((b'0' + (code % 10) as u8) as char)?;
+                write!(f, "{:03}", code)?;
                 for arg in a.iter().take(a.len().saturating_sub(1)) {
                     f.write_char(' ')?;
                     f.write_str(arg)?;
