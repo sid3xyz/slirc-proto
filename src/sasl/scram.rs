@@ -518,15 +518,15 @@ mod tests {
     #[test]
     fn test_hi_pbkdf2() {
         // Test vector: simple verification that Hi produces 32 bytes
-        let result = hi("password", b"salt", 4096);
+        let result = hi("password", b"salt", 4096).unwrap();
         assert_eq!(result.len(), 32);
     }
 
     #[cfg(feature = "scram")]
     #[test]
     fn test_nonce_is_cryptographically_random() {
-        let n1 = generate_nonce();
-        let n2 = generate_nonce();
+        let n1 = generate_nonce().unwrap();
+        let n2 = generate_nonce().unwrap();
         assert_ne!(n1, n2);
         // Base64 of 24 bytes = 32 chars
         assert_eq!(n1.len(), 32);
