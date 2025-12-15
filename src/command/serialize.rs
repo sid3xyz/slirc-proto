@@ -260,6 +260,7 @@ impl fmt::Display for Command {
             Command::USERS(Some(t)) => write_cmd(f, "USERS", &[t]),
             Command::USERS(None) => write_cmd(f, "USERS", &[]),
             Command::WALLOPS(t) => write_cmd_freeform(f, "WALLOPS", &[t]),
+            Command::GLOBOPS(t) => write_cmd_freeform(f, "GLOBOPS", &[t]),
             Command::USERHOST(u) => {
                 f.write_str("USERHOST")?;
                 write_args_with_trailing(f, u.iter().map(String::as_str))
@@ -335,6 +336,7 @@ impl fmt::Display for Command {
             }
             Command::BATCH(t, None, None) => write_cmd(f, "BATCH", &[t]),
             Command::CHGHOST(u, h) => write_cmd(f, "CHGHOST", &[u, h]),
+            Command::CHGIDENT(u, i) => write_cmd(f, "CHGIDENT", &[u, i]),
             Command::SETNAME(r) => write_cmd_freeform(f, "SETNAME", &[r]),
             Command::TAGMSG(t) => write_cmd(f, "TAGMSG", &[t]),
             Command::ACK => f.write_str("ACK"),

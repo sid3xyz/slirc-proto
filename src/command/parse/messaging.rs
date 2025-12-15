@@ -111,6 +111,13 @@ pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseE
                 Command::WALLOPS(args[0].to_owned())
             }
         }
+        "GLOBOPS" => {
+            if args.len() != 1 {
+                raw(cmd, args)
+            } else {
+                Command::GLOBOPS(args[0].to_owned())
+            }
+        }
         "USERHOST" => Command::USERHOST(args.into_iter().map(|s| s.to_owned()).collect()),
         "ISON" => Command::ISON(args.into_iter().map(|s| s.to_owned()).collect()),
 

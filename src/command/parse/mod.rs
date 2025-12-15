@@ -58,7 +58,7 @@ impl Command {
             "WHO" | "WHOIS" | "WHOWAS" => user::parse(cmd_str, args),
 
             "PRIVMSG" | "NOTICE" | "PING" | "PONG" | "ERROR" | "AWAY" | "REHASH" | "DIE"
-            | "RESTART" | "SUMMON" | "USERS" | "WALLOPS" | "USERHOST" | "ISON" | "KILL"
+            | "RESTART" | "SUMMON" | "USERS" | "WALLOPS" | "GLOBOPS" | "USERHOST" | "ISON" | "KILL"
             | "SAJOIN" | "SAMODE" | "SANICK" | "SAPART" | "SAQUIT" | "NICKSERV" | "CHANSERV"
             | "OPERSERV" | "BOTSERV" | "HOSTSERV" | "MEMOSERV" | "NS" | "CS" | "OS" | "BS"
             | "HS" | "MS" | "KLINE" | "DLINE" | "UNKLINE" | "UNDLINE" | "GLINE" | "UNGLINE"
@@ -66,7 +66,7 @@ impl Command {
                 messaging::parse(cmd_str, args)
             }
 
-            "CAP" | "AUTHENTICATE" | "ACCOUNT" | "BATCH" | "CHGHOST" | "SETNAME" | "MONITOR"
+            "CAP" | "AUTHENTICATE" | "ACCOUNT" | "BATCH" | "CHGHOST" | "CHGIDENT" | "SETNAME" | "MONITOR"
             | "TAGMSG" | "WEBIRC" | "CHATHISTORY" | "ACK" => ircv3::parse(cmd_str, args),
 
             "MODE" => parse_mode_command(cmd, args),

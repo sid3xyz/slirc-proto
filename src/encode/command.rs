@@ -198,6 +198,7 @@ impl IrcEncode for Command {
             Command::USERS(Some(t)) => write_cmd(w, b"USERS", &[t]),
             Command::USERS(None) => w.write(b"USERS"),
             Command::WALLOPS(t) => write_cmd_freeform(w, b"WALLOPS", &[t]),
+            Command::GLOBOPS(t) => write_cmd_freeform(w, b"GLOBOPS", &[t]),
             Command::USERHOST(u) => {
                 let mut written = w.write(b"USERHOST")?;
                 written += write_service_args(w, u)?;
@@ -339,6 +340,7 @@ impl IrcEncode for Command {
             }
             Command::BATCH(t, None, None) => write_cmd(w, b"BATCH", &[t]),
             Command::CHGHOST(u, h) => write_cmd(w, b"CHGHOST", &[u, h]),
+            Command::CHGIDENT(u, i) => write_cmd(w, b"CHGIDENT", &[u, i]),
             Command::SETNAME(r) => write_cmd_freeform(w, b"SETNAME", &[r]),
             Command::TAGMSG(t) => write_cmd(w, b"TAGMSG", &[t]),
             Command::ACK => w.write(b"ACK"),

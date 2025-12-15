@@ -92,6 +92,13 @@ pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseE
                 raw(cmd, args)
             }
         }
+        "CHGIDENT" => {
+            if args.len() == 2 {
+                Command::CHGIDENT(args[0].to_owned(), args[1].to_owned())
+            } else {
+                raw(cmd, args)
+            }
+        }
         "SETNAME" => {
             if args.len() == 1 {
                 Command::SETNAME(args[0].to_owned())

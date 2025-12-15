@@ -131,6 +131,8 @@ pub enum Command {
     USERS(Option<String>),
     /// `WALLOPS text`
     WALLOPS(String),
+    /// `GLOBOPS text`
+    GLOBOPS(String),
     /// `USERHOST nicknames...`
     USERHOST(Vec<String>),
     /// `ISON nicknames...`
@@ -220,6 +222,8 @@ pub enum Command {
     BATCH(String, Option<BatchSubCommand>, Option<Vec<String>>),
     /// `CHGHOST user host`
     CHGHOST(String, String),
+    /// `CHGIDENT nick ident`
+    CHGIDENT(String, String),
     /// `SETNAME realname`
     SETNAME(String),
     /// `TAGMSG target` - IRCv3 message-tags: message with only tags, no text
@@ -360,6 +364,7 @@ impl Command {
             Command::SUMMON(..) => "SUMMON",
             Command::USERS(_) => "USERS",
             Command::WALLOPS(_) => "WALLOPS",
+            Command::GLOBOPS(_) => "GLOBOPS",
             Command::USERHOST(_) => "USERHOST",
             Command::ISON(_) => "ISON",
 
@@ -406,6 +411,7 @@ impl Command {
             Command::MONITOR(..) => "MONITOR",
             Command::BATCH(..) => "BATCH",
             Command::CHGHOST(..) => "CHGHOST",
+            Command::CHGIDENT(..) => "CHGIDENT",
             Command::SETNAME(_) => "SETNAME",
             Command::TAGMSG(_) => "TAGMSG",
             Command::ACK => "ACK",
