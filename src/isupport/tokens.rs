@@ -128,4 +128,129 @@ impl IsupportBuilder {
 
         lines
     }
+
+    /// Set the `TARGMAX` token using a builder.
+    pub fn targmax(mut self, builder: TargMaxBuilder) -> Self {
+        self.tokens.push(format!("TARGMAX={}", builder.build()));
+        self
+    }
+
+    /// Set the `CHANMODES` token using a builder.
+    pub fn chanmodes_typed(mut self, builder: ChanModesBuilder) -> Self {
+        self.tokens.push(format!("CHANMODES={}", builder.build()));
+        self
+    }
+}
+
+/// Builder for `TARGMAX` ISUPPORT token.
+///
+/// Specifies the maximum number of targets for various commands.
+/// - `CMD:limit` means `CMD` accepts at most `limit` targets.
+/// - `CMD:` means `CMD` accepts unlimited targets.
+#[derive(Debug, Clone, Default)]
+pub struct TargMaxBuilder {
+    entries: Vec<(String, Option<usize>)>,
+}
+
+impl TargMaxBuilder {
+    /// Create a new empty builder.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Add a command with a specific limit.
+    pub fn add(mut self, cmd: &str, limit: usize) -> Self {
+        self.entries.push((cmd.to_uppercase(), Some(limit)));
+        self
+    }
+
+    /// Add a command with unlimited targets.
+    pub fn add_unlimited(mut self, cmd: &str) -> Self {
+        self.entries.push((cmd.to_uppercase(), None));
+        self
+    }
+
+    /// Build the TARGMAX string.
+    pub fn build(&self) -> String {
+        self.entries
+            .iter()
+            .map(|(cmd, limit)| match limit {
+                Some(l) => format!("{}:{}", cmd, l),
+                None => format!("{}:", cmd),
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+}
+
+/// Builder for `CHANMODES` ISUPPORT token.
+///
+/// Ensures disjoint sets for the four mode categories (A, B, C, D).
+/// - Type A: List modes (e.g., `b`, `e`, `I`)
+/// - Type B: Parameter always (e.g., `k`)
+/// - Type C: Parameter when set (e.g., `l`)
+/// - Type D: No parameter (e.g., `i`, `m`, `n`, `s`, `t`)
+#[derive(Debug, Clone, Default)]
+pub struct ChanModesBuilder {
+    a: String,
+    b: String,
+    c: String,
+    d: String,
+}
+
+impl ChanModesBuilder {
+    /// Create a new empty builder.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set Type A modes (List modes).
+    pub fn list_modes(mut self, modes: &str) -> Self {
+        self.validate_unique(modes);
+        self.a = modes.to_string();
+        self
+    }
+
+    /// Set Type B modes (Parameter always).
+    pub fn param_always(mut self, modes: &str) -> Self {
+        self.validate_unique(modes);
+        self.b = modes.to_string();
+        self
+    }
+
+    /// Set Type C modes (Parameter when set).
+    pub fn param_set(mut self, modes: &str) -> Self {
+        self.validate_unique(modes);
+        self.c = modes.to_string();
+        self
+    }
+
+    /// Set Type D modes (No parameter).
+    pub fn no_param(mut self, modes: &str) -> Self {
+        self.validate_unique(modes);
+        self.d = modes.to_string();
+        self
+    }
+
+    /// Validate that the new modes don't conflict with existing ones or contain duplicates.
+    fn validate_unique(&self, new_modes: &str) {
+        let mut seen_in_new = std::collections::HashSet::new();
+        for char in new_modes.chars() {
+            if !seen_in_new.insert(char) {
+                panic!("Duplicate channel mode character '{}' found in input string.", char);
+            }
+            if self.a.contains(char)
+                || self.b.contains(char)
+                || self.c.contains(char)
+                || self.d.contains(char)
+            {
+                panic!("Duplicate channel mode character '{}' found in CHANMODES. Modes must be disjoint.", char);
+            }
+        }
+    }
+
+    /// Build the CHANMODES string.
+    pub fn build(&self) -> String {
+        format!("{},{},{},{}", self.a, self.b, self.c, self.d)
+    }
 }

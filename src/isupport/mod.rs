@@ -10,4 +10,4 @@ mod parser;
 mod tokens;
 
 pub use parser::{parse_params, ChanModes, Isupport, IsupportEntry, MaxList, PrefixSpec, TargMax};
-pub use tokens::IsupportBuilder;
+pub use tokens::{ChanModesBuilder, IsupportBuilder, TargMaxBuilder};
