@@ -68,7 +68,7 @@ pub enum UserMode {
 
 impl ModeType for UserMode {
     fn takes_arg(&self) -> bool {
-        false // User modes don't take arguments
+        matches!(self, Self::ServerNotices)
     }
 
     fn is_list_mode(&self) -> bool {
