@@ -11,7 +11,7 @@ Verified from `src/` and `Cargo.toml`:
 - **Zero-copy parsing**: `MessageRef<'a>` in `src/message/borrowed.rs` borrows from input string
 - **Owned messages**: `Message` in `src/message/mod.rs` for storage and modification
 - **RFC compliance**: RFC 1459, RFC 2812, IRCv3 extensions
-- **Semantic errors**: 51 `Response::err_*()` constructors in `src/response/constructors.rs`
+- **Semantic errors**: 58 `Response::err_*()` constructors in `src/response/constructors.rs`
 - **IRCv3 support**: Message tags, capabilities, SASL, batch, server-time
 - **Mode parsing**: Channel and user modes in `src/mode/`
 - **ISUPPORT**: Server parameter parsing in `src/isupport/`
