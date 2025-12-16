@@ -2,6 +2,7 @@
 
 mod parse;
 mod serialize;
+pub(crate) mod util;
 /// Command subcommands (CAP, BATCH, CHATHISTORY).
 pub mod subcommands;
 mod types;

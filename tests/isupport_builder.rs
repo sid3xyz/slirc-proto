@@ -7,7 +7,7 @@ fn test_chanmodes_builder() {
         .param_always("k")
         .param_set("l")
         .no_param("imnst");
-    
+
     assert_eq!(modes.build(), "beI,k,l,imnst");
 }
 
@@ -31,7 +31,7 @@ fn test_targmax_builder() {
     let targmax = TargMaxBuilder::new()
         .add("JOIN", 10)
         .add_unlimited("PRIVMSG");
-    
+
     // Order is preserved
     assert_eq!(targmax.build(), "JOIN:10,PRIVMSG:");
 }

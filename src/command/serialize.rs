@@ -1,152 +1,24 @@
 use std::fmt::{self, Write};
 
-use crate::mode::{Mode, ModeType};
-
 use super::types::Command;
-
-/// Write mode flags with collapsed signs (e.g., +ovh instead of +o+v+h).
-///
-/// This produces more efficient IRC output by only emitting a sign character
-/// when the sign state changes.
-fn write_collapsed_mode_flags<T: ModeType>(
-    f: &mut fmt::Formatter<'_>,
-    modes: &[Mode<T>],
-) -> fmt::Result {
-    #[derive(PartialEq, Clone, Copy)]
-    enum Sign {
-        Plus,
-        Minus,
-        None,
-    }
-
-    let mut current_sign = Sign::None;
-
-    for m in modes {
-        let (new_sign, mode) = match m {
-            Mode::Plus(mode, _) => (Sign::Plus, mode),
-            Mode::Minus(mode, _) => (Sign::Minus, mode),
-            Mode::NoPrefix(mode) => (Sign::None, mode),
-        };
-
-        // Only write sign when it changes
-        if new_sign != current_sign {
-            match new_sign {
-                Sign::Plus => f.write_char('+')?,
-                Sign::Minus => f.write_char('-')?,
-                Sign::None => {}
-            }
-            current_sign = new_sign;
-        }
-
-        write!(f, "{}", mode)?;
-    }
-
-    Ok(())
-}
-
-/// Write a command with arguments directly to a formatter.
-/// The last argument is treated as trailing and gets a `:` prefix if needed.
-fn write_cmd(f: &mut fmt::Formatter<'_>, cmd: &str, args: &[&str]) -> fmt::Result {
-    if args.is_empty() {
-        return f.write_str(cmd);
-    }
-
-    let (middle_params, trailing) = args.split_at(args.len() - 1);
-    let trailing = trailing[0];
-
-    f.write_str(cmd)?;
-
-    for param in middle_params {
-        f.write_char(' ')?;
-        f.write_str(param)?;
-    }
-
-    f.write_char(' ')?;
-
-    // Add colon prefix if trailing is empty, contains a space, or starts with ':'
-    if trailing.is_empty() || trailing.contains(' ') || trailing.starts_with(':') {
-        f.write_char(':')?;
-    }
-
-    f.write_str(trailing)
-}
-
-/// Write a command with a freeform (always colon-prefixed) trailing argument.
-fn write_cmd_freeform(f: &mut fmt::Formatter<'_>, cmd: &str, args: &[&str]) -> fmt::Result {
-    match args.split_last() {
-        Some((suffix, middle)) => {
-            f.write_str(cmd)?;
-            for arg in middle {
-                f.write_char(' ')?;
-                f.write_str(arg)?;
-            }
-            f.write_str(" :")?;
-            f.write_str(suffix)
-        }
-        None => f.write_str(cmd),
-    }
-}
+use super::util::{
+    write_args_with_trailing, write_cmd, write_cmd_freeform, write_collapsed_mode_flags,
+    write_service_args, write_standard_reply, needs_colon_prefix,
+};
 
 /// Write a service command with variable arguments (e.g., NICKSERV, CHANSERV, NS, CS).
 fn write_service_command(f: &mut fmt::Formatter<'_>, cmd: &str, args: &[String]) -> fmt::Result {
     f.write_str(cmd)?;
-    write_args_with_trailing(f, args.iter().map(String::as_str))
-}
-
-/// Check if a string needs colon-prefixing as a trailing IRC argument.
-fn needs_colon_prefix(s: &str) -> bool {
-    s.is_empty() || s.contains(' ') || s.starts_with(':')
-}
-
-/// Write arguments with proper trailing colon prefix for the last element.
-/// Used for commands with variable-length argument lists.
-fn write_args_with_trailing<'a>(
-    f: &mut fmt::Formatter<'_>,
-    args: impl Iterator<Item = &'a str> + Clone,
-) -> fmt::Result {
-    let args: Vec<_> = args.collect();
-    for (i, arg) in args.iter().enumerate() {
-        f.write_char(' ')?;
-        if i == args.len() - 1 && needs_colon_prefix(arg) {
-            f.write_char(':')?;
-        }
-        f.write_str(arg)?;
-    }
-    Ok(())
-}
-
-/// Write a standard reply (FAIL/WARN/NOTE) with command, code, and context.
-/// The last context argument is always colon-prefixed (freeform).
-fn write_standard_reply(
-    f: &mut fmt::Formatter<'_>,
-    reply_type: &str,
-    command: &str,
-    code: &str,
-    context: &[String],
-) -> fmt::Result {
-    f.write_str(reply_type)?;
-    f.write_char(' ')?;
-    f.write_str(command)?;
-    f.write_char(' ')?;
-    f.write_str(code)?;
-    for (i, arg) in context.iter().enumerate() {
-        f.write_char(' ')?;
-        // Last argument gets colon prefix (freeform)
-        if i == context.len() - 1 {
-            f.write_char(':')?;
-        }
-        f.write_str(arg)?;
-    }
-    Ok(())
+    write_service_args(f, args).map(|_| ())
 }
 
 impl fmt::Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Command::PASS(p) => write_cmd(f, "PASS", &[p]),
-            Command::NICK(n) => write_cmd(f, "NICK", &[n]),
-            Command::USER(u, m, r) => write_cmd_freeform(f, "USER", &[u, m, "*", r]),
-            Command::OPER(u, p) => write_cmd(f, "OPER", &[u, p]),
+            Command::PASS(p) => write_cmd(f, "PASS", &[p]).map(|_| ()),
+            Command::NICK(n) => write_cmd(f, "NICK", &[n]).map(|_| ()),
+            Command::USER(u, m, r) => write_cmd_freeform(f, "USER", &[u, m, "*", r]).map(|_| ()),
+            Command::OPER(u, p) => write_cmd(f, "OPER", &[u, p]).map(|_| ()),
             Command::UserMODE(u, modes) => {
                 f.write_str("MODE ")?;
                 f.write_str(u)?;
@@ -157,17 +29,17 @@ impl fmt::Display for Command {
                 Ok(())
             }
             Command::SERVICE(nick, r0, dist, typ, r1, info) => {
-                write_cmd_freeform(f, "SERVICE", &[nick, r0, dist, typ, r1, info])
+                write_cmd_freeform(f, "SERVICE", &[nick, r0, dist, typ, r1, info]).map(|_| ())
             }
-            Command::QUIT(Some(m)) => write_cmd(f, "QUIT", &[m]),
-            Command::QUIT(None) => write_cmd(f, "QUIT", &[]),
-            Command::SQUIT(s, c) => write_cmd_freeform(f, "SQUIT", &[s, c]),
-            Command::JOIN(c, Some(k), Some(n)) => write_cmd(f, "JOIN", &[c, k, n]),
-            Command::JOIN(c, Some(k), None) => write_cmd(f, "JOIN", &[c, k]),
-            Command::JOIN(c, None, Some(n)) => write_cmd(f, "JOIN", &[c, n]),
-            Command::JOIN(c, None, None) => write_cmd(f, "JOIN", &[c]),
-            Command::PART(c, Some(m)) => write_cmd_freeform(f, "PART", &[c, m]),
-            Command::PART(c, None) => write_cmd(f, "PART", &[c]),
+            Command::QUIT(Some(m)) => write_cmd(f, "QUIT", &[m]).map(|_| ()),
+            Command::QUIT(None) => write_cmd(f, "QUIT", &[]).map(|_| ()),
+            Command::SQUIT(s, c) => write_cmd_freeform(f, "SQUIT", &[s, c]).map(|_| ()),
+            Command::JOIN(c, Some(k), Some(n)) => write_cmd(f, "JOIN", &[c, k, n]).map(|_| ()),
+            Command::JOIN(c, Some(k), None) => write_cmd(f, "JOIN", &[c, k]).map(|_| ()),
+            Command::JOIN(c, None, Some(n)) => write_cmd(f, "JOIN", &[c, n]).map(|_| ()),
+            Command::JOIN(c, None, None) => write_cmd(f, "JOIN", &[c]).map(|_| ()),
+            Command::PART(c, Some(m)) => write_cmd_freeform(f, "PART", &[c, m]).map(|_| ()),
+            Command::PART(c, None) => write_cmd(f, "PART", &[c]).map(|_| ()),
             Command::ChannelMODE(c, modes) => {
                 f.write_str("MODE ")?;
                 f.write_str(c)?;
@@ -183,44 +55,44 @@ impl fmt::Display for Command {
                 }
                 Ok(())
             }
-            Command::TOPIC(c, Some(t)) => write_cmd_freeform(f, "TOPIC", &[c, t]),
-            Command::TOPIC(c, None) => write_cmd(f, "TOPIC", &[c]),
-            Command::NAMES(Some(c), Some(t)) => write_cmd(f, "NAMES", &[c, t]),
-            Command::NAMES(Some(c), None) => write_cmd(f, "NAMES", &[c]),
-            Command::NAMES(None, _) => write_cmd(f, "NAMES", &[]),
-            Command::LIST(Some(c), Some(t)) => write_cmd(f, "LIST", &[c, t]),
-            Command::LIST(Some(c), None) => write_cmd(f, "LIST", &[c]),
-            Command::LIST(None, _) => write_cmd(f, "LIST", &[]),
-            Command::INVITE(n, c) => write_cmd_freeform(f, "INVITE", &[n, c]),
-            Command::KICK(c, n, Some(r)) => write_cmd_freeform(f, "KICK", &[c, n, r]),
-            Command::KICK(c, n, None) => write_cmd(f, "KICK", &[c, n]),
-            Command::PRIVMSG(t, m) => write_cmd_freeform(f, "PRIVMSG", &[t, m]),
-            Command::NOTICE(t, m) => write_cmd_freeform(f, "NOTICE", &[t, m]),
-            Command::MOTD(Some(t)) => write_cmd(f, "MOTD", &[t]),
-            Command::MOTD(None) => write_cmd(f, "MOTD", &[]),
-            Command::LUSERS(Some(m), Some(t)) => write_cmd(f, "LUSERS", &[m, t]),
-            Command::LUSERS(Some(m), None) => write_cmd(f, "LUSERS", &[m]),
-            Command::LUSERS(None, _) => write_cmd(f, "LUSERS", &[]),
-            Command::VERSION(Some(t)) => write_cmd(f, "VERSION", &[t]),
-            Command::VERSION(None) => write_cmd(f, "VERSION", &[]),
-            Command::STATS(Some(q), Some(t)) => write_cmd(f, "STATS", &[q, t]),
-            Command::STATS(Some(q), None) => write_cmd(f, "STATS", &[q]),
-            Command::STATS(None, _) => write_cmd(f, "STATS", &[]),
-            Command::LINKS(Some(r), Some(s)) => write_cmd(f, "LINKS", &[r, s]),
-            Command::LINKS(None, Some(s)) => write_cmd(f, "LINKS", &[s]),
-            Command::LINKS(_, None) => write_cmd(f, "LINKS", &[]),
-            Command::TIME(Some(t)) => write_cmd(f, "TIME", &[t]),
-            Command::TIME(None) => write_cmd(f, "TIME", &[]),
-            Command::CONNECT(t, p, Some(r)) => write_cmd(f, "CONNECT", &[t, p, r]),
-            Command::CONNECT(t, p, None) => write_cmd(f, "CONNECT", &[t, p]),
-            Command::TRACE(Some(t)) => write_cmd(f, "TRACE", &[t]),
-            Command::TRACE(None) => write_cmd(f, "TRACE", &[]),
-            Command::ADMIN(Some(t)) => write_cmd(f, "ADMIN", &[t]),
-            Command::ADMIN(None) => write_cmd(f, "ADMIN", &[]),
-            Command::INFO(Some(t)) => write_cmd(f, "INFO", &[t]),
-            Command::INFO(None) => write_cmd(f, "INFO", &[]),
-            Command::MAP => write_cmd(f, "MAP", &[]),
-            Command::RULES => write_cmd(f, "RULES", &[]),
+            Command::TOPIC(c, Some(t)) => write_cmd_freeform(f, "TOPIC", &[c, t]).map(|_| ()),
+            Command::TOPIC(c, None) => write_cmd(f, "TOPIC", &[c]).map(|_| ()),
+            Command::NAMES(Some(c), Some(t)) => write_cmd(f, "NAMES", &[c, t]).map(|_| ()),
+            Command::NAMES(Some(c), None) => write_cmd(f, "NAMES", &[c]).map(|_| ()),
+            Command::NAMES(None, _) => write_cmd(f, "NAMES", &[]).map(|_| ()),
+            Command::LIST(Some(c), Some(t)) => write_cmd(f, "LIST", &[c, t]).map(|_| ()),
+            Command::LIST(Some(c), None) => write_cmd(f, "LIST", &[c]).map(|_| ()),
+            Command::LIST(None, _) => write_cmd(f, "LIST", &[]).map(|_| ()),
+            Command::INVITE(n, c) => write_cmd_freeform(f, "INVITE", &[n, c]).map(|_| ()),
+            Command::KICK(c, n, Some(r)) => write_cmd_freeform(f, "KICK", &[c, n, r]).map(|_| ()),
+            Command::KICK(c, n, None) => write_cmd(f, "KICK", &[c, n]).map(|_| ()),
+            Command::PRIVMSG(t, m) => write_cmd_freeform(f, "PRIVMSG", &[t, m]).map(|_| ()),
+            Command::NOTICE(t, m) => write_cmd_freeform(f, "NOTICE", &[t, m]).map(|_| ()),
+            Command::MOTD(Some(t)) => write_cmd(f, "MOTD", &[t]).map(|_| ()),
+            Command::MOTD(None) => write_cmd(f, "MOTD", &[]).map(|_| ()),
+            Command::LUSERS(Some(m), Some(t)) => write_cmd(f, "LUSERS", &[m, t]).map(|_| ()),
+            Command::LUSERS(Some(m), None) => write_cmd(f, "LUSERS", &[m]).map(|_| ()),
+            Command::LUSERS(None, _) => write_cmd(f, "LUSERS", &[]).map(|_| ()),
+            Command::VERSION(Some(t)) => write_cmd(f, "VERSION", &[t]).map(|_| ()),
+            Command::VERSION(None) => write_cmd(f, "VERSION", &[]).map(|_| ()),
+            Command::STATS(Some(q), Some(t)) => write_cmd(f, "STATS", &[q, t]).map(|_| ()),
+            Command::STATS(Some(q), None) => write_cmd(f, "STATS", &[q]).map(|_| ()),
+            Command::STATS(None, _) => write_cmd(f, "STATS", &[]).map(|_| ()),
+            Command::LINKS(Some(r), Some(s)) => write_cmd(f, "LINKS", &[r, s]).map(|_| ()),
+            Command::LINKS(None, Some(s)) => write_cmd(f, "LINKS", &[s]).map(|_| ()),
+            Command::LINKS(_, None) => write_cmd(f, "LINKS", &[]).map(|_| ()),
+            Command::TIME(Some(t)) => write_cmd(f, "TIME", &[t]).map(|_| ()),
+            Command::TIME(None) => write_cmd(f, "TIME", &[]).map(|_| ()),
+            Command::CONNECT(t, p, Some(r)) => write_cmd(f, "CONNECT", &[t, p, r]).map(|_| ()),
+            Command::CONNECT(t, p, None) => write_cmd(f, "CONNECT", &[t, p]).map(|_| ()),
+            Command::TRACE(Some(t)) => write_cmd(f, "TRACE", &[t]).map(|_| ()),
+            Command::TRACE(None) => write_cmd(f, "TRACE", &[]).map(|_| ()),
+            Command::ADMIN(Some(t)) => write_cmd(f, "ADMIN", &[t]).map(|_| ()),
+            Command::ADMIN(None) => write_cmd(f, "ADMIN", &[]).map(|_| ()),
+            Command::INFO(Some(t)) => write_cmd(f, "INFO", &[t]).map(|_| ()),
+            Command::INFO(None) => write_cmd(f, "INFO", &[]).map(|_| ()),
+            Command::MAP => write_cmd(f, "MAP", &[]).map(|_| ()),
+            Command::RULES => write_cmd(f, "RULES", &[]).map(|_| ()),
             Command::USERIP(u) => {
                 f.write_str("USERIP")?;
                 for nick in u {
@@ -229,72 +101,72 @@ impl fmt::Display for Command {
                 }
                 Ok(())
             }
-            Command::HELP(Some(t)) => write_cmd(f, "HELP", &[t]),
-            Command::HELP(None) => write_cmd(f, "HELP", &[]),
-            Command::SERVLIST(Some(m), Some(t)) => write_cmd(f, "SERVLIST", &[m, t]),
-            Command::SERVLIST(Some(m), None) => write_cmd(f, "SERVLIST", &[m]),
-            Command::SERVLIST(None, _) => write_cmd(f, "SERVLIST", &[]),
-            Command::SQUERY(s, t) => write_cmd_freeform(f, "SQUERY", &[s, t]),
-            Command::WHO(Some(s), Some(true)) => write_cmd(f, "WHO", &[s, "o"]),
-            Command::WHO(Some(s), _) => write_cmd(f, "WHO", &[s]),
-            Command::WHO(None, _) => write_cmd(f, "WHO", &[]),
-            Command::WHOIS(Some(t), m) => write_cmd(f, "WHOIS", &[t, m]),
-            Command::WHOIS(None, m) => write_cmd(f, "WHOIS", &[m]),
-            Command::WHOWAS(n, Some(c), Some(t)) => write_cmd(f, "WHOWAS", &[n, c, t]),
-            Command::WHOWAS(n, Some(c), None) => write_cmd(f, "WHOWAS", &[n, c]),
-            Command::WHOWAS(n, None, _) => write_cmd(f, "WHOWAS", &[n]),
-            Command::KILL(n, c) => write_cmd_freeform(f, "KILL", &[n, c]),
-            Command::PING(s, Some(t)) => write_cmd(f, "PING", &[s, t]),
-            Command::PING(s, None) => write_cmd(f, "PING", &[s]),
-            Command::PONG(s, Some(t)) => write_cmd(f, "PONG", &[s, t]),
-            Command::PONG(s, None) => write_cmd(f, "PONG", &[s]),
-            Command::ERROR(m) => write_cmd_freeform(f, "ERROR", &[m]),
-            Command::AWAY(Some(m)) => write_cmd_freeform(f, "AWAY", &[m]),
-            Command::AWAY(None) => write_cmd(f, "AWAY", &[]),
-            Command::REHASH => write_cmd(f, "REHASH", &[]),
-            Command::DIE => write_cmd(f, "DIE", &[]),
-            Command::RESTART => write_cmd(f, "RESTART", &[]),
-            Command::SUMMON(u, Some(t), Some(c)) => write_cmd(f, "SUMMON", &[u, t, c]),
-            Command::SUMMON(u, Some(t), None) => write_cmd(f, "SUMMON", &[u, t]),
-            Command::SUMMON(u, None, _) => write_cmd(f, "SUMMON", &[u]),
-            Command::USERS(Some(t)) => write_cmd(f, "USERS", &[t]),
-            Command::USERS(None) => write_cmd(f, "USERS", &[]),
-            Command::WALLOPS(t) => write_cmd_freeform(f, "WALLOPS", &[t]),
-            Command::GLOBOPS(t) => write_cmd_freeform(f, "GLOBOPS", &[t]),
+            Command::HELP(Some(t)) => write_cmd(f, "HELP", &[t]).map(|_| ()),
+            Command::HELP(None) => write_cmd(f, "HELP", &[]).map(|_| ()),
+            Command::SERVLIST(Some(m), Some(t)) => write_cmd(f, "SERVLIST", &[m, t]).map(|_| ()),
+            Command::SERVLIST(Some(m), None) => write_cmd(f, "SERVLIST", &[m]).map(|_| ()),
+            Command::SERVLIST(None, _) => write_cmd(f, "SERVLIST", &[]).map(|_| ()),
+            Command::SQUERY(s, t) => write_cmd_freeform(f, "SQUERY", &[s, t]).map(|_| ()),
+            Command::WHO(Some(s), Some(true)) => write_cmd(f, "WHO", &[s, "o"]).map(|_| ()),
+            Command::WHO(Some(s), _) => write_cmd(f, "WHO", &[s]).map(|_| ()),
+            Command::WHO(None, _) => write_cmd(f, "WHO", &[]).map(|_| ()),
+            Command::WHOIS(Some(t), m) => write_cmd(f, "WHOIS", &[t, m]).map(|_| ()),
+            Command::WHOIS(None, m) => write_cmd(f, "WHOIS", &[m]).map(|_| ()),
+            Command::WHOWAS(n, Some(c), Some(t)) => write_cmd(f, "WHOWAS", &[n, c, t]).map(|_| ()),
+            Command::WHOWAS(n, Some(c), None) => write_cmd(f, "WHOWAS", &[n, c]).map(|_| ()),
+            Command::WHOWAS(n, None, _) => write_cmd(f, "WHOWAS", &[n]).map(|_| ()),
+            Command::KILL(n, c) => write_cmd_freeform(f, "KILL", &[n, c]).map(|_| ()),
+            Command::PING(s, Some(t)) => write_cmd(f, "PING", &[s, t]).map(|_| ()),
+            Command::PING(s, None) => write_cmd(f, "PING", &[s]).map(|_| ()),
+            Command::PONG(s, Some(t)) => write_cmd(f, "PONG", &[s, t]).map(|_| ()),
+            Command::PONG(s, None) => write_cmd(f, "PONG", &[s]).map(|_| ()),
+            Command::ERROR(m) => write_cmd_freeform(f, "ERROR", &[m]).map(|_| ()),
+            Command::AWAY(Some(m)) => write_cmd_freeform(f, "AWAY", &[m]).map(|_| ()),
+            Command::AWAY(None) => write_cmd(f, "AWAY", &[]).map(|_| ()),
+            Command::REHASH => write_cmd(f, "REHASH", &[]).map(|_| ()),
+            Command::DIE => write_cmd(f, "DIE", &[]).map(|_| ()),
+            Command::RESTART => write_cmd(f, "RESTART", &[]).map(|_| ()),
+            Command::SUMMON(u, Some(t), Some(c)) => write_cmd(f, "SUMMON", &[u, t, c]).map(|_| ()),
+            Command::SUMMON(u, Some(t), None) => write_cmd(f, "SUMMON", &[u, t]).map(|_| ()),
+            Command::SUMMON(u, None, _) => write_cmd(f, "SUMMON", &[u]).map(|_| ()),
+            Command::USERS(Some(t)) => write_cmd(f, "USERS", &[t]).map(|_| ()),
+            Command::USERS(None) => write_cmd(f, "USERS", &[]).map(|_| ()),
+            Command::WALLOPS(t) => write_cmd_freeform(f, "WALLOPS", &[t]).map(|_| ()),
+            Command::GLOBOPS(t) => write_cmd_freeform(f, "GLOBOPS", &[t]).map(|_| ()),
             Command::USERHOST(u) => {
                 f.write_str("USERHOST")?;
-                write_args_with_trailing(f, u.iter().map(String::as_str))
+                write_args_with_trailing(f, u.iter().map(String::as_str)).map(|_| ())
             }
             Command::ISON(u) => {
                 f.write_str("ISON")?;
-                write_args_with_trailing(f, u.iter().map(String::as_str))
+                write_args_with_trailing(f, u.iter().map(String::as_str)).map(|_| ())
             }
-            Command::SAJOIN(n, c) => write_cmd(f, "SAJOIN", &[n, c]),
-            Command::SAMODE(t, m, Some(p)) => write_cmd(f, "SAMODE", &[t, m, p]),
-            Command::SAMODE(t, m, None) => write_cmd(f, "SAMODE", &[t, m]),
-            Command::SANICK(o, n) => write_cmd(f, "SANICK", &[o, n]),
-            Command::SAPART(c, r) => write_cmd(f, "SAPART", &[c, r]),
-            Command::SAQUIT(c, r) => write_cmd(f, "SAQUIT", &[c, r]),
-            Command::KLINE(Some(t), m, r) => write_cmd_freeform(f, "KLINE", &[t, m, r]),
-            Command::KLINE(None, m, r) => write_cmd_freeform(f, "KLINE", &[m, r]),
-            Command::DLINE(Some(t), h, r) => write_cmd_freeform(f, "DLINE", &[t, h, r]),
-            Command::DLINE(None, h, r) => write_cmd_freeform(f, "DLINE", &[h, r]),
-            Command::UNKLINE(m) => write_cmd(f, "UNKLINE", &[m]),
-            Command::UNDLINE(h) => write_cmd(f, "UNDLINE", &[h]),
-            Command::GLINE(m, Some(r)) => write_cmd_freeform(f, "GLINE", &[m, r]),
-            Command::GLINE(m, None) => write_cmd(f, "GLINE", &[m]),
-            Command::UNGLINE(m) => write_cmd(f, "UNGLINE", &[m]),
-            Command::ZLINE(ip, Some(r)) => write_cmd_freeform(f, "ZLINE", &[ip, r]),
-            Command::ZLINE(ip, None) => write_cmd(f, "ZLINE", &[ip]),
-            Command::UNZLINE(ip) => write_cmd(f, "UNZLINE", &[ip]),
-            Command::RLINE(p, Some(r)) => write_cmd_freeform(f, "RLINE", &[p, r]),
-            Command::RLINE(p, None) => write_cmd(f, "RLINE", &[p]),
-            Command::UNRLINE(p) => write_cmd(f, "UNRLINE", &[p]),
-            Command::SHUN(m, Some(r)) => write_cmd_freeform(f, "SHUN", &[m, r]),
-            Command::SHUN(m, None) => write_cmd(f, "SHUN", &[m]),
-            Command::UNSHUN(m) => write_cmd(f, "UNSHUN", &[m]),
-            Command::KNOCK(c, Some(m)) => write_cmd_freeform(f, "KNOCK", &[c, m]),
-            Command::KNOCK(c, None) => write_cmd(f, "KNOCK", &[c]),
+            Command::SAJOIN(n, c) => write_cmd(f, "SAJOIN", &[n, c]).map(|_| ()),
+            Command::SAMODE(t, m, Some(p)) => write_cmd(f, "SAMODE", &[t, m, p]).map(|_| ()),
+            Command::SAMODE(t, m, None) => write_cmd(f, "SAMODE", &[t, m]).map(|_| ()),
+            Command::SANICK(o, n) => write_cmd(f, "SANICK", &[o, n]).map(|_| ()),
+            Command::SAPART(c, r) => write_cmd(f, "SAPART", &[c, r]).map(|_| ()),
+            Command::SAQUIT(c, r) => write_cmd(f, "SAQUIT", &[c, r]).map(|_| ()),
+            Command::KLINE(Some(t), m, r) => write_cmd_freeform(f, "KLINE", &[t, m, r]).map(|_| ()),
+            Command::KLINE(None, m, r) => write_cmd_freeform(f, "KLINE", &[m, r]).map(|_| ()),
+            Command::DLINE(Some(t), h, r) => write_cmd_freeform(f, "DLINE", &[t, h, r]).map(|_| ()),
+            Command::DLINE(None, h, r) => write_cmd_freeform(f, "DLINE", &[h, r]).map(|_| ()),
+            Command::UNKLINE(m) => write_cmd(f, "UNKLINE", &[m]).map(|_| ()),
+            Command::UNDLINE(h) => write_cmd(f, "UNDLINE", &[h]).map(|_| ()),
+            Command::GLINE(m, Some(r)) => write_cmd_freeform(f, "GLINE", &[m, r]).map(|_| ()),
+            Command::GLINE(m, None) => write_cmd(f, "GLINE", &[m]).map(|_| ()),
+            Command::UNGLINE(m) => write_cmd(f, "UNGLINE", &[m]).map(|_| ()),
+            Command::ZLINE(ip, Some(r)) => write_cmd_freeform(f, "ZLINE", &[ip, r]).map(|_| ()),
+            Command::ZLINE(ip, None) => write_cmd(f, "ZLINE", &[ip]).map(|_| ()),
+            Command::UNZLINE(ip) => write_cmd(f, "UNZLINE", &[ip]).map(|_| ()),
+            Command::RLINE(p, Some(r)) => write_cmd_freeform(f, "RLINE", &[p, r]).map(|_| ()),
+            Command::RLINE(p, None) => write_cmd(f, "RLINE", &[p]).map(|_| ()),
+            Command::UNRLINE(p) => write_cmd(f, "UNRLINE", &[p]).map(|_| ()),
+            Command::SHUN(m, Some(r)) => write_cmd_freeform(f, "SHUN", &[m, r]).map(|_| ()),
+            Command::SHUN(m, None) => write_cmd(f, "SHUN", &[m]).map(|_| ()),
+            Command::UNSHUN(m) => write_cmd(f, "UNSHUN", &[m]).map(|_| ()),
+            Command::KNOCK(c, Some(m)) => write_cmd_freeform(f, "KNOCK", &[c, m]).map(|_| ()),
+            Command::KNOCK(c, None) => write_cmd(f, "KNOCK", &[c]).map(|_| ()),
             Command::NICKSERV(p) => write_service_command(f, "NICKSERV", p),
             Command::CHANSERV(p) => write_service_command(f, "CHANSERV", p),
             Command::OPERSERV(p) => write_service_command(f, "OPERSERV", p),
@@ -307,44 +179,44 @@ impl fmt::Display for Command {
             Command::BS(p) => write_service_command(f, "BS", p),
             Command::HS(p) => write_service_command(f, "HS", p),
             Command::MS(p) => write_service_command(f, "MS", p),
-            Command::CAP(None, s, None, Some(p)) => write_cmd(f, "CAP", &[s.to_str(), p]),
-            Command::CAP(None, s, None, None) => write_cmd(f, "CAP", &[s.to_str()]),
-            Command::CAP(Some(k), s, None, Some(p)) => write_cmd(f, "CAP", &[k, s.to_str(), p]),
-            Command::CAP(Some(k), s, None, None) => write_cmd(f, "CAP", &[k, s.to_str()]),
-            Command::CAP(None, s, Some(c), Some(p)) => write_cmd(f, "CAP", &[s.to_str(), c, p]),
-            Command::CAP(None, s, Some(c), None) => write_cmd(f, "CAP", &[s.to_str(), c]),
+            Command::CAP(None, s, None, Some(p)) => write_cmd(f, "CAP", &[s.to_str(), p]).map(|_| ()),
+            Command::CAP(None, s, None, None) => write_cmd(f, "CAP", &[s.to_str()]).map(|_| ()),
+            Command::CAP(Some(k), s, None, Some(p)) => write_cmd(f, "CAP", &[k, s.to_str(), p]).map(|_| ()),
+            Command::CAP(Some(k), s, None, None) => write_cmd(f, "CAP", &[k, s.to_str()]).map(|_| ()),
+            Command::CAP(None, s, Some(c), Some(p)) => write_cmd(f, "CAP", &[s.to_str(), c, p]).map(|_| ()),
+            Command::CAP(None, s, Some(c), None) => write_cmd(f, "CAP", &[s.to_str(), c]).map(|_| ()),
             Command::CAP(Some(k), s, Some(c), Some(p)) => {
-                write_cmd(f, "CAP", &[k, s.to_str(), c, p])
+                write_cmd(f, "CAP", &[k, s.to_str(), c, p]).map(|_| ())
             }
-            Command::CAP(Some(k), s, Some(c), None) => write_cmd(f, "CAP", &[k, s.to_str(), c]),
-            Command::AUTHENTICATE(d) => write_cmd(f, "AUTHENTICATE", &[d]),
-            Command::ACCOUNT(a) => write_cmd(f, "ACCOUNT", &[a]),
-            Command::MONITOR(c, Some(t)) => write_cmd(f, "MONITOR", &[c, t]),
-            Command::MONITOR(c, None) => write_cmd(f, "MONITOR", &[c]),
+            Command::CAP(Some(k), s, Some(c), None) => write_cmd(f, "CAP", &[k, s.to_str(), c]).map(|_| ()),
+            Command::AUTHENTICATE(d) => write_cmd(f, "AUTHENTICATE", &[d]).map(|_| ()),
+            Command::ACCOUNT(a) => write_cmd(f, "ACCOUNT", &[a]).map(|_| ()),
+            Command::MONITOR(c, Some(t)) => write_cmd(f, "MONITOR", &[c, t]).map(|_| ()),
+            Command::MONITOR(c, None) => write_cmd(f, "MONITOR", &[c]).map(|_| ()),
             Command::BATCH(t, Some(c), Some(a)) => {
                 f.write_str("BATCH ")?;
                 f.write_str(t)?;
                 f.write_char(' ')?;
                 f.write_str(c.to_str())?;
-                write_args_with_trailing(f, a.iter().map(String::as_str))
+                write_args_with_trailing(f, a.iter().map(String::as_str)).map(|_| ())
             }
-            Command::BATCH(t, Some(c), None) => write_cmd(f, "BATCH", &[t, c.to_str()]),
+            Command::BATCH(t, Some(c), None) => write_cmd(f, "BATCH", &[t, c.to_str()]).map(|_| ()),
             Command::BATCH(t, None, Some(a)) => {
                 f.write_str("BATCH ")?;
                 f.write_str(t)?;
-                write_args_with_trailing(f, a.iter().map(String::as_str))
+                write_args_with_trailing(f, a.iter().map(String::as_str)).map(|_| ())
             }
-            Command::BATCH(t, None, None) => write_cmd(f, "BATCH", &[t]),
-            Command::CHGHOST(u, h) => write_cmd(f, "CHGHOST", &[u, h]),
-            Command::CHGIDENT(u, i) => write_cmd(f, "CHGIDENT", &[u, i]),
-            Command::SETNAME(r) => write_cmd_freeform(f, "SETNAME", &[r]),
-            Command::TAGMSG(t) => write_cmd(f, "TAGMSG", &[t]),
+            Command::BATCH(t, None, None) => write_cmd(f, "BATCH", &[t]).map(|_| ()),
+            Command::CHGHOST(u, h) => write_cmd(f, "CHGHOST", &[u, h]).map(|_| ()),
+            Command::CHGIDENT(u, i) => write_cmd(f, "CHGIDENT", &[u, i]).map(|_| ()),
+            Command::SETNAME(r) => write_cmd_freeform(f, "SETNAME", &[r]).map(|_| ()),
+            Command::TAGMSG(t) => write_cmd(f, "TAGMSG", &[t]).map(|_| ()),
             Command::ACK => f.write_str("ACK"),
             Command::WEBIRC(pass, gateway, host, ip, Some(opts)) => {
-                write_cmd(f, "WEBIRC", &[pass, gateway, host, ip, opts])
+                write_cmd(f, "WEBIRC", &[pass, gateway, host, ip, opts]).map(|_| ())
             }
             Command::WEBIRC(pass, gateway, host, ip, None) => {
-                write_cmd(f, "WEBIRC", &[pass, gateway, host, ip])
+                write_cmd(f, "WEBIRC", &[pass, gateway, host, ip]).map(|_| ())
             }
             Command::CHATHISTORY {
                 subcommand,
@@ -380,13 +252,13 @@ impl fmt::Display for Command {
                 }
             }
             Command::FAIL(command, code, context) => {
-                write_standard_reply(f, "FAIL", command.as_str(), code.as_str(), context)
+                write_standard_reply(f, "FAIL", command.as_str(), code.as_str(), context).map(|_| ())
             }
             Command::WARN(command, code, context) => {
-                write_standard_reply(f, "WARN", command.as_str(), code.as_str(), context)
+                write_standard_reply(f, "WARN", command.as_str(), code.as_str(), context).map(|_| ())
             }
             Command::NOTE(command, code, context) => {
-                write_standard_reply(f, "NOTE", command.as_str(), code.as_str(), context)
+                write_standard_reply(f, "NOTE", command.as_str(), code.as_str(), context).map(|_| ())
             }
             Command::Response(resp, a) => {
                 // Write the 3-digit response code directly
@@ -407,7 +279,7 @@ impl fmt::Display for Command {
             }
             Command::Raw(c, a) => {
                 f.write_str(c)?;
-                write_args_with_trailing(f, a.iter().map(String::as_str))
+                write_args_with_trailing(f, a.iter().map(String::as_str)).map(|_| ())
             }
         }
     }

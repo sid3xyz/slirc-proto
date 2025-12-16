@@ -7,6 +7,85 @@ use crate::command::Command;
 use crate::message::Message;
 use crate::response::Response;
 
+macro_rules! impl_err {
+    (
+        $(#[$meta:meta])*
+        $name:ident, $resp:ident, $msg:literal
+    ) => {
+        $(#[$meta])*
+        pub fn $name(client: &str) -> Message {
+            Self::error_msg(
+                Response::$resp,
+                vec![client.to_string(), $msg.to_string()],
+            )
+        }
+    };
+    (
+        $(#[$meta:meta])*
+        $name:ident, $resp:ident, $arg:ident, $msg:literal
+    ) => {
+        $(#[$meta])*
+        pub fn $name(client: &str, $arg: &str) -> Message {
+            Self::error_msg(
+                Response::$resp,
+                vec![
+                    client.to_string(),
+                    $arg.to_string(),
+                    $msg.to_string(),
+                ],
+            )
+        }
+    };
+    (
+        $(#[$meta:meta])*
+        $name:ident, $resp:ident, fmt($arg:ident, $fmt:literal)
+    ) => {
+        $(#[$meta])*
+        pub fn $name(client: &str, $arg: &str) -> Message {
+            Self::error_msg(
+                Response::$resp,
+                vec![
+                    client.to_string(),
+                    format!($fmt, $arg),
+                ],
+            )
+        }
+    };
+    (
+        $(#[$meta:meta])*
+        $name:ident, $resp:ident, $arg1:ident, $arg2:ident, $msg:literal
+    ) => {
+        $(#[$meta])*
+        pub fn $name(client: &str, $arg1: &str, $arg2: &str) -> Message {
+            Self::error_msg(
+                Response::$resp,
+                vec![
+                    client.to_string(),
+                    $arg1.to_string(),
+                    $arg2.to_string(),
+                    $msg.to_string(),
+                ],
+            )
+        }
+    };
+    (
+        $(#[$meta:meta])*
+        $name:ident, $resp:ident, $arg1:ident, $arg2:ident
+    ) => {
+        $(#[$meta])*
+        pub fn $name(client: &str, $arg1: &str, $arg2: &str) -> Message {
+            Self::error_msg(
+                Response::$resp,
+                vec![
+                    client.to_string(),
+                    $arg1.to_string(),
+                    $arg2.to_string(),
+                ],
+            )
+        }
+    };
+}
+
 impl Response {
     /// Helper to construct a Message with a Response command.
     fn error_msg(response: Response, args: Vec<String>) -> Message {
@@ -19,70 +98,35 @@ impl Response {
 
     // === 400-499 Error Replies ===
 
-    /// `401 ERR_NOSUCHNICK`
-    /// `<nickname> :No such nick/channel`
-    pub fn err_nosuchnick(client: &str, nickname: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_NOSUCHNICK,
-            vec![
-                client.to_string(),
-                nickname.to_string(),
-                "No such nick/channel".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `401 ERR_NOSUCHNICK`
+        /// `<nickname> :No such nick/channel`
+        err_nosuchnick, ERR_NOSUCHNICK, nickname, "No such nick/channel"
+    );
 
-    /// `403 ERR_NOSUCHCHANNEL`
-    /// `<channel name> :No such channel`
-    pub fn err_nosuchchannel(client: &str, channel: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_NOSUCHCHANNEL,
-            vec![
-                client.to_string(),
-                channel.to_string(),
-                "No such channel".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `403 ERR_NOSUCHCHANNEL`
+        /// `<channel name> :No such channel`
+        err_nosuchchannel, ERR_NOSUCHCHANNEL, channel, "No such channel"
+    );
 
-    /// `404 ERR_CANNOTSENDTOCHAN`
-    /// `<channel name> :Cannot send to channel`
-    pub fn err_cannotsendtochan(client: &str, channel: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_CANNOTSENDTOCHAN,
-            vec![
-                client.to_string(),
-                channel.to_string(),
-                "Cannot send to channel".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `404 ERR_CANNOTSENDTOCHAN`
+        /// `<channel name> :Cannot send to channel`
+        err_cannotsendtochan, ERR_CANNOTSENDTOCHAN, channel, "Cannot send to channel"
+    );
 
-    /// `405 ERR_TOOMANYCHANNELS`
-    /// `<channel name> :You have joined too many channels`
-    pub fn err_toomanychannels(client: &str, channel: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_TOOMANYCHANNELS,
-            vec![
-                client.to_string(),
-                channel.to_string(),
-                "You have joined too many channels".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `405 ERR_TOOMANYCHANNELS`
+        /// `<channel name> :You have joined too many channels`
+        err_toomanychannels, ERR_TOOMANYCHANNELS, channel, "You have joined too many channels"
+    );
 
-    /// `406 ERR_WASNOSUCHNICK`
-    /// `<nickname> :There was no such nickname`
-    pub fn err_wasnosuchnick(client: &str, nickname: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_WASNOSUCHNICK,
-            vec![
-                client.to_string(),
-                nickname.to_string(),
-                "There was no such nickname".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `406 ERR_WASNOSUCHNICK`
+        /// `<nickname> :There was no such nickname`
+        err_wasnosuchnick, ERR_WASNOSUCHNICK, nickname, "There was no such nickname"
+    );
 
     /// `407 ERR_TOOMANYTARGETS`
     /// `<target> :<error code> recipients. <abort message>`
@@ -102,100 +146,53 @@ impl Response {
         )
     }
 
-    /// `409 ERR_NOORIGIN`
-    /// `:No origin specified`
-    pub fn err_noorigin(client: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_NOORIGIN,
-            vec![client.to_string(), "No origin specified".to_string()],
-        )
-    }
+    impl_err!(
+        /// `409 ERR_NOORIGIN`
+        /// `:No origin specified`
+        err_noorigin, ERR_NOORIGIN, "No origin specified"
+    );
 
-    /// `410 ERR_INVALIDCAPCMD`
-    /// `<subcommand> :Invalid CAP subcommand`
-    pub fn err_invalidcapcmd(client: &str, subcommand: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_INVALIDCAPCMD,
-            vec![
-                client.to_string(),
-                subcommand.to_string(),
-                "Invalid CAP subcommand".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `410 ERR_INVALIDCAPCMD`
+        /// `<subcommand> :Invalid CAP subcommand`
+        err_invalidcapcmd, ERR_INVALIDCAPCMD, subcommand, "Invalid CAP subcommand"
+    );
 
-    /// `411 ERR_NORECIPIENT`
-    /// `:No recipient given (<command>)`
-    pub fn err_norecipient(client: &str, command: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_NORECIPIENT,
-            vec![
-                client.to_string(),
-                format!("No recipient given ({})", command),
-            ],
-        )
-    }
+    impl_err!(
+        /// `411 ERR_NORECIPIENT`
+        /// `:No recipient given (<command>)`
+        err_norecipient, ERR_NORECIPIENT, fmt(command, "No recipient given ({})")
+    );
 
-    /// `412 ERR_NOTEXTTOSEND`
-    /// `:No text to send`
-    pub fn err_notexttosend(client: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_NOTEXTTOSEND,
-            vec![client.to_string(), "No text to send".to_string()],
-        )
-    }
+    impl_err!(
+        /// `412 ERR_NOTEXTTOSEND`
+        /// `:No text to send`
+        err_notexttosend, ERR_NOTEXTTOSEND, "No text to send"
+    );
 
-    /// `413 ERR_NOTOPLEVEL`
-    /// `<mask> :No toplevel domain specified`
-    pub fn err_notoplevel(client: &str, mask: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_NOTOPLEVEL,
-            vec![
-                client.to_string(),
-                mask.to_string(),
-                "No toplevel domain specified".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `413 ERR_NOTOPLEVEL`
+        /// `<mask> :No toplevel domain specified`
+        err_notoplevel, ERR_NOTOPLEVEL, mask, "No toplevel domain specified"
+    );
 
-    /// `414 ERR_WILDTOPLEVEL`
-    /// `<mask> :Wildcard in toplevel domain`
-    pub fn err_wildtoplevel(client: &str, mask: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_WILDTOPLEVEL,
-            vec![
-                client.to_string(),
-                mask.to_string(),
-                "Wildcard in toplevel domain".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `414 ERR_WILDTOPLEVEL`
+        /// `<mask> :Wildcard in toplevel domain`
+        err_wildtoplevel, ERR_WILDTOPLEVEL, mask, "Wildcard in toplevel domain"
+    );
 
-    /// `415 ERR_BADMASK`
-    /// `<mask> :Bad Server/host mask`
-    pub fn err_badmask(client: &str, mask: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_BADMASK,
-            vec![
-                client.to_string(),
-                mask.to_string(),
-                "Bad Server/host mask".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `415 ERR_BADMASK`
+        /// `<mask> :Bad Server/host mask`
+        err_badmask, ERR_BADMASK, mask, "Bad Server/host mask"
+    );
 
-    /// `421 ERR_UNKNOWNCOMMAND`
-    /// `<command> :Unknown command`
-    pub fn err_unknowncommand(client: &str, command: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_UNKNOWNCOMMAND,
-            vec![
-                client.to_string(),
-                command.to_string(),
-                "Unknown command".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `421 ERR_UNKNOWNCOMMAND`
+        /// `<command> :Unknown command`
+        err_unknowncommand, ERR_UNKNOWNCOMMAND, command, "Unknown command"
+    );
 
     /// `422 ERR_NOMOTD`
     /// `:MOTD File is missing`
@@ -231,40 +228,23 @@ impl Response {
         )
     }
 
-    /// `431 ERR_NONICKNAMEGIVEN`
-    /// `:No nickname given`
-    pub fn err_nonicknamegiven(client: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_NONICKNAMEGIVEN,
-            vec![client.to_string(), "No nickname given".to_string()],
-        )
-    }
+    impl_err!(
+        /// `431 ERR_NONICKNAMEGIVEN`
+        /// `:No nickname given`
+        err_nonicknamegiven, ERR_NONICKNAMEGIVEN, "No nickname given"
+    );
 
-    /// `432 ERR_ERRONEUSNICKNAME`
-    /// `<nick> :Erroneous nickname`
-    pub fn err_erroneusnickname(client: &str, nick: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_ERRONEOUSNICKNAME,
-            vec![
-                client.to_string(),
-                nick.to_string(),
-                "Erroneous nickname".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `432 ERR_ERRONEUSNICKNAME`
+        /// `<nick> :Erroneous nickname`
+        err_erroneusnickname, ERR_ERRONEOUSNICKNAME, nick, "Erroneous nickname"
+    );
 
-    /// `433 ERR_NICKNAMEINUSE`
-    /// `<nick> :Nickname is already in use`
-    pub fn err_nicknameinuse(client: &str, nick: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_NICKNAMEINUSE,
-            vec![
-                client.to_string(),
-                nick.to_string(),
-                "Nickname is already in use".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `433 ERR_NICKNAMEINUSE`
+        /// `<nick> :Nickname is already in use`
+        err_nicknameinuse, ERR_NICKNAMEINUSE, nick, "Nickname is already in use"
+    );
 
     /// `436 ERR_NICKCOLLISION`
     /// `<nick> :Nickname collision KILL from <user>@<host>`
@@ -279,59 +259,29 @@ impl Response {
         )
     }
 
-    /// `437 ERR_UNAVAILRESOURCE`
-    /// `<nick/channel> :Nick/channel is temporarily unavailable`
-    pub fn err_unavailresource(client: &str, resource: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_UNAVAILRESOURCE,
-            vec![
-                client.to_string(),
-                resource.to_string(),
-                "Nick/channel is temporarily unavailable".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `437 ERR_UNAVAILRESOURCE`
+        /// `<nick/channel> :Nick/channel is temporarily unavailable`
+        err_unavailresource, ERR_UNAVAILRESOURCE, resource, "Nick/channel is temporarily unavailable"
+    );
 
-    /// `441 ERR_USERNOTINCHANNEL`
-    /// `<nick> <channel> :They aren't on that channel`
-    pub fn err_usernotinchannel(client: &str, nick: &str, channel: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_USERNOTINCHANNEL,
-            vec![
-                client.to_string(),
-                nick.to_string(),
-                channel.to_string(),
-                "They aren't on that channel".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `441 ERR_USERNOTINCHANNEL`
+        /// `<nick> <channel> :They aren't on that channel`
+        err_usernotinchannel, ERR_USERNOTINCHANNEL, nick, channel, "They aren't on that channel"
+    );
 
-    /// `442 ERR_NOTONCHANNEL`
-    /// `<channel> :You're not on that channel`
-    pub fn err_notonchannel(client: &str, channel: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_NOTONCHANNEL,
-            vec![
-                client.to_string(),
-                channel.to_string(),
-                "You're not on that channel".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `442 ERR_NOTONCHANNEL`
+        /// `<channel> :You're not on that channel`
+        err_notonchannel, ERR_NOTONCHANNEL, channel, "You're not on that channel"
+    );
 
-    /// `443 ERR_USERONCHANNEL`
-    /// `<user> <channel> :is already on channel`
-    pub fn err_useronchannel(client: &str, user: &str, channel: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_USERONCHANNEL,
-            vec![
-                client.to_string(),
-                user.to_string(),
-                channel.to_string(),
-                "is already on channel".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `443 ERR_USERONCHANNEL`
+        /// `<user> <channel> :is already on channel`
+        err_useronchannel, ERR_USERONCHANNEL, user, channel, "is already on channel"
+    );
 
     /// `444 ERR_NOLOGIN`
     /// `<user> :User not logged in`
@@ -377,93 +327,52 @@ impl Response {
         )
     }
 
-    /// `451 ERR_NOTREGISTERED`
-    /// `:You have not registered`
-    pub fn err_notregistered(client: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_NOTREGISTERED,
-            vec![client.to_string(), "You have not registered".to_string()],
-        )
-    }
+    impl_err!(
+        /// `451 ERR_NOTREGISTERED`
+        /// `:You have not registered`
+        err_notregistered, ERR_NOTREGISTERED, "You have not registered"
+    );
 
-    /// `461 ERR_NEEDMOREPARAMS`
-    /// `<command> :Not enough parameters`
-    pub fn err_needmoreparams(client: &str, command: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_NEEDMOREPARAMS,
-            vec![
-                client.to_string(),
-                command.to_string(),
-                "Not enough parameters".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `461 ERR_NEEDMOREPARAMS`
+        /// `<command> :Not enough parameters`
+        err_needmoreparams, ERR_NEEDMOREPARAMS, command, "Not enough parameters"
+    );
 
-    /// `462 ERR_ALREADYREGISTRED`
-    /// `:Unauthorized command (already registered)`
-    pub fn err_alreadyregistred(client: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_ALREADYREGISTERED,
-            vec![
-                client.to_string(),
-                "Unauthorized command (already registered)".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `462 ERR_ALREADYREGISTRED`
+        /// `:Unauthorized command (already registered)`
+        err_alreadyregistred, ERR_ALREADYREGISTERED, "Unauthorized command (already registered)"
+    );
 
-    /// `463 ERR_NOPERMFORHOST`
-    /// `:Your host isn't among the privileged`
-    pub fn err_nopermforhost(client: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_NOPERMFORHOST,
-            vec![
-                client.to_string(),
-                "Your host isn't among the privileged".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `463 ERR_NOPERMFORHOST`
+        /// `:Your host isn't among the privileged`
+        err_nopermforhost, ERR_NOPERMFORHOST, "Your host isn't among the privileged"
+    );
 
-    /// `464 ERR_PASSWDMISMATCH`
-    /// `:Password incorrect`
-    pub fn err_passwdmismatch(client: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_PASSWDMISMATCH,
-            vec![client.to_string(), "Password incorrect".to_string()],
-        )
-    }
+    impl_err!(
+        /// `464 ERR_PASSWDMISMATCH`
+        /// `:Password incorrect`
+        err_passwdmismatch, ERR_PASSWDMISMATCH, "Password incorrect"
+    );
 
-    /// `465 ERR_YOUREBANNEDCREEP`
-    /// `:You are banned from this server`
-    pub fn err_yourebannedcreep(client: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_YOUREBANNEDCREEP,
-            vec![
-                client.to_string(),
-                "You are banned from this server".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `465 ERR_YOUREBANNEDCREEP`
+        /// `:You are banned from this server`
+        err_yourebannedcreep, ERR_YOUREBANNEDCREEP, "You are banned from this server"
+    );
 
-    /// `466 ERR_YOUWILLBEBANNED`
-    pub fn err_youwillbebanned(client: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_YOUWILLBEBANNED,
-            vec![client.to_string(), "You will be banned".to_string()],
-        )
-    }
+    impl_err!(
+        /// `466 ERR_YOUWILLBEBANNED`
+        err_youwillbebanned, ERR_YOUWILLBEBANNED, "You will be banned"
+    );
 
-    /// `467 ERR_KEYSET`
-    /// `<channel> :Channel key already set`
-    pub fn err_keyset(client: &str, channel: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_KEYSET,
-            vec![
-                client.to_string(),
-                channel.to_string(),
-                "Channel key already set".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `467 ERR_KEYSET`
+        /// `<channel> :Channel key already set`
+        err_keyset, ERR_KEYSET, channel, "Channel key already set"
+    );
 
     /// `471 ERR_CHANNELISFULL`
     /// `<channel> :Cannot join channel (+l)`
@@ -491,70 +400,35 @@ impl Response {
         )
     }
 
-    /// `473 ERR_INVITEONLYCHAN`
-    /// `<channel> :Cannot join channel (+i)`
-    pub fn err_inviteonlychan(client: &str, channel: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_INVITEONLYCHAN,
-            vec![
-                client.to_string(),
-                channel.to_string(),
-                "Cannot join channel (+i)".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `473 ERR_INVITEONLYCHAN`
+        /// `<channel> :Cannot join channel (+i)`
+        err_inviteonlychan, ERR_INVITEONLYCHAN, channel, "Cannot join channel (+i)"
+    );
 
-    /// `474 ERR_BANNEDFROMCHAN`
-    /// `<channel> :Cannot join channel (+b)`
-    pub fn err_bannedfromchan(client: &str, channel: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_BANNEDFROMCHAN,
-            vec![
-                client.to_string(),
-                channel.to_string(),
-                "Cannot join channel (+b)".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `474 ERR_BANNEDFROMCHAN`
+        /// `<channel> :Cannot join channel (+b)`
+        err_bannedfromchan, ERR_BANNEDFROMCHAN, channel, "Cannot join channel (+b)"
+    );
 
-    /// `475 ERR_BADCHANNELKEY`
-    /// `<channel> :Cannot join channel (+k)`
-    pub fn err_badchannelkey(client: &str, channel: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_BADCHANNELKEY,
-            vec![
-                client.to_string(),
-                channel.to_string(),
-                "Cannot join channel (+k)".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `475 ERR_BADCHANNELKEY`
+        /// `<channel> :Cannot join channel (+k)`
+        err_badchannelkey, ERR_BADCHANNELKEY, channel, "Cannot join channel (+k)"
+    );
 
-    /// `476 ERR_BADCHANMASK`
-    /// `<channel> :Bad Channel Mask`
-    pub fn err_badchanmask(client: &str, channel: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_BADCHANMASK,
-            vec![
-                client.to_string(),
-                channel.to_string(),
-                "Bad Channel Mask".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `476 ERR_BADCHANMASK`
+        /// `<channel> :Bad Channel Mask`
+        err_badchanmask, ERR_BADCHANMASK, channel, "Bad Channel Mask"
+    );
 
-    /// `477 ERR_NOCHANMODES`
-    /// `<channel> :Channel doesn't support modes`
-    pub fn err_nochanmodes(client: &str, channel: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_NOCHANMODES,
-            vec![
-                client.to_string(),
-                channel.to_string(),
-                "Channel doesn't support modes".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `477 ERR_NOCHANMODES`
+        /// `<channel> :Channel doesn't support modes`
+        err_nochanmodes, ERR_NOCHANMODES, channel, "Channel doesn't support modes"
+    );
 
     /// `478 ERR_BANLISTFULL`
     /// `<channel> <char> :Channel list is full`
@@ -570,51 +444,29 @@ impl Response {
         )
     }
 
-    /// `481 ERR_NOPRIVILEGES`
-    /// `:Permission Denied- You're not an IRC operator`
-    pub fn err_noprivileges(client: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_NOPRIVILEGES,
-            vec![
-                client.to_string(),
-                "Permission Denied- You're not an IRC operator".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `481 ERR_NOPRIVILEGES`
+        /// `:Permission Denied- You're not an IRC operator`
+        err_noprivileges, ERR_NOPRIVILEGES, "Permission Denied- You're not an IRC operator"
+    );
 
-    /// `482 ERR_CHANOPRIVSNEEDED`
-    /// `<channel> :You're not channel operator`
-    pub fn err_chanoprivsneeded(client: &str, channel: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_CHANOPRIVSNEEDED,
-            vec![
-                client.to_string(),
-                channel.to_string(),
-                "You're not channel operator".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `482 ERR_CHANOPRIVSNEEDED`
+        /// `<channel> :You're not channel operator`
+        err_chanoprivsneeded, ERR_CHANOPRIVSNEEDED, channel, "You're not channel operator"
+    );
 
-    /// `483 ERR_CANTKILLSERVER`
-    /// `:You can't kill a server!`
-    pub fn err_cantkillserver(client: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_CANTKILLSERVER,
-            vec![client.to_string(), "You can't kill a server!".to_string()],
-        )
-    }
+    impl_err!(
+        /// `483 ERR_CANTKILLSERVER`
+        /// `:You can't kill a server!`
+        err_cantkillserver, ERR_CANTKILLSERVER, "You can't kill a server!"
+    );
 
-    /// `484 ERR_RESTRICTED`
-    /// `:Your connection is restricted!`
-    pub fn err_restricted(client: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_RESTRICTED,
-            vec![
-                client.to_string(),
-                "Your connection is restricted!".to_string(),
-            ],
-        )
-    }
+    impl_err!(
+        /// `484 ERR_RESTRICTED`
+        /// `:Your connection is restricted!`
+        err_restricted, ERR_RESTRICTED, "Your connection is restricted!"
+    );
 
     /// `485 ERR_UNIQOPPRIVSNEEDED`
     /// `:You're not the original channel operator`
@@ -669,32 +521,23 @@ impl Response {
         )
     }
 
-    /// `705 RPL_HELPTXT`
-    /// `<subject> :<text>`
-    pub fn rpl_helptxt(client: &str, subject: &str, text: &str) -> Message {
-        Self::error_msg(
-            Response::RPL_HELPTXT,
-            vec![client.to_string(), subject.to_string(), text.to_string()],
-        )
-    }
+    impl_err!(
+        /// `705 RPL_HELPTXT`
+        /// `<subject> :<text>`
+        rpl_helptxt, RPL_HELPTXT, subject, text
+    );
 
-    /// `706 RPL_ENDOFHELP`
-    /// `<subject> :End of HELP`
-    pub fn rpl_endofhelp(client: &str, subject: &str) -> Message {
-        Self::error_msg(
-            Response::RPL_ENDOFHELP,
-            vec![client.to_string(), subject.to_string(), "End of HELP".to_string()],
-        )
-    }
+    impl_err!(
+        /// `706 RPL_ENDOFHELP`
+        /// `<subject> :End of HELP`
+        rpl_endofhelp, RPL_ENDOFHELP, subject, "End of HELP"
+    );
 
-    /// `524 ERR_HELPNOTFOUND`
-    /// `<subject> :No help available on this topic`
-    pub fn err_helpnotfound(client: &str, subject: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_HELPNOTFOUND,
-            vec![client.to_string(), subject.to_string(), "No help available on this topic".to_string()],
-        )
-    }
+    impl_err!(
+        /// `524 ERR_HELPNOTFOUND`
+        /// `<subject> :No help available on this topic`
+        err_helpnotfound, ERR_HELPNOTFOUND, subject, "No help available on this topic"
+    );
 
     // === 900-999 SASL Replies ===
 
@@ -712,21 +555,15 @@ impl Response {
         )
     }
 
-    /// `903 RPL_SASLSUCCESS`
-    /// `:SASL authentication successful`
-    pub fn rpl_saslsuccess(client: &str) -> Message {
-        Self::error_msg(
-            Response::RPL_SASLSUCCESS,
-            vec![client.to_string(), "SASL authentication successful".to_string()],
-        )
-    }
+    impl_err!(
+        /// `903 RPL_SASLSUCCESS`
+        /// `:SASL authentication successful`
+        rpl_saslsuccess, RPL_SASLSUCCESS, "SASL authentication successful"
+    );
 
-    /// `904 ERR_SASLFAIL`
-    /// `:SASL authentication failed`
-    pub fn err_saslfail(client: &str) -> Message {
-        Self::error_msg(
-            Response::ERR_SASLFAIL,
-            vec![client.to_string(), "SASL authentication failed".to_string()],
-        )
-    }
+    impl_err!(
+        /// `904 ERR_SASLFAIL`
+        /// `:SASL authentication failed`
+        err_saslfail, ERR_SASLFAIL, "SASL authentication failed"
+    );
 }
