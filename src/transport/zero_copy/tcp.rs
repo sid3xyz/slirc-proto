@@ -77,6 +77,23 @@ impl<S> ZeroCopyTransport<S> {
             max_line_len: max_len,
         }
     }
+
+    /// Consume this transport and return its inner stream and buffer.
+    ///
+    /// This is useful for STARTTLS upgrade: extract the TCP stream,
+    /// perform TLS handshake, then create a new transport with the
+    /// TLS stream and preserved buffer.
+    ///
+    /// # Returns
+    ///
+    /// A tuple of `(stream, buffer)` where buffer contains any unprocessed data.
+    pub fn into_parts(mut self) -> (S, BytesMut) {
+        // Advance past consumed data before returning
+        if self.consumed > 0 {
+            self.buffer.advance(self.consumed);
+        }
+        (self.stream, self.buffer)
+    }
 }
 
 impl<S: AsyncWrite + Unpin> ZeroCopyTransport<S> {

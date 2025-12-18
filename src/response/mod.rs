@@ -384,6 +384,8 @@ pub enum Response {
     ERR_SECUREONLYCHAN = 489,
     /// 491 - No oper host
     ERR_NOOPERHOST = 491,
+    /// 520 - Oper only channel (InspIRCd extension)
+    ERR_OPERONLY = 520,
     /// 501 - Unknown mode flag
     ERR_UMODEUNKNOWNFLAG = 501,
     /// 502 - Users don't match
@@ -412,6 +414,13 @@ pub enum Response {
     RPL_STATSPLINE = 646,
     /// 671 - WHOIS secure connection
     RPL_WHOISSECURE = 671,
+
+    // === STARTTLS (670, 691) ===
+    /// 670 - STARTTLS successful
+    RPL_STARTTLS = 670,
+    /// 691 - STARTTLS failed
+    ERR_STARTTLS = 691,
+
     /// 696 - Invalid mode parameter
     ERR_INVALIDMODEPARAM = 696,
     /// 704 - Help start

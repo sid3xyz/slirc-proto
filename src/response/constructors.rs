@@ -566,4 +566,27 @@ impl Response {
         /// `:SASL authentication failed`
         err_saslfail, ERR_SASLFAIL, "SASL authentication failed"
     );
+
+    // === 670 / 691 STARTTLS Replies (IRCv3) ===
+
+    /// `670 RPL_STARTTLS`
+    /// `:STARTTLS successful, proceed with TLS handshake`
+    pub fn rpl_starttls(client: &str) -> Message {
+        Self::error_msg(
+            Response::RPL_STARTTLS,
+            vec![
+                client.to_string(),
+                "STARTTLS successful, proceed with TLS handshake".to_string(),
+            ],
+        )
+    }
+
+    /// `691 ERR_STARTTLS`
+    /// `<reason>`
+    pub fn err_starttls(client: &str, reason: &str) -> Message {
+        Self::error_msg(
+            Response::ERR_STARTTLS,
+            vec![client.to_string(), reason.to_string()],
+        )
+    }
 }

@@ -57,6 +57,8 @@ pub enum Capability {
     StandardReplies,
     /// Strict Transport Security
     Sts,
+    /// STARTTLS upgrade capability
+    Tls,
     // Draft/experimental capabilities
     /// Chat history retrieval (draft/chathistory)
     ChatHistory,
@@ -99,6 +101,7 @@ impl AsRef<str> for Capability {
             Self::LabeledResponse => "labeled-response",
             Self::StandardReplies => "standard-replies",
             Self::Sts => "sts",
+            Self::Tls => "tls",
             Self::ChatHistory => "draft/chathistory",
             Self::AccountRegistration => "draft/account-registration",
             Self::Multiline => "draft/multiline",
@@ -140,6 +143,7 @@ impl From<&str> for Capability {
             "labeled-response" => Self::LabeledResponse,
             "standard-replies" => Self::StandardReplies,
             "sts" => Self::Sts,
+            "tls" => Self::Tls,
             "draft/chathistory" => Self::ChatHistory,
             "draft/multiline" => Self::Multiline,
             "draft/read-marker" => Self::ReadMarker,

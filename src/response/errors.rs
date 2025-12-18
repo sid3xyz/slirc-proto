@@ -69,6 +69,7 @@ impl Response {
             485 => Response::ERR_UNIQOPPRIVSNEEDED,
             489 => Response::ERR_SECUREONLYCHAN,
             491 => Response::ERR_NOOPERHOST,
+            520 => Response::ERR_OPERONLY,
             501 => Response::ERR_UMODEUNKNOWNFLAG,
             502 => Response::ERR_USERSDONTMATCH,
             511 => Response::ERR_SILELISTFULL,
