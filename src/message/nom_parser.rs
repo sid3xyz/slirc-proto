@@ -22,9 +22,22 @@ fn parse_prefix(input: &str) -> IResult<&str, &str> {
     preceded(char(':'), take_while1(|c| c != ' '))(input)
 }
 
-/// Parse the command name (alphanumeric characters).
+/// Parse the command name (1*letter or 3digit).
 fn parse_command(input: &str) -> IResult<&str, &str> {
-    take_while1(|c: char| c.is_alphanumeric())(input)
+    let (rest, cmd) = take_while1(|c: char| c.is_alphanumeric())(input)?;
+
+    // RFC 2812: command = 1*letter / 3digit
+    let is_all_letters = cmd.chars().all(|c| c.is_ascii_alphabetic());
+    let is_three_digits = cmd.len() == 3 && cmd.chars().all(|c| c.is_ascii_digit());
+
+    if is_all_letters || is_three_digits {
+        Ok((rest, cmd))
+    } else {
+        Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            ErrorKind::AlphaNumeric,
+        )))
+    }
 }
 
 /// Parse IRC message parameters from the remaining input after the command.
@@ -32,11 +45,18 @@ fn parse_command(input: &str) -> IResult<&str, &str> {
 /// Handles both regular space-separated parameters and the trailing parameter
 /// (prefixed with `:`) which may contain spaces. Multiple consecutive spaces
 /// are treated as a single separator (RFC compliance).
+///
+/// Enforces the RFC 2812 limit of 15 parameters.
 fn parse_params(input: &str) -> (&str, Vec<&str>) {
     let mut params: Vec<&str> = Vec::new();
     let mut rest = input;
 
     while let Some(b' ') = rest.as_bytes().first().copied() {
+        // RFC 2812: at most 15 parameters
+        if params.len() >= 15 {
+            break;
+        }
+
         // Skip all leading spaces (handles multiple consecutive spaces)
         while rest.as_bytes().first() == Some(&b' ') {
             rest = &rest[1..];
@@ -253,5 +273,31 @@ mod tests {
         let msg =
             ParsedMessage::parse("@msgid=abc123;time=2023-01-01 :nick PRIVMSG #ch :msg").unwrap();
         assert_eq!(msg.tags, Some("msgid=abc123;time=2023-01-01"));
+    }
+
+    #[test]
+    fn test_parse_command_validation() {
+        // Valid commands
+        assert!(ParsedMessage::parse("PING").is_ok());
+        assert!(ParsedMessage::parse("123").is_ok());
+
+        // Invalid commands
+        assert!(ParsedMessage::parse("PING123").is_err());
+        assert!(ParsedMessage::parse("12").is_err());
+        assert!(ParsedMessage::parse("1234").is_err());
+    }
+
+    #[test]
+    fn test_parse_params_limit() {
+        // 15 parameters (14 middle + 1 trailing)
+        let raw = "CMD p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 p12 p13 p14 :p15";
+        let msg = ParsedMessage::parse(raw).unwrap();
+        assert_eq!(msg.params.len(), 15);
+
+        // 16 parameters - should be truncated to 15
+        let raw = "CMD p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 p12 p13 p14 p15 p16";
+        let msg = ParsedMessage::parse(raw).unwrap();
+        assert_eq!(msg.params.len(), 15);
+        assert_eq!(msg.params[14], "p15");
     }
 }
