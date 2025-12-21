@@ -60,6 +60,8 @@ impl Response {
             271 => Response::RPL_SILELIST,
             272 => Response::RPL_ENDOFSILELIST,
             276 => Response::RPL_WHOISCERTFP,
+            281 => Response::RPL_ACCEPTLIST,
+            282 => Response::RPL_ENDOFACCEPT,
             300 => Response::RPL_NONE,
             301 => Response::RPL_AWAY,
             302 => Response::RPL_USERHOST,

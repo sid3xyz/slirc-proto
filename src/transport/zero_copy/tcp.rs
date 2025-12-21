@@ -42,6 +42,8 @@ pub struct ZeroCopyTransport<S> {
     buffer: BytesMut,
     consumed: usize,
     max_line_len: usize,
+    /// Whether we are currently skipping bytes until a newline because of a buffer overflow
+    skipping_overflow: bool,
 }
 
 impl<S> ZeroCopyTransport<S> {
@@ -52,6 +54,7 @@ impl<S> ZeroCopyTransport<S> {
             buffer: BytesMut::with_capacity(8192),
             consumed: 0,
             max_line_len: MAX_IRC_LINE_LEN,
+            skipping_overflow: false,
         }
     }
 
@@ -65,6 +68,7 @@ impl<S> ZeroCopyTransport<S> {
             buffer,
             consumed: 0,
             max_line_len: MAX_IRC_LINE_LEN,
+            skipping_overflow: false,
         }
     }
 
@@ -75,7 +79,13 @@ impl<S> ZeroCopyTransport<S> {
             buffer: BytesMut::with_capacity(max_len.min(65536)),
             consumed: 0,
             max_line_len: max_len,
+            skipping_overflow: false,
         }
+    }
+
+    /// Set the maximum line length.
+    pub fn set_max_line_len(&mut self, len: usize) {
+        self.max_line_len = len;
     }
 
     /// Consume this transport and return its inner stream and buffer.
@@ -158,57 +168,81 @@ impl<S: AsyncRead + Unpin> ZeroCopyTransport<S> {
         }
 
         loop {
-            // Check if we have a complete line in the buffer
-            if let Some(newline_pos) = find_crlf(&self.buffer) {
-                let line_len = newline_pos + 1;
-
-                // Validate the line slice for UTF-8 first
-                let line_slice = &self.buffer[..line_len];
-
-                // Validate IRC-specific line lengths (tags vs body)
-                // This checks:
-                // - Client tag data ≤ 4094 bytes
-                // - Message body ≤ 512 bytes (including CRLF)
-                if let Err(e) = validate_irc_line_length(line_slice) {
-                    // Mark the line as consumed so we can continue reading
+            // If we are in skipping mode, look for a newline to recover
+            if self.skipping_overflow {
+                if let Some(newline_pos) = find_crlf(&self.buffer) {
+                    // Found the end of the garbage line
+                    let line_len = newline_pos + 1;
                     self.consumed = line_len;
-                    return Some(Err(e));
+                    self.skipping_overflow = false;
+                    
+                    // We found the end of the bad line. We can now consume it and continue
+                    // to try to read the NEXT line in the same loop iteration.
+                    // We must advance manually here because we are 'continue'ing the loop
+                    // and bypassing the top-of-loop advance check (which only runs if we return).
+                    self.buffer.advance(self.consumed);
+                    self.consumed = 0;
+                    continue;
+                } else {
+                    // No newline yet, discard everything to prevent buffer exhaustion
+                    let len = self.buffer.len();
+                    self.buffer.advance(len);
+                    // Keep skipping_overflow = true, read more data
                 }
+            } else {
+                // Check if we have a complete line in the buffer
+                if let Some(newline_pos) = find_crlf(&self.buffer) {
+                    let line_len = newline_pos + 1;
 
-                // Validate UTF-8 and control characters
-                match validate_line(line_slice) {
-                    Ok(line_str) => {
-                        // Mark this line as consumed (will be advanced on next call)
+                    // Validate the line slice for UTF-8 first
+                    let line_slice = &self.buffer[..line_len];
+
+                    // Validate IRC-specific line lengths (tags vs body)
+                    // This checks:
+                    // - Client tag data ≤ 4094 bytes
+                    // - Message body ≤ max_line_len bytes (including CRLF)
+                    if let Err(e) = validate_irc_line_length(line_slice, self.max_line_len) {
+                        // Mark the line as consumed so we can continue reading
                         self.consumed = line_len;
+                        return Some(Err(e));
+                    }
 
-                        // Parse the message - no unsafe needed here because:
-                        // - The `&mut self` borrow prevents calling `next()` again while MessageRef is live
-                        // - Buffer advancement is deferred until the next call to `next()`
-                        // - The returned MessageRef lifetime is tied to `self` via function signature
-                        match MessageRef::parse(line_str) {
-                            Ok(msg) => return Some(Ok(msg)),
-                            Err(e) => {
-                                return Some(Err(TransportReadError::Protocol(
-                                    ProtocolError::InvalidMessage {
-                                        string: line_str.to_string(),
-                                        cause: e,
-                                    },
-                                )))
+                    // Validate UTF-8 and control characters
+                    match validate_line(line_slice) {
+                        Ok(line_str) => {
+                            // Mark this line as consumed (will be advanced on next call)
+                            self.consumed = line_len;
+
+                            // Parse the message - no unsafe needed here because:
+                            // - The `&mut self` borrow prevents calling `next()` again while MessageRef is live
+                            // - Buffer advancement is deferred until the next call to `next()`
+                            // - The returned MessageRef lifetime is tied to `self` via function signature
+                            match MessageRef::parse(line_str) {
+                                Ok(msg) => return Some(Ok(msg)),
+                                Err(e) => {
+                                    return Some(Err(TransportReadError::Protocol(
+                                        ProtocolError::InvalidMessage {
+                                            string: line_str.to_string(),
+                                            cause: e,
+                                        },
+                                    )))
+                                }
                             }
                         }
+                        Err(e) => return Some(Err(e)),
                     }
-                    Err(e) => return Some(Err(e)),
                 }
-            }
 
-            // Check if buffer is getting too large without a complete line
-            if self.buffer.len() > self.max_line_len {
-                return Some(Err(TransportReadError::Protocol(
-                    ProtocolError::MessageTooLong {
-                        actual: self.buffer.len(),
-                        limit: self.max_line_len,
-                    },
-                )));
+                // Check if buffer is getting too large without a complete line
+                if self.buffer.len() > self.max_line_len {
+                    self.skipping_overflow = true;
+                    return Some(Err(TransportReadError::Protocol(
+                        ProtocolError::MessageTooLong {
+                            actual: self.buffer.len(),
+                            limit: self.max_line_len,
+                        },
+                    )));
+                }
             }
 
             // Need more data - read from stream

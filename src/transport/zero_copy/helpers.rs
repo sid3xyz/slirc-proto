@@ -10,10 +10,6 @@ use super::super::error::TransportReadError;
 /// "Clients MUST NOT send messages with tag data exceeding 4094 bytes"
 pub const MAX_CLIENT_TAG_DATA: usize = 4094;
 
-/// Maximum length for message body excluding tags (512 bytes including CRLF).
-/// This is the classic RFC 1459 limit.
-pub const MAX_MESSAGE_BODY: usize = 512;
-
 /// Find the position of the next CRLF or LF line ending in the buffer.
 ///
 /// Returns the position of the LF byte (newline character).
@@ -25,10 +21,10 @@ pub fn find_crlf(buffer: &BytesMut) -> Option<usize> {
 ///
 /// For client messages:
 /// - Tag data (excluding the leading `@` and trailing space) must be ≤ 4094 bytes
-/// - Message body (everything after tags) must be ≤ 512 bytes (including CRLF)
+/// - Message body (everything after tags) must be ≤ `max_body_len` bytes (including CRLF)
 ///
 /// Returns Ok(()) if lengths are valid, or an appropriate error.
-pub fn validate_irc_line_length(line: &[u8]) -> Result<(), TransportReadError> {
+pub fn validate_irc_line_length(line: &[u8], max_body_len: usize) -> Result<(), TransportReadError> {
     // Find where tags end and body begins
     if line.first() == Some(&b'@') {
         // Message has tags - find the first space after the tag section
@@ -44,11 +40,11 @@ pub fn validate_irc_line_length(line: &[u8]) -> Result<(), TransportReadError> {
 
             // Body is everything after the space
             let body_len = line.len() - space_pos - 1;
-            if body_len > MAX_MESSAGE_BODY {
+            if body_len > max_body_len {
                 return Err(TransportReadError::Protocol(
                     ProtocolError::MessageTooLong {
                         actual: body_len,
-                        limit: MAX_MESSAGE_BODY,
+                        limit: max_body_len,
                     },
                 ));
             }
@@ -64,11 +60,11 @@ pub fn validate_irc_line_length(line: &[u8]) -> Result<(), TransportReadError> {
         }
     } else {
         // No tags - entire line is the body
-        if line.len() > MAX_MESSAGE_BODY {
+        if line.len() > max_body_len {
             return Err(TransportReadError::Protocol(
                 ProtocolError::MessageTooLong {
                     actual: line.len(),
-                    limit: MAX_MESSAGE_BODY,
+                    limit: max_body_len,
                 },
             ));
         }

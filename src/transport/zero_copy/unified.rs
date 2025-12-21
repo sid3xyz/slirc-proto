@@ -103,6 +103,19 @@ impl ZeroCopyTransportEnum {
         Self::WebSocketTls(ZeroCopyWebSocketTransport::with_buffer(stream, buffer))
     }
 
+    /// Set the maximum line length for the transport.
+    pub fn set_max_line_len(&mut self, len: usize) {
+        match self {
+            Self::Tcp(t) => t.set_max_line_len(len),
+            Self::Tls(t) => t.set_max_line_len(len),
+            Self::ClientTls(t) => t.set_max_line_len(len),
+            #[cfg(feature = "tokio")]
+            Self::WebSocket(t) => t.set_max_line_len(len),
+            #[cfg(feature = "tokio")]
+            Self::WebSocketTls(t) => t.set_max_line_len(len),
+        }
+    }
+
     /// Read the next message from the transport.
     pub async fn next(&mut self) -> Option<Result<MessageRef<'_>, TransportReadError>> {
         match self {

@@ -51,7 +51,8 @@ impl Command {
             }
 
             "MOTD" | "LUSERS" | "VERSION" | "STATS" | "LINKS" | "TIME" | "CONNECT" | "TRACE"
-            | "ADMIN" | "INFO" | "MAP" | "RULES" | "USERIP" | "HELP" | "SERVLIST" | "SQUERY" => {
+            | "ADMIN" | "INFO" | "MAP" | "RULES" | "USERIP" | "HELP" | "SERVLIST" | "SQUERY"
+            | "SERVER" | "BURST" | "DELTA" | "SID" | "UID" | "SJOIN" | "TMODE" => {
                 server::parse(cmd_str, args)
             }
 
@@ -62,7 +63,8 @@ impl Command {
             | "SAJOIN" | "SAMODE" | "SANICK" | "SAPART" | "SAQUIT" | "NICKSERV" | "CHANSERV"
             | "OPERSERV" | "BOTSERV" | "HOSTSERV" | "MEMOSERV" | "NS" | "CS" | "OS" | "BS"
             | "HS" | "MS" | "KLINE" | "DLINE" | "UNKLINE" | "UNDLINE" | "GLINE" | "UNGLINE"
-            | "ZLINE" | "UNZLINE" | "RLINE" | "UNRLINE" | "SHUN" | "UNSHUN" | "KNOCK" => {
+            | "ZLINE" | "UNZLINE" | "RLINE" | "UNRLINE" | "SHUN" | "UNSHUN" | "KNOCK"
+            | "ACCEPT" => {
                 messaging::parse(cmd_str, args)
             }
 

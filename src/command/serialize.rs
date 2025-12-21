@@ -68,6 +68,7 @@ impl fmt::Display for Command {
             Command::KICK(c, n, None) => write_cmd(f, "KICK", &[c, n]).map(|_| ()),
             Command::PRIVMSG(t, m) => write_cmd_freeform(f, "PRIVMSG", &[t, m]).map(|_| ()),
             Command::NOTICE(t, m) => write_cmd_freeform(f, "NOTICE", &[t, m]).map(|_| ()),
+            Command::ACCEPT(n) => write_cmd(f, "ACCEPT", &[n]).map(|_| ()),
             Command::MOTD(Some(t)) => write_cmd(f, "MOTD", &[t]).map(|_| ()),
             Command::MOTD(None) => write_cmd(f, "MOTD", &[]).map(|_| ()),
             Command::LUSERS(Some(m), Some(t)) => write_cmd(f, "LUSERS", &[m, t]).map(|_| ()),
@@ -91,6 +92,37 @@ impl fmt::Display for Command {
             Command::ADMIN(None) => write_cmd(f, "ADMIN", &[]).map(|_| ()),
             Command::INFO(Some(t)) => write_cmd(f, "INFO", &[t]).map(|_| ()),
             Command::INFO(None) => write_cmd(f, "INFO", &[]).map(|_| ()),
+            Command::SID(name, hop, sid, desc) => {
+                write_cmd_freeform(f, "SID", &[name, hop, sid, desc]).map(|_| ())
+            }
+            Command::UID(nick, hop, ts, user, host, uid, modes, real) => {
+                write_cmd_freeform(f, "UID", &[nick, hop, ts, user, host, uid, modes, real])
+                    .map(|_| ())
+            }
+            Command::SJOIN(ts, channel, modes, args, users) => {
+                f.write_str("SJOIN ")?;
+                write!(f, "{} {} {}", ts, channel, modes)?;
+                for arg in args {
+                    write!(f, " {}", arg)?;
+                }
+                f.write_str(" :")?;
+                for (i, (prefixes, uid)) in users.iter().enumerate() {
+                    if i > 0 {
+                        f.write_char(' ')?;
+                    }
+                    f.write_str(prefixes)?;
+                    f.write_str(uid)?;
+                }
+                Ok(())
+            }
+            Command::TMODE(ts, channel, modes, args) => {
+                f.write_str("TMODE ")?;
+                write!(f, "{} {} {}", ts, channel, modes)?;
+                for arg in args {
+                    write!(f, " {}", arg)?;
+                }
+                Ok(())
+            }
             Command::MAP => write_cmd(f, "MAP", &[]).map(|_| ()),
             Command::RULES => write_cmd(f, "RULES", &[]).map(|_| ()),
             Command::USERIP(u) => {
@@ -167,6 +199,11 @@ impl fmt::Display for Command {
             Command::UNSHUN(m) => write_cmd(f, "UNSHUN", &[m]).map(|_| ()),
             Command::KNOCK(c, Some(m)) => write_cmd_freeform(f, "KNOCK", &[c, m]).map(|_| ()),
             Command::KNOCK(c, None) => write_cmd(f, "KNOCK", &[c]).map(|_| ()),
+            Command::SERVER(n, h, t, i) => {
+                write_cmd_freeform(f, "SERVER", &[n, &h.to_string(), t, i]).map(|_| ())
+            }
+            Command::BURST(t, p) => write_cmd_freeform(f, "BURST", &[t, p]).map(|_| ()),
+            Command::DELTA(t, p) => write_cmd_freeform(f, "DELTA", &[t, p]).map(|_| ()),
             Command::NICKSERV(p) => write_service_command(f, "NICKSERV", p),
             Command::CHANSERV(p) => write_service_command(f, "CHANSERV", p),
             Command::OPERSERV(p) => write_service_command(f, "OPERSERV", p),

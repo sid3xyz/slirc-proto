@@ -48,6 +48,11 @@ impl<S> ZeroCopyWebSocketTransport<S> {
             max_line_len: MAX_IRC_LINE_LEN,
         }
     }
+
+    /// Set the maximum line length.
+    pub fn set_max_line_len(&mut self, len: usize) {
+        self.max_line_len = len;
+    }
 }
 
 impl<S> ZeroCopyWebSocketTransport<S>
@@ -70,7 +75,7 @@ where
                 let line_slice = &self.buffer[..line_len];
 
                 // Validate IRC-specific line lengths (tags vs body)
-                if let Err(e) = validate_irc_line_length(line_slice) {
+                if let Err(e) = validate_irc_line_length(line_slice, self.max_line_len) {
                     self.consumed = line_len;
                     return Some(Err(e));
                 }

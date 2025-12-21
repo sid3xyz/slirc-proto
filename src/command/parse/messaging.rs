@@ -18,6 +18,13 @@ pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseE
                 Command::NOTICE(args[0].to_owned(), args[1].to_owned())
             }
         }
+        "ACCEPT" => {
+            if args.len() != 1 {
+                raw(cmd, args)
+            } else {
+                Command::ACCEPT(args[0].to_owned())
+            }
+        }
 
         "KILL" => {
             if args.len() != 2 {

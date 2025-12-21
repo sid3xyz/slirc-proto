@@ -96,6 +96,12 @@ pub enum Response {
     /// 243 - Stats O-line
     RPL_STATSOLINE = 243,
 
+    // ACCEPT (Caller ID)
+    /// 281 - Accept list entry
+    RPL_ACCEPTLIST = 281,
+    /// 282 - End of accept list
+    RPL_ENDOFACCEPT = 282,
+
     // Luser replies
     /// 251 - Luser client count
     RPL_LUSERCLIENT = 251,
@@ -338,6 +344,12 @@ pub enum Response {
     ERR_NONICKCHANGE = 447,
     /// 451 - Not registered
     ERR_NOTREGISTERED = 451,
+    /// 456 - Accept list full
+    ERR_ACCEPTFULL = 456,
+    /// 457 - Accept list exists
+    ERR_ACCEPTEXIST = 457,
+    /// 458 - Accept list not found
+    ERR_ACCEPTNOT = 458,
     /// 461 - Need more params
     ERR_NEEDMOREPARAMS = 461,
     /// 462 - Already registered
@@ -364,8 +376,8 @@ pub enum Response {
     ERR_BADCHANNELKEY = 475,
     /// 476 - Bad channel mask
     ERR_BADCHANMASK = 476,
-    /// 477 - Channel doesn't support modes
-    ERR_NOCHANMODES = 477,
+    /// 477 - Need registered nick (or channel doesn't support modes)
+    ERR_NEEDREGGEDNICK = 477,
     /// 478 - Ban list full
     ERR_BANLISTFULL = 478,
     /// 479 - Bad channel name
@@ -503,9 +515,9 @@ pub enum Response {
 pub const ERR_ALREADYREGISTRED: Response = Response::ERR_ALREADYREGISTERED;
 
 impl Response {
-    /// Deprecated alias for [`Response::ERR_NOCHANMODES`].
-    #[deprecated(since = "1.3.0", note = "use ERR_NOCHANMODES")]
-    pub const ERR_NEEDREGGEDNICK: Response = Response::ERR_NOCHANMODES;
+    /// Deprecated alias for [`Response::ERR_NEEDREGGEDNICK`].
+    #[deprecated(since = "1.3.0", note = "use ERR_NEEDREGGEDNICK")]
+    pub const ERR_NOCHANMODES: Response = Response::ERR_NEEDREGGEDNICK;
 }
 
 #[cfg(test)]

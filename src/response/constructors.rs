@@ -96,6 +96,24 @@ impl Response {
         }
     }
 
+    /// `281 RPL_ACCEPTLIST`
+    /// `<nick>`
+    pub fn rpl_acceptlist(client: &str, nick: &str) -> Message {
+        Self::error_msg(
+            Response::RPL_ACCEPTLIST,
+            vec![client.to_string(), nick.to_string()],
+        )
+    }
+
+    /// `282 RPL_ENDOFACCEPT`
+    /// `:End of /ACCEPT list`
+    pub fn rpl_endofaccept(client: &str) -> Message {
+        Self::error_msg(
+            Response::RPL_ENDOFACCEPT,
+            vec![client.to_string(), "End of /ACCEPT list".to_string()],
+        )
+    }
+
     // === 400-499 Error Replies ===
 
     impl_err!(
@@ -334,6 +352,24 @@ impl Response {
     );
 
     impl_err!(
+        /// `456 ERR_ACCEPTFULL`
+        /// `:Accept list is full`
+        err_accept_full, ERR_ACCEPTFULL, "Accept list is full"
+    );
+
+    impl_err!(
+        /// `457 ERR_ACCEPTEXIST`
+        /// `<nick> :is already on your accept list`
+        err_accept_exist, ERR_ACCEPTEXIST, nick, "is already on your accept list"
+    );
+
+    impl_err!(
+        /// `458 ERR_ACCEPTNOT`
+        /// `<nick> :is not on your accept list`
+        err_accept_not, ERR_ACCEPTNOT, nick, "is not on your accept list"
+    );
+
+    impl_err!(
         /// `461 ERR_NEEDMOREPARAMS`
         /// `<command> :Not enough parameters`
         err_needmoreparams, ERR_NEEDMOREPARAMS, command, "Not enough parameters"
@@ -361,6 +397,12 @@ impl Response {
         /// `465 ERR_YOUREBANNEDCREEP`
         /// `:You are banned from this server`
         err_yourebannedcreep, ERR_YOUREBANNEDCREEP, "You are banned from this server"
+    );
+
+    impl_err!(
+        /// `477 ERR_NEEDREGGEDNICK`
+        /// `<target> :You need to be a registered nick to send to that target`
+        err_needreggednick, ERR_NEEDREGGEDNICK, target, "You need to be a registered nick to send to that target"
     );
 
     impl_err!(
@@ -425,9 +467,9 @@ impl Response {
     );
 
     impl_err!(
-        /// `477 ERR_NOCHANMODES`
-        /// `<channel> :Channel doesn't support modes`
-        err_nochanmodes, ERR_NOCHANMODES, channel, "Channel doesn't support modes"
+        /// `477 ERR_NEEDREGGEDNICK`
+        /// `<channel/nick> :You need to be registered to send to this target`
+        err_need_regged_nick, ERR_NEEDREGGEDNICK, target, "You need to be registered to send to this target"
     );
 
     /// `478 ERR_BANLISTFULL`

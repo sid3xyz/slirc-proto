@@ -99,7 +99,7 @@ impl Response {
                 | Response::ERR_NOTONCHANNEL
                 | Response::ERR_USERNOTINCHANNEL
                 | Response::ERR_USERONCHANNEL
-                | Response::ERR_NOCHANMODES
+                | Response::ERR_NEEDREGGEDNICK
                 | Response::ERR_BANLISTFULL
                 | Response::ERR_SECUREONLYCHAN
         )

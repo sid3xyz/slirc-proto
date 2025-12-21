@@ -141,6 +141,10 @@ pub enum ChannelMode {
     InviteOnly,
     /// 'm' - Moderated (only voiced+ can speak)
     Moderated,
+    /// 'M' - Moderated for unregistered users (only registered can speak)
+    ModeratedUnreg,
+    /// 'U' - Op Moderated (messages from non-ops only go to ops)
+    OpModerated,
     /// 'n' - No external messages
     NoExternalMessages,
     /// 'r' - Registered users only (on some servers)
@@ -161,8 +165,10 @@ pub enum ChannelMode {
     NoInvite,
     /// 'T' - No channel NOTICE
     NoChannelNotice,
-    /// 'Q' - No kicks (peace mode) - distinct from founder q
+    /// 'Q' - No kicks (peace mode)
     NoKick,
+    /// 'u' - Auditorium (non-ops only see ops)
+    Auditorium,
     /// 'P' - Permanent channel (persists with 0 users)
     Permanent,
     /// 'O' - Oper-only channel
@@ -223,6 +229,8 @@ impl ModeType for ChannelMode {
             'k' => Self::Key,
             'i' => Self::InviteOnly,
             'm' => Self::Moderated,
+            'M' => Self::ModeratedUnreg,
+            'U' => Self::OpModerated,
             'n' => Self::NoExternalMessages,
             'r' => Self::RegisteredOnly,
             's' => Self::Secret,
@@ -233,13 +241,14 @@ impl ModeType for ChannelMode {
             'K' => Self::NoKnock,
             'V' => Self::NoInvite,
             'T' => Self::NoChannelNotice,
-            'u' => Self::NoKick, // Using 'u' to avoid conflict with Founder 'Q'
+            'Q' => Self::NoKick,
+            'u' => Self::Auditorium,
             'P' => Self::Permanent,
             'O' => Self::OperOnly,
             'g' => Self::FreeInvite,
             'z' => Self::TlsOnly,
             'q' => Self::Quiet,
-            'Q' => Self::Founder,
+            // 'Q' => Self::Founder,
             'a' => Self::Admin,
             'o' => Self::Oper,
             'h' => Self::Halfop,
@@ -269,17 +278,20 @@ impl fmt::Display for ChannelMode {
             Self::NoKnock => 'K',
             Self::NoInvite => 'V',
             Self::NoChannelNotice => 'T',
-            Self::NoKick => 'u', // Using 'u' to avoid conflict with Founder 'Q'
+            Self::NoKick => 'Q',
             Self::Permanent => 'P',
             Self::OperOnly => 'O',
             Self::FreeInvite => 'g',
             Self::TlsOnly => 'z',
             Self::Quiet => 'q',
-            Self::Founder => 'Q',
+            Self::Founder => 'q',
             Self::Admin => 'a',
             Self::Oper => 'o',
             Self::Halfop => 'h',
             Self::Voice => 'v',
+            Self::ModeratedUnreg => 'M',
+            Self::OpModerated => 'U',
+            Self::Auditorium => 'u',
             Self::Unknown(c) => *c,
         };
         write!(f, "{}", c)

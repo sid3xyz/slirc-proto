@@ -73,6 +73,7 @@ impl IrcEncode for Command {
             // Messaging
             Command::PRIVMSG(t, m) => write_cmd_freeform(w, "PRIVMSG", &[t, m]),
             Command::NOTICE(t, m) => write_cmd_freeform(w, "NOTICE", &[t, m]),
+            Command::ACCEPT(n) => write_cmd(w, "ACCEPT", &[n]),
 
             // Server Queries
             Command::MOTD(Some(t)) => write_cmd(w, "MOTD", &[t]),
@@ -98,6 +99,46 @@ impl IrcEncode for Command {
             Command::ADMIN(None) => w.write_str("ADMIN"),
             Command::INFO(Some(t)) => write_cmd(w, "INFO", &[t]),
             Command::INFO(None) => w.write_str("INFO"),
+            Command::SID(name, hop, sid, desc) => {
+                write_cmd_freeform(w, "SID", &[name, hop, sid, desc])
+            }
+            Command::UID(nick, hop, ts, user, host, uid, modes, real) => {
+                write_cmd_freeform(w, "UID", &[nick, hop, ts, user, host, uid, modes, real])
+            }
+            Command::SJOIN(ts, channel, modes, args, users) => {
+                let mut written = w.write_str("SJOIN ")?;
+                written += w.write_str(&ts.to_string())?;
+                written += w.write_char(' ')?;
+                written += w.write_str(channel)?;
+                written += w.write_char(' ')?;
+                written += w.write_str(modes)?;
+                for arg in args {
+                    written += w.write_char(' ')?;
+                    written += w.write_str(arg)?;
+                }
+                written += w.write_str(" :")?;
+                for (i, (prefixes, uid)) in users.iter().enumerate() {
+                    if i > 0 {
+                        written += w.write_char(' ')?;
+                    }
+                    written += w.write_str(prefixes)?;
+                    written += w.write_str(uid)?;
+                }
+                Ok(written)
+            }
+            Command::TMODE(ts, channel, modes, args) => {
+                let mut written = w.write_str("TMODE ")?;
+                written += w.write_str(&ts.to_string())?;
+                written += w.write_char(' ')?;
+                written += w.write_str(channel)?;
+                written += w.write_char(' ')?;
+                written += w.write_str(modes)?;
+                for arg in args {
+                    written += w.write_char(' ')?;
+                    written += w.write_str(arg)?;
+                }
+                Ok(written)
+            }
             Command::MAP => w.write_str("MAP"),
             Command::RULES => w.write_str("RULES"),
             Command::USERIP(u) => {
@@ -173,6 +214,13 @@ impl IrcEncode for Command {
             Command::UNSHUN(m) => write_cmd(w, "UNSHUN", &[m]),
             Command::KNOCK(c, Some(m)) => write_cmd_freeform(w, "KNOCK", &[c, m]),
             Command::KNOCK(c, None) => write_cmd(w, "KNOCK", &[c]),
+
+            // Server-to-Server
+            Command::SERVER(n, h, t, i) => {
+                write_cmd_freeform(w, "SERVER", &[n, &h.to_string(), t, i])
+            }
+            Command::BURST(t, p) => write_cmd_freeform(w, "BURST", &[t, p]),
+            Command::DELTA(t, p) => write_cmd_freeform(w, "DELTA", &[t, p]),
 
             // Services Commands
             Command::SAJOIN(n, c) => write_cmd(w, "SAJOIN", &[n, c]),

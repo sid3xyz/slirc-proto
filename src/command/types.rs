@@ -61,6 +61,8 @@ pub enum Command {
     PRIVMSG(String, String),
     /// `NOTICE target text`
     NOTICE(String, String),
+    /// `ACCEPT [nicknames]` - Caller ID (allow/deny list)
+    ACCEPT(String),
 
     // === Server Queries (RFC 2812 Section 3.4) ===
     /// `MOTD [target]`
@@ -91,6 +93,17 @@ pub enum Command {
     USERIP(Vec<String>),
     /// `HELP [subject]` - Request help on a command or topic
     HELP(Option<String>),
+
+    // === Server-to-Server (S2S) ===
+    /// `SID name hopcount sid description` - Server introduction
+    SID(String, String, String, String),
+    /// `UID nick hopcount timestamp username hostname uid modes realname` - User introduction
+    UID(String, String, String, String, String, String, String, String),
+    /// `SJOIN ts channel modes [args...] :users` - Timestamped channel join
+    /// Users are stored as (prefixes, uid) tuples.
+    SJOIN(u64, String, String, Vec<String>, Vec<(String, String)>),
+    /// `TMODE ts channel modes [args...]` - Timestamped mode change
+    TMODE(u64, String, String, Vec<String>),
 
     // === Service Queries (RFC 2812 Section 3.5) ===
     /// `SERVLIST [mask] [type]`
@@ -167,6 +180,14 @@ pub enum Command {
     // === Channel Extension Commands ===
     /// `KNOCK channel [:message]`
     KNOCK(String, Option<String>),
+
+    // === Server-to-Server (Distributed) ===
+    /// `SERVER servername hopcount token info`
+    SERVER(String, u32, String, String),
+    /// `BURST type payload`
+    BURST(String, String),
+    /// `DELTA type payload`
+    DELTA(String, String),
 
     // === Services Commands (common extensions) ===
     /// `SAJOIN nick channel`
@@ -324,6 +345,7 @@ impl Command {
             // Messaging
             Command::PRIVMSG(..) => "PRIVMSG",
             Command::NOTICE(..) => "NOTICE",
+            Command::ACCEPT(_) => "ACCEPT",
 
             // Server Queries
             Command::MOTD(_) => "MOTD",
@@ -385,6 +407,11 @@ impl Command {
             // Channel Extensions
             Command::KNOCK(..) => "KNOCK",
 
+            // Server-to-Server
+            Command::SERVER(..) => "SERVER",
+            Command::BURST(..) => "BURST",
+            Command::DELTA(..) => "DELTA",
+
             // Services Commands
             Command::SAJOIN(..) => "SAJOIN",
             Command::SAMODE(..) => "SAMODE",
@@ -417,6 +444,11 @@ impl Command {
             Command::ACK => "ACK",
             Command::WEBIRC(..) => "WEBIRC",
             Command::CHATHISTORY { .. } => "CHATHISTORY",
+
+            Command::SID(..) => "SID",
+            Command::UID(..) => "UID",
+            Command::SJOIN(..) => "SJOIN",
+            Command::TMODE(..) => "TMODE",
 
             // Standard Replies
             Command::FAIL(..) => "FAIL",
