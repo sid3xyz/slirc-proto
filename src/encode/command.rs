@@ -49,11 +49,15 @@ impl IrcEncode for Command {
                 if !modes.is_empty() {
                     written += w.write_char(' ')?;
                     written += write_collapsed_mode_flags(w, modes)?;
-                    for m in modes {
-                        if let Some(arg) = m.arg() {
-                            written += w.write_char(' ')?;
-                            written += w.write_str(arg)?;
+                    let mode_args: Vec<_> = modes.iter().filter_map(|m| m.arg()).collect();
+                    for (i, arg) in mode_args.iter().enumerate() {
+                        written += w.write_char(' ')?;
+                        // Last argument needs colon prefix if it contains space, is empty, or starts with ':'
+                        let is_last = i == mode_args.len() - 1;
+                        if is_last && needs_colon_prefix(arg) {
+                            written += w.write_char(':')?;
                         }
+                        written += w.write_str(arg)?;
                     }
                 }
                 Ok(written)

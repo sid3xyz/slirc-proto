@@ -46,11 +46,15 @@ impl fmt::Display for Command {
                 if !modes.is_empty() {
                     f.write_char(' ')?;
                     write_collapsed_mode_flags(f, modes)?;
-                    for m in modes {
-                        if let Some(arg) = m.arg() {
-                            f.write_char(' ')?;
-                            f.write_str(arg)?;
+                    let mode_args: Vec<_> = modes.iter().filter_map(|m| m.arg()).collect();
+                    for (i, arg) in mode_args.iter().enumerate() {
+                        f.write_char(' ')?;
+                        // Last argument needs colon prefix if it contains space, is empty, or starts with ':'
+                        let is_last = i == mode_args.len() - 1;
+                        if is_last && needs_colon_prefix(arg) {
+                            f.write_char(':')?;
                         }
+                        f.write_str(arg)?;
                     }
                 }
                 Ok(())

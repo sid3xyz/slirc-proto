@@ -188,4 +188,22 @@ mod tests {
         assert_eq!(modes.len(), 1);
         assert_eq!(modes[0], Mode::Minus(ChannelMode::Ban, None));
     }
+
+    #[test]
+    fn test_key_mode_with_space_arg() {
+        // MODE #channel +k " " - key with just a space should parse
+        // (validation of key content is done at handler level, not parse level)
+        let modes = Mode::<ChannelMode>::as_channel_modes(&["+k", " "]).unwrap();
+        assert_eq!(modes.len(), 1);
+        assert_eq!(modes[0], Mode::Plus(ChannelMode::Key, Some(" ".to_string())));
+    }
+
+    #[test]
+    fn test_key_mode_with_empty_arg() {
+        // MODE #channel +k "" - empty key should also parse
+        // (let handler decide if it's valid)
+        let modes = Mode::<ChannelMode>::as_channel_modes(&["+k", ""]).unwrap();
+        assert_eq!(modes.len(), 1);
+        assert_eq!(modes[0], Mode::Plus(ChannelMode::Key, Some("".to_string())));
+    }
 }

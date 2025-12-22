@@ -320,4 +320,26 @@ mod tests {
         assert_eq!(msg.params[0], "coolNick");
         assert_eq!(msg.params[1], "%cuhnar,123");
     }
+
+    #[test]
+    fn test_parse_mode_with_space_trailing() {
+        // MODE #chan +k : (trailing parameter with just a space)
+        let msg = ParsedMessage::parse("MODE #chan +k : ").unwrap();
+        assert_eq!(msg.command, "MODE");
+        assert_eq!(msg.params.len(), 3, "Expected 3 params: {:?}", msg.params);
+        assert_eq!(msg.params[0], "#chan");
+        assert_eq!(msg.params[1], "+k");
+        assert_eq!(msg.params[2], " ", "Trailing should be a single space");
+    }
+
+    #[test]
+    fn test_parse_mode_with_empty_trailing() {
+        // MODE #chan +k : (trailing parameter that's empty)
+        let msg = ParsedMessage::parse("MODE #chan +k :").unwrap();
+        assert_eq!(msg.command, "MODE");
+        assert_eq!(msg.params.len(), 3, "Expected 3 params: {:?}", msg.params);
+        assert_eq!(msg.params[0], "#chan");
+        assert_eq!(msg.params[1], "+k");
+        assert_eq!(msg.params[2], "", "Trailing should be empty string");
+    }
 }
