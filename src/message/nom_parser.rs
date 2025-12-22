@@ -3,6 +3,7 @@
 //! This module provides zero-copy parsing of IRC messages using the nom
 //! parser combinator library.
 
+use smallvec::SmallVec;
 use nom::{
     bytes::complete::{take_until, take_while1},
     character::complete::{char, space0},
@@ -47,8 +48,8 @@ fn parse_command(input: &str) -> IResult<&str, &str> {
 /// are treated as a single separator (RFC compliance).
 ///
 /// Enforces the RFC 2812 limit of 15 parameters.
-fn parse_params(input: &str) -> (&str, Vec<&str>) {
-    let mut params: Vec<&str> = Vec::new();
+fn parse_params(input: &str) -> (&str, SmallVec<[&str; 15]>) {
+    let mut params: SmallVec<[&str; 15]> = SmallVec::new();
     let mut rest = input;
 
     while let Some(b' ') = rest.as_bytes().first().copied() {
@@ -134,7 +135,7 @@ pub(crate) struct ParsedMessage<'a> {
     /// The command name.
     pub command: &'a str,
     /// Command parameters, including trailing.
-    pub params: Vec<&'a str>,
+    pub params: SmallVec<[&'a str; 15]>,
 }
 
 impl<'a> ParsedMessage<'a> {
@@ -213,7 +214,7 @@ mod tests {
     fn test_parse_command_with_params() {
         let msg = ParsedMessage::parse("PRIVMSG #channel :Hello, world!").unwrap();
         assert_eq!(msg.command, "PRIVMSG");
-        assert_eq!(msg.params, vec!["#channel", "Hello, world!"]);
+        assert_eq!(msg.params.as_slice(), &["#channel", "Hello, world!"]);
     }
 
     #[test]
@@ -221,7 +222,7 @@ mod tests {
         let msg = ParsedMessage::parse(":nick!user@host PRIVMSG #channel :Hello").unwrap();
         assert_eq!(msg.prefix, Some("nick!user@host"));
         assert_eq!(msg.command, "PRIVMSG");
-        assert_eq!(msg.params, vec!["#channel", "Hello"]);
+        assert_eq!(msg.params.as_slice(), &["#channel", "Hello"]);
     }
 
     #[test]
@@ -230,21 +231,21 @@ mod tests {
         assert_eq!(msg.tags, Some("time=2023-01-01T00:00:00Z"));
         assert_eq!(msg.prefix, Some("nick"));
         assert_eq!(msg.command, "PRIVMSG");
-        assert_eq!(msg.params, vec!["#ch", "Hi"]);
+        assert_eq!(msg.params.as_slice(), &["#ch", "Hi"]);
     }
 
     #[test]
     fn test_parse_with_crlf() {
         let msg = ParsedMessage::parse("PING :server\r\n").unwrap();
         assert_eq!(msg.command, "PING");
-        assert_eq!(msg.params, vec!["server"]);
+        assert_eq!(msg.params.as_slice(), &["server"]);
     }
 
     #[test]
     fn test_parse_multiple_params() {
         let msg = ParsedMessage::parse("USER guest 0 * :Real Name").unwrap();
         assert_eq!(msg.command, "USER");
-        assert_eq!(msg.params, vec!["guest", "0", "*", "Real Name"]);
+        assert_eq!(msg.params.as_slice(), &["guest", "0", "*", "Real Name"]);
     }
 
     #[test]
@@ -252,20 +253,20 @@ mod tests {
         let msg = ParsedMessage::parse(":server 001 nick :Welcome").unwrap();
         assert_eq!(msg.prefix, Some("server"));
         assert_eq!(msg.command, "001");
-        assert_eq!(msg.params, vec!["nick", "Welcome"]);
+        assert_eq!(msg.params.as_slice(), &["nick", "Welcome"]);
     }
 
     #[test]
     fn test_parse_join() {
         let msg = ParsedMessage::parse(":nick!user@host JOIN #channel").unwrap();
         assert_eq!(msg.command, "JOIN");
-        assert_eq!(msg.params, vec!["#channel"]);
+        assert_eq!(msg.params.as_slice(), &["#channel"]);
     }
 
     #[test]
     fn test_parse_empty_trailing() {
         let msg = ParsedMessage::parse("PRIVMSG #channel :").unwrap();
-        assert_eq!(msg.params, vec!["#channel", ""]);
+        assert_eq!(msg.params.as_slice(), &["#channel", ""]);
     }
 
     #[test]

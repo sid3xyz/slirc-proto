@@ -96,7 +96,7 @@ impl FromStr for Message {
         let tags = parsed.tags.map(parse_tags_string);
 
         // Build the owned Message
-        Message::with_tags(tags, parsed.prefix, parsed.command, parsed.params).map_err(|cause| {
+        Message::with_tags(tags, parsed.prefix, parsed.command, parsed.params.to_vec()).map_err(|cause| {
             ProtocolError::InvalidMessage {
                 string: s.to_owned(),
                 cause,

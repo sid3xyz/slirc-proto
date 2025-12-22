@@ -1,10 +1,11 @@
 use slirc_proto::command::CommandRef;
 use slirc_proto::compliance::{check_compliance, ComplianceConfig, ComplianceError};
 use slirc_proto::message::MessageRef;
+use smallvec::SmallVec;
 
 #[test]
 fn test_invalid_parameters() {
-    let command = CommandRef::new("PRIVMSG", vec!["#channel", "Hello\nWorld"]);
+    let command = CommandRef::new("PRIVMSG", SmallVec::from(vec!["#channel", "Hello\nWorld"]));
     let msg = MessageRef {
         tags: None,
         prefix: None,

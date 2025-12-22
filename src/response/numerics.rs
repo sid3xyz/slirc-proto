@@ -43,6 +43,7 @@ impl Response {
             235 => Response::RPL_SERVLISTEND,
             242 => Response::RPL_STATSUPTIME,
             243 => Response::RPL_STATSOLINE,
+            249 => Response::RPL_STATSDEBUG,
             251 => Response::RPL_LUSERCLIENT,
             252 => Response::RPL_LUSEROP,
             253 => Response::RPL_LUSERUNKNOWN,

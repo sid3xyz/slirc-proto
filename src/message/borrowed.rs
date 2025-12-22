@@ -237,7 +237,7 @@ impl<'a> MessageRef<'a> {
 
     /// Convert the command to an owned Command.
     fn to_owned_command(&self) -> Command {
-        Command::new(self.command.name, self.command.args.clone()).unwrap_or_else(|_| {
+        Command::new(self.command.name, self.command.args.to_vec()).unwrap_or_else(|_| {
             Command::Raw(
                 self.command.name.to_string(),
                 self.command.args.iter().map(|s| s.to_string()).collect(),

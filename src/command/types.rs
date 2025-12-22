@@ -7,6 +7,7 @@
 //! - RFC 2812: Internet Relay Chat: Client Protocol
 //! - IRCv3 specifications: <https://ircv3.net/>
 
+use smallvec::SmallVec;
 use crate::mode::{ChannelMode, Mode, UserMode};
 use crate::response::Response;
 
@@ -298,7 +299,7 @@ pub struct CommandRef<'a> {
     /// Command name
     pub name: &'a str,
     /// Command arguments
-    pub args: Vec<&'a str>,
+    pub args: SmallVec<[&'a str; 15]>,
 }
 
 impl Command {
@@ -478,7 +479,7 @@ impl Command {
 
 impl<'a> CommandRef<'a> {
     /// Create a new command reference.
-    pub fn new(name: &'a str, args: Vec<&'a str>) -> Self {
+    pub fn new(name: &'a str, args: SmallVec<[&'a str; 15]>) -> Self {
         Self { name, args }
     }
 
@@ -504,10 +505,10 @@ mod tests {
 
     #[test]
     fn test_command_ref_to_raw_string() {
-        let cmd = CommandRef::new("PRIVMSG", vec!["#channel", "hello"]);
+        let cmd = CommandRef::new("PRIVMSG", SmallVec::from(vec!["#channel", "hello"]));
         assert_eq!(cmd.to_raw_string(), "PRIVMSG #channel hello");
 
-        let cmd = CommandRef::new("PING", vec![]);
+        let cmd = CommandRef::new("PING", SmallVec::from(vec![]));
         assert_eq!(cmd.to_raw_string(), "PING");
     }
 

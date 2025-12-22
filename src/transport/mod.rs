@@ -135,11 +135,16 @@ mod tests {
         let reader = MockReader::new(data);
         let mut transport = ZeroCopyTransport::new(reader);
 
-        let msg1 = transport.next().await.unwrap().unwrap();
-        assert_eq!(msg1.args(), &["server1"]);
+        // Process first message and drop it before calling next() again
+        {
+            let msg1 = transport.next().await.unwrap().unwrap();
+            assert_eq!(msg1.args(), &["server1"]);
+        }
 
-        let msg2 = transport.next().await.unwrap().unwrap();
-        assert_eq!(msg2.args(), &["server2"]);
+        {
+            let msg2 = transport.next().await.unwrap().unwrap();
+            assert_eq!(msg2.args(), &["server2"]);
+        }
 
         let msg3 = transport.next().await;
         assert!(msg3.is_none());
@@ -167,7 +172,8 @@ mod tests {
 
         let result = transport.next().await;
         assert!(result.is_some());
-        match result.unwrap() {
+        let unwrapped = result.unwrap();
+        match unwrapped {
             Err(TransportReadError::Protocol(crate::error::ProtocolError::MessageTooLong {
                 ..
             })) => {}
@@ -184,13 +190,17 @@ mod tests {
         let reader = MockReader::new(b"PING :fresh\r\n");
         let mut transport = ZeroCopyTransport::with_buffer(reader, buffer);
 
-        // Should get buffered message first
-        let msg1 = transport.next().await.unwrap().unwrap();
-        assert_eq!(msg1.args(), &["buffered"]);
+        // Should get buffered message first - drop before getting next
+        {
+            let msg1 = transport.next().await.unwrap().unwrap();
+            assert_eq!(msg1.args(), &["buffered"]);
+        }
 
         // Then fresh data
-        let msg2 = transport.next().await.unwrap().unwrap();
-        assert_eq!(msg2.args(), &["fresh"]);
+        {
+            let msg2 = transport.next().await.unwrap().unwrap();
+            assert_eq!(msg2.args(), &["fresh"]);
+        }
     }
 
     #[tokio::test]
@@ -212,7 +222,8 @@ mod tests {
 
         let result = transport.next().await;
         assert!(result.is_some());
-        match result.unwrap() {
+        let unwrapped = result.unwrap();
+        match unwrapped {
             Err(TransportReadError::Protocol(crate::error::ProtocolError::InvalidUtf8(_))) => {
                 // Expected - invalid UTF-8 sequence
             }
@@ -232,7 +243,8 @@ mod tests {
 
         let result = transport.next().await;
         assert!(result.is_some());
-        match result.unwrap() {
+        let unwrapped = result.unwrap();
+        match unwrapped {
             Err(TransportReadError::Protocol(crate::error::ProtocolError::IllegalControlChar(
                 '\0',
             ))) => {}
@@ -249,13 +261,19 @@ mod tests {
         let reader = MockReader::new(data);
         let mut transport = ZeroCopyTransport::new(reader);
 
-        let msg1 = transport.next().await.unwrap().unwrap();
-        assert!(msg1.is_numeric());
-        assert_eq!(msg1.numeric_code(), Some(1));
+        // Process first message and drop it before calling next() again
+        {
+            let msg1 = transport.next().await.unwrap().unwrap();
+            assert!(msg1.is_numeric());
+            assert_eq!(msg1.numeric_code(), Some(1));
+        }
 
-        let msg2 = transport.next().await.unwrap().unwrap();
-        assert!(msg2.is_numeric());
-        assert_eq!(msg2.numeric_code(), Some(2));
+        // Now we can safely get the next message
+        {
+            let msg2 = transport.next().await.unwrap().unwrap();
+            assert!(msg2.is_numeric());
+            assert_eq!(msg2.numeric_code(), Some(2));
+        }
 
         assert!(transport.next().await.is_none());
     }
@@ -269,7 +287,8 @@ mod tests {
 
         let result = transport.next().await;
         assert!(result.is_some());
-        match result.unwrap() {
+        let unwrapped = result.unwrap();
+        match unwrapped {
             Err(TransportReadError::Io(e)) => {
                 assert_eq!(e.kind(), std::io::ErrorKind::UnexpectedEof);
             }

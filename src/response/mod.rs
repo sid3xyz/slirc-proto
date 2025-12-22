@@ -95,6 +95,8 @@ pub enum Response {
     RPL_STATSUPTIME = 242,
     /// 243 - Stats O-line
     RPL_STATSOLINE = 243,
+    /// 249 - Stats debug/custom
+    RPL_STATSDEBUG = 249,
 
     // ACCEPT (Caller ID)
     /// 281 - Accept list entry
