@@ -154,8 +154,8 @@ impl IrcEncode for Command {
             Command::SQUERY(s, t) => write_cmd_freeform(w, "SQUERY", &[s, t]),
 
             // User Queries
-            Command::WHO(Some(s), Some(true)) => write_cmd(w, "WHO", &[s, "o"]),
-            Command::WHO(Some(s), _) => write_cmd(w, "WHO", &[s]),
+            Command::WHO(Some(s), Some(flags)) => write_cmd(w, "WHO", &[s, flags]),
+            Command::WHO(Some(s), None) => write_cmd(w, "WHO", &[s]),
             Command::WHO(None, _) => w.write_str("WHO"),
             Command::WHOIS(Some(t), m) => write_cmd(w, "WHOIS", &[t, m]),
             Command::WHOIS(None, m) => write_cmd(w, "WHOIS", &[m]),

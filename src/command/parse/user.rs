@@ -10,7 +10,8 @@ pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseE
             } else if args.len() == 1 {
                 Command::WHO(Some(args[0].to_owned()), None)
             } else if args.len() == 2 {
-                Command::WHO(Some(args[0].to_owned()), Some(args[1] == "o"))
+                // Preserve full second argument for WHOX support (%fields or "o")
+                Command::WHO(Some(args[0].to_owned()), Some(args[1].to_owned()))
             } else {
                 raw(cmd, args)
             }

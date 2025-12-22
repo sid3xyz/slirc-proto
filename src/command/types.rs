@@ -113,8 +113,12 @@ pub enum Command {
     SQUERY(String, String),
 
     // === User Queries (RFC 2812 Section 3.6) ===
-    /// `WHO [mask] [o]`
-    WHO(Option<String>, Option<bool>),
+    /// `WHO [mask] [flags]`
+    /// 
+    /// The second parameter can be:
+    /// - `"o"` for RFC 2812 operators-only flag
+    /// - `"%<fields>[,<token>]"` for IRCv3 WHOX extended query
+    WHO(Option<String>, Option<String>),
     /// `WHOIS [target] nickmasks`
     WHOIS(Option<String>, String),
     /// `WHOWAS nickname [count] [target]`

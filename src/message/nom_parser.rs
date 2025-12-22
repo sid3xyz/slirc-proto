@@ -301,4 +301,23 @@ mod tests {
         assert_eq!(msg.params.len(), 15);
         assert_eq!(msg.params[14], "p15");
     }
+
+    #[test]
+    fn test_parse_who_with_whox_fields() {
+        // This is the exact command irctest sends for WHOX
+        let msg = ParsedMessage::parse("WHO coolNick %r").unwrap();
+        assert_eq!(msg.command, "WHO");
+        assert_eq!(msg.params.len(), 2, "Expected 2 params, got {:?}", msg.params);
+        assert_eq!(msg.params[0], "coolNick");
+        assert_eq!(msg.params[1], "%r");
+    }
+
+    #[test]
+    fn test_parse_who_with_whox_token() {
+        let msg = ParsedMessage::parse("WHO coolNick %cuhnar,123").unwrap();
+        assert_eq!(msg.command, "WHO");
+        assert_eq!(msg.params.len(), 2);
+        assert_eq!(msg.params[0], "coolNick");
+        assert_eq!(msg.params[1], "%cuhnar,123");
+    }
 }
