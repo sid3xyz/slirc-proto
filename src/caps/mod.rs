@@ -74,6 +74,8 @@ pub enum Capability {
     EventPlayback,
     /// Message redaction/deletion (draft/message-redaction)
     MessageRedaction,
+    /// Extended MONITOR notifications (extended-monitor)
+    ExtendedMonitor,
     /// Unknown/custom capability
     Custom(String),
 }
@@ -109,6 +111,7 @@ impl AsRef<str> for Capability {
             Self::Typing => "typing",
             Self::EventPlayback => "draft/event-playback",
             Self::MessageRedaction => "draft/message-redaction",
+            Self::ExtendedMonitor => "extended-monitor",
             Self::Custom(s) => s,
         }
     }
@@ -150,6 +153,7 @@ impl From<&str> for Capability {
             "typing" => Self::Typing,
             "draft/event-playback" => Self::EventPlayback,
             "draft/message-redaction" => Self::MessageRedaction,
+            "extended-monitor" => Self::ExtendedMonitor,
             other => Self::Custom(other.to_string()),
         }
     }

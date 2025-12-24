@@ -234,18 +234,18 @@ pub(super) fn parse(cmd: &str, args: Vec<&str>) -> Result<Command, MessageParseE
                 )
             }
         }
-        "BURST" => {
-            if args.len() != 2 {
-                raw(cmd, args)
-            } else {
-                Command::BURST(args[0].to_owned(), args[1].to_owned())
-            }
+        "CAPAB" => {
+            Command::CAPAB(args.iter().map(|s| s.to_string()).collect())
         }
-        "DELTA" => {
-            if args.len() != 2 {
+        "SVINFO" => {
+            if args.len() < 4 {
                 raw(cmd, args)
             } else {
-                Command::DELTA(args[0].to_owned(), args[1].to_owned())
+                let v = args[0].parse().unwrap_or(0);
+                let m = args[1].parse().unwrap_or(0);
+                let z = args[2].parse().unwrap_or(0);
+                let t = args[3].parse().unwrap_or(0);
+                Command::SVINFO(v, m, z, t)
             }
         }
         _ => unreachable!("server::parse called with non-server command: {}", cmd),

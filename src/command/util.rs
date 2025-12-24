@@ -201,3 +201,240 @@ where
     Ok(count)
 }
 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Tests for needs_colon_prefix
+    #[test]
+    fn test_needs_colon_empty_string() {
+        assert!(needs_colon_prefix(""));
+    }
+
+    #[test]
+    fn test_needs_colon_contains_space() {
+        assert!(needs_colon_prefix("hello world"));
+    }
+
+    #[test]
+    fn test_needs_colon_starts_with_colon() {
+        assert!(needs_colon_prefix(":already has colon"));
+    }
+
+    #[test]
+    fn test_no_colon_simple() {
+        assert!(!needs_colon_prefix("simple"));
+    }
+
+    #[test]
+    fn test_no_colon_with_special_chars() {
+        assert!(!needs_colon_prefix("#channel"));
+        assert!(!needs_colon_prefix("user@host"));
+        assert!(!needs_colon_prefix("nick!user"));
+    }
+
+    // Tests for write_cmd using a string formatter
+    struct StringSink(String);
+
+    impl IrcSink for StringSink {
+        type Error = fmt::Error;
+
+        fn write_str(&mut self, s: &str) -> Result<usize, Self::Error> {
+            self.0.push_str(s);
+            Ok(s.len())
+        }
+
+        fn write_char(&mut self, c: char) -> Result<usize, Self::Error> {
+            self.0.push(c);
+            Ok(c.len_utf8())
+        }
+
+        fn write_fmt(&mut self, args: fmt::Arguments<'_>) -> Result<usize, Self::Error> {
+            use std::fmt::Write;
+            let before = self.0.len();
+            write!(self.0, "{}", args)?;
+            Ok(self.0.len() - before)
+        }
+    }
+
+    #[test]
+    fn test_write_cmd_no_args() {
+        let mut sink = StringSink(String::new());
+        write_cmd(&mut sink, "MOTD", &[]).unwrap();
+        assert_eq!(sink.0, "MOTD");
+    }
+
+    #[test]
+    fn test_write_cmd_single_arg() {
+        let mut sink = StringSink(String::new());
+        write_cmd(&mut sink, "NICK", &["testnick"]).unwrap();
+        assert_eq!(sink.0, "NICK testnick");
+    }
+
+    #[test]
+    fn test_write_cmd_multiple_args() {
+        let mut sink = StringSink(String::new());
+        write_cmd(&mut sink, "WHOIS", &["server", "nick"]).unwrap();
+        assert_eq!(sink.0, "WHOIS server nick");
+    }
+
+    #[test]
+    fn test_write_cmd_trailing_with_space() {
+        let mut sink = StringSink(String::new());
+        write_cmd(&mut sink, "QUIT", &["Goodbye world"]).unwrap();
+        assert_eq!(sink.0, "QUIT :Goodbye world");
+    }
+
+    #[test]
+    fn test_write_cmd_trailing_empty() {
+        let mut sink = StringSink(String::new());
+        write_cmd(&mut sink, "AWAY", &[""]).unwrap();
+        assert_eq!(sink.0, "AWAY :");
+    }
+
+    #[test]
+    fn test_write_cmd_trailing_starts_with_colon() {
+        let mut sink = StringSink(String::new());
+        write_cmd(&mut sink, "PRIVMSG", &["#channel", ":ACTION does something"]).unwrap();
+        assert_eq!(sink.0, "PRIVMSG #channel ::ACTION does something");
+    }
+
+    // Tests for write_cmd_freeform
+    #[test]
+    fn test_write_cmd_freeform_no_args() {
+        let mut sink = StringSink(String::new());
+        write_cmd_freeform(&mut sink, "MOTD", &[]).unwrap();
+        assert_eq!(sink.0, "MOTD");
+    }
+
+    #[test]
+    fn test_write_cmd_freeform_single_arg() {
+        let mut sink = StringSink(String::new());
+        write_cmd_freeform(&mut sink, "QUIT", &["Goodbye"]).unwrap();
+        assert_eq!(sink.0, "QUIT :Goodbye");
+    }
+
+    #[test]
+    fn test_write_cmd_freeform_multiple_args() {
+        let mut sink = StringSink(String::new());
+        write_cmd_freeform(&mut sink, "PRIVMSG", &["#channel", "Hello world"]).unwrap();
+        assert_eq!(sink.0, "PRIVMSG #channel :Hello world");
+    }
+
+    // Tests for write_service_args
+    #[test]
+    fn test_write_service_args_empty() {
+        let mut sink = StringSink(String::new());
+        write_service_args(&mut sink, &[]).unwrap();
+        assert_eq!(sink.0, "");
+    }
+
+    #[test]
+    fn test_write_service_args_single() {
+        let mut sink = StringSink(String::new());
+        write_service_args(&mut sink, &["arg1".to_string()]).unwrap();
+        assert_eq!(sink.0, " arg1");
+    }
+
+    #[test]
+    fn test_write_service_args_multiple() {
+        let mut sink = StringSink(String::new());
+        write_service_args(&mut sink, &["arg1".to_string(), "arg2".to_string()]).unwrap();
+        assert_eq!(sink.0, " arg1 arg2");
+    }
+
+    #[test]
+    fn test_write_service_args_trailing_with_space() {
+        let mut sink = StringSink(String::new());
+        write_service_args(&mut sink, &["arg1".to_string(), "with space".to_string()]).unwrap();
+        assert_eq!(sink.0, " arg1 :with space");
+    }
+
+    // Tests for write_args_with_trailing
+    #[test]
+    fn test_write_args_with_trailing_simple() {
+        let mut sink = StringSink(String::new());
+        let args = ["arg1", "arg2"];
+        write_args_with_trailing(&mut sink, args.iter().copied()).unwrap();
+        assert_eq!(sink.0, " arg1 arg2");
+    }
+
+    #[test]
+    fn test_write_args_with_trailing_last_needs_colon() {
+        let mut sink = StringSink(String::new());
+        let args = ["target", "message with space"];
+        write_args_with_trailing(&mut sink, args.iter().copied()).unwrap();
+        assert_eq!(sink.0, " target :message with space");
+    }
+
+    // Tests for write_standard_reply
+    #[test]
+    fn test_write_standard_reply() {
+        let mut sink = StringSink(String::new());
+        write_standard_reply(
+            &mut sink,
+            "FAIL",
+            "COMMAND",
+            "CODE",
+            &["context".to_string(), "description".to_string()],
+        )
+        .unwrap();
+        assert_eq!(sink.0, "FAIL COMMAND CODE context :description");
+    }
+
+    #[test]
+    fn test_write_standard_reply_single_context() {
+        let mut sink = StringSink(String::new());
+        write_standard_reply(
+            &mut sink,
+            "NOTE",
+            "CMD",
+            "INFO",
+            &["informational message".to_string()],
+        )
+        .unwrap();
+        assert_eq!(sink.0, "NOTE CMD INFO :informational message");
+    }
+
+    // Tests for write_collapsed_mode_flags
+    #[test]
+    fn test_write_collapsed_mode_flags_plus() {
+        use crate::mode::ChannelMode;
+
+        let mut sink = StringSink(String::new());
+        let modes = vec![
+            Mode::Plus(ChannelMode::Oper, Some("nick1".to_string())),
+            Mode::Plus(ChannelMode::Voice, Some("nick2".to_string())),
+        ];
+        write_collapsed_mode_flags(&mut sink, &modes).unwrap();
+        assert_eq!(sink.0, "+ov");
+    }
+
+    #[test]
+    fn test_write_collapsed_mode_flags_minus() {
+        use crate::mode::ChannelMode;
+
+        let mut sink = StringSink(String::new());
+        let modes = vec![
+            Mode::Minus(ChannelMode::Oper, Some("nick1".to_string())),
+            Mode::Minus(ChannelMode::Voice, Some("nick2".to_string())),
+        ];
+        write_collapsed_mode_flags(&mut sink, &modes).unwrap();
+        assert_eq!(sink.0, "-ov");
+    }
+
+    #[test]
+    fn test_write_collapsed_mode_flags_mixed() {
+        use crate::mode::ChannelMode;
+
+        let mut sink = StringSink(String::new());
+        let modes = vec![
+            Mode::Plus(ChannelMode::Oper, Some("nick1".to_string())),
+            Mode::Minus(ChannelMode::Voice, Some("nick2".to_string())),
+            Mode::Plus(ChannelMode::Halfop, Some("nick3".to_string())),
+        ];
+        write_collapsed_mode_flags(&mut sink, &modes).unwrap();
+        assert_eq!(sink.0, "+o-v+h");
+    }
+}

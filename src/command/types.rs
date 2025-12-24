@@ -98,6 +98,10 @@ pub enum Command {
     // === Server-to-Server (S2S) ===
     /// `SID name hopcount sid description` - Server introduction
     SID(String, String, String, String),
+    /// `CAPAB capabilities...` - Server capability negotiation
+    CAPAB(Vec<String>),
+    /// `SVINFO version min_version 0 :current_time` - Server version info
+    SVINFO(u32, u32, u32, u64),
     /// `UID nick hopcount timestamp username hostname uid modes realname` - User introduction
     UID(String, String, String, String, String, String, String, String),
     /// `SJOIN ts channel modes [args...] :users` - Timestamped channel join
@@ -114,7 +118,7 @@ pub enum Command {
 
     // === User Queries (RFC 2812 Section 3.6) ===
     /// `WHO [mask] [flags]`
-    /// 
+    ///
     /// The second parameter can be:
     /// - `"o"` for RFC 2812 operators-only flag
     /// - `"%<fields>[,<token>]"` for IRCv3 WHOX extended query
@@ -189,10 +193,6 @@ pub enum Command {
     // === Server-to-Server (Distributed) ===
     /// `SERVER servername hopcount token info`
     SERVER(String, u32, String, String),
-    /// `BURST type payload`
-    BURST(String, String),
-    /// `DELTA type payload`
-    DELTA(String, String),
 
     // === Services Commands (common extensions) ===
     /// `SAJOIN nick channel`
@@ -414,8 +414,12 @@ impl Command {
 
             // Server-to-Server
             Command::SERVER(..) => "SERVER",
-            Command::BURST(..) => "BURST",
-            Command::DELTA(..) => "DELTA",
+            Command::SID(..) => "SID",
+            Command::UID(..) => "UID",
+            Command::SJOIN(..) => "SJOIN",
+            Command::TMODE(..) => "TMODE",
+            Command::CAPAB(..) => "CAPAB",
+            Command::SVINFO(..) => "SVINFO",
 
             // Services Commands
             Command::SAJOIN(..) => "SAJOIN",
@@ -449,11 +453,6 @@ impl Command {
             Command::ACK => "ACK",
             Command::WEBIRC(..) => "WEBIRC",
             Command::CHATHISTORY { .. } => "CHATHISTORY",
-
-            Command::SID(..) => "SID",
-            Command::UID(..) => "UID",
-            Command::SJOIN(..) => "SJOIN",
-            Command::TMODE(..) => "TMODE",
 
             // Standard Replies
             Command::FAIL(..) => "FAIL",

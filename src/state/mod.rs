@@ -139,3 +139,170 @@ impl std::fmt::Display for HandshakeError {
 }
 
 impl std::error::Error for HandshakeError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ConnectionState tests
+    #[test]
+    fn test_connection_state_default() {
+        let state = ConnectionState::default();
+        assert_eq!(state, ConnectionState::Disconnected);
+    }
+
+    #[test]
+    fn test_connection_state_clone_eq() {
+        let state1 = ConnectionState::Connected;
+        let state2 = state1.clone();
+        assert_eq!(state1, state2);
+    }
+
+    #[test]
+    fn test_connection_state_variants() {
+        // Ensure all variants are distinct
+        let states = [
+            ConnectionState::Disconnected,
+            ConnectionState::CapabilityNegotiation,
+            ConnectionState::Authenticating,
+            ConnectionState::Registering,
+            ConnectionState::Connected,
+            ConnectionState::Terminated,
+        ];
+        for i in 0..states.len() {
+            for j in 0..states.len() {
+                if i == j {
+                    assert_eq!(states[i], states[j]);
+                } else {
+                    assert_ne!(states[i], states[j]);
+                }
+            }
+        }
+    }
+
+    // HandshakeConfig tests
+    #[test]
+    fn test_handshake_config_new() {
+        let config = HandshakeConfig {
+            nickname: "testnick".to_string(),
+            username: "testuser".to_string(),
+            realname: "Test User".to_string(),
+            password: None,
+            request_caps: vec!["multi-prefix".to_string()],
+            sasl_credentials: None,
+        };
+        assert_eq!(config.nickname, "testnick");
+        assert_eq!(config.username, "testuser");
+        assert_eq!(config.realname, "Test User");
+        assert!(config.password.is_none());
+        assert_eq!(config.request_caps.len(), 1);
+        assert!(config.sasl_credentials.is_none());
+    }
+
+    #[test]
+    fn test_handshake_config_with_password() {
+        let config = HandshakeConfig {
+            nickname: "nick".to_string(),
+            username: "user".to_string(),
+            realname: "Real".to_string(),
+            password: Some("secret".to_string()),
+            request_caps: vec![],
+            sasl_credentials: None,
+        };
+        assert_eq!(config.password, Some("secret".to_string()));
+    }
+
+    #[test]
+    fn test_handshake_config_with_sasl() {
+        let creds = SaslCredentials {
+            account: "myaccount".to_string(),
+            password: "mypassword".to_string(),
+        };
+        let config = HandshakeConfig {
+            nickname: "nick".to_string(),
+            username: "user".to_string(),
+            realname: "Real".to_string(),
+            password: None,
+            request_caps: vec!["sasl".to_string()],
+            sasl_credentials: Some(creds),
+        };
+        assert!(config.sasl_credentials.is_some());
+        let creds = config.sasl_credentials.unwrap();
+        assert_eq!(creds.account, "myaccount");
+        assert_eq!(creds.password, "mypassword");
+    }
+
+    // SaslCredentials tests
+    #[test]
+    fn test_sasl_credentials() {
+        let creds = SaslCredentials {
+            account: "account".to_string(),
+            password: "password".to_string(),
+        };
+        assert_eq!(creds.account, "account");
+        assert_eq!(creds.password, "password");
+    }
+
+    // HandshakeError tests
+    #[test]
+    fn test_handshake_error_display_capability_rejected() {
+        let err = HandshakeError::CapabilityRejected(vec!["cap1".to_string(), "cap2".to_string()]);
+        assert_eq!(err.to_string(), "capability rejected: cap1, cap2");
+    }
+
+    #[test]
+    fn test_handshake_error_display_sasl_failed() {
+        let err = HandshakeError::SaslFailed("invalid credentials".to_string());
+        assert_eq!(
+            err.to_string(),
+            "SASL authentication failed: invalid credentials"
+        );
+    }
+
+    #[test]
+    fn test_handshake_error_display_nickname_in_use() {
+        let err = HandshakeError::NicknameInUse("taken".to_string());
+        assert_eq!(err.to_string(), "nickname in use: taken");
+    }
+
+    #[test]
+    fn test_handshake_error_display_server_error() {
+        let err = HandshakeError::ServerError("connection refused".to_string());
+        assert_eq!(err.to_string(), "server error: connection refused");
+    }
+
+    #[test]
+    fn test_handshake_error_display_protocol_error() {
+        let err = HandshakeError::ProtocolError("unexpected message".to_string());
+        assert_eq!(err.to_string(), "protocol error: unexpected message");
+    }
+
+    #[test]
+    fn test_handshake_error_eq() {
+        let err1 = HandshakeError::NicknameInUse("nick".to_string());
+        let err2 = HandshakeError::NicknameInUse("nick".to_string());
+        let err3 = HandshakeError::NicknameInUse("other".to_string());
+        assert_eq!(err1, err2);
+        assert_ne!(err1, err3);
+    }
+
+    // HandshakeAction tests
+    #[test]
+    fn test_handshake_action_complete() {
+        let action = HandshakeAction::Complete;
+        assert!(matches!(action, HandshakeAction::Complete));
+    }
+
+    #[test]
+    fn test_handshake_action_error() {
+        let action = HandshakeAction::Error(HandshakeError::ServerError("test".to_string()));
+        assert!(matches!(action, HandshakeAction::Error(_)));
+    }
+
+    #[test]
+    fn test_handshake_action_send() {
+        let msg = Box::new(Message::from(crate::command::Command::NICK("test".to_string())));
+        let action = HandshakeAction::Send(msg);
+        assert!(matches!(action, HandshakeAction::Send(_)));
+    }
+}

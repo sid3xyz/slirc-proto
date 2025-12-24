@@ -207,8 +207,16 @@ impl fmt::Display for Command {
             Command::SERVER(n, h, t, i) => {
                 write_cmd_freeform(f, "SERVER", &[n, &h.to_string(), t, i]).map(|_| ())
             }
-            Command::BURST(t, p) => write_cmd_freeform(f, "BURST", &[t, p]).map(|_| ()),
-            Command::DELTA(t, p) => write_cmd_freeform(f, "DELTA", &[t, p]).map(|_| ()),
+            Command::CAPAB(caps) => {
+                let args: Vec<&str> = caps.iter().map(|s| s.as_str()).collect();
+                write_cmd(f, "CAPAB", &args).map(|_| ())
+            }
+            Command::SVINFO(v, m, z, t) => write_cmd_freeform(
+                f,
+                "SVINFO",
+                &[&v.to_string(), &m.to_string(), &z.to_string(), &t.to_string()],
+            )
+            .map(|_| ()),
             Command::NICKSERV(p) => write_service_command(f, "NICKSERV", p),
             Command::CHANSERV(p) => write_service_command(f, "CHANSERV", p),
             Command::OPERSERV(p) => write_service_command(f, "OPERSERV", p),

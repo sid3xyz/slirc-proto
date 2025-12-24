@@ -223,8 +223,15 @@ impl IrcEncode for Command {
             Command::SERVER(n, h, t, i) => {
                 write_cmd_freeform(w, "SERVER", &[n, &h.to_string(), t, i])
             }
-            Command::BURST(t, p) => write_cmd_freeform(w, "BURST", &[t, p]),
-            Command::DELTA(t, p) => write_cmd_freeform(w, "DELTA", &[t, p]),
+            Command::CAPAB(caps) => {
+                let args: Vec<&str> = caps.iter().map(|s| s.as_str()).collect();
+                write_cmd(w, "CAPAB", &args)
+            }
+            Command::SVINFO(v, m, z, t) => write_cmd_freeform(
+                w,
+                "SVINFO",
+                &[&v.to_string(), &m.to_string(), &z.to_string(), &t.to_string()],
+            ),
 
             // Services Commands
             Command::SAJOIN(n, c) => write_cmd(w, "SAJOIN", &[n, c]),
@@ -432,5 +439,472 @@ impl IrcEncode for Command {
                 Ok(written)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Helper to encode a command to bytes and return as UTF-8 string.
+    fn encode_cmd(cmd: Command) -> String {
+        let mut buf = Vec::new();
+        cmd.encode(&mut buf).unwrap();
+        String::from_utf8(buf).unwrap()
+    }
+
+    // Basic commands
+    #[test]
+    fn test_encode_pass() {
+        assert_eq!(encode_cmd(Command::PASS("secret".into())), "PASS secret");
+    }
+
+    #[test]
+    fn test_encode_nick() {
+        assert_eq!(encode_cmd(Command::NICK("testnick".into())), "NICK testnick");
+    }
+
+    #[test]
+    fn test_encode_user() {
+        assert_eq!(
+            encode_cmd(Command::USER("user".into(), "0".into(), "Real Name".into())),
+            "USER user 0 * :Real Name"
+        );
+    }
+
+    #[test]
+    fn test_encode_oper() {
+        assert_eq!(
+            encode_cmd(Command::OPER("admin".into(), "secret".into())),
+            "OPER admin secret"
+        );
+    }
+
+    #[test]
+    fn test_encode_quit_with_message() {
+        assert_eq!(
+            encode_cmd(Command::QUIT(Some("Goodbye".into()))),
+            "QUIT Goodbye"
+        );
+    }
+
+    #[test]
+    fn test_encode_quit_with_message_space() {
+        // Messages with spaces need colon prefix
+        assert_eq!(
+            encode_cmd(Command::QUIT(Some("Goodbye world".into()))),
+            "QUIT :Goodbye world"
+        );
+    }
+
+    #[test]
+    fn test_encode_quit_no_message() {
+        assert_eq!(encode_cmd(Command::QUIT(None)), "QUIT");
+    }
+
+    // Channel operations
+    #[test]
+    fn test_encode_join_simple() {
+        assert_eq!(
+            encode_cmd(Command::JOIN("#channel".into(), None, None)),
+            "JOIN #channel"
+        );
+    }
+
+    #[test]
+    fn test_encode_join_with_key() {
+        assert_eq!(
+            encode_cmd(Command::JOIN("#channel".into(), Some("key".into()), None)),
+            "JOIN #channel key"
+        );
+    }
+
+    #[test]
+    fn test_encode_part_with_message() {
+        assert_eq!(
+            encode_cmd(Command::PART("#channel".into(), Some("Leaving".into()))),
+            "PART #channel :Leaving"
+        );
+    }
+
+    #[test]
+    fn test_encode_part_no_message() {
+        assert_eq!(
+            encode_cmd(Command::PART("#channel".into(), None)),
+            "PART #channel"
+        );
+    }
+
+    #[test]
+    fn test_encode_topic_set() {
+        assert_eq!(
+            encode_cmd(Command::TOPIC("#channel".into(), Some("New Topic".into()))),
+            "TOPIC #channel :New Topic"
+        );
+    }
+
+    #[test]
+    fn test_encode_topic_query() {
+        assert_eq!(
+            encode_cmd(Command::TOPIC("#channel".into(), None)),
+            "TOPIC #channel"
+        );
+    }
+
+    #[test]
+    fn test_encode_names() {
+        assert_eq!(
+            encode_cmd(Command::NAMES(Some("#channel".into()), None)),
+            "NAMES #channel"
+        );
+    }
+
+    #[test]
+    fn test_encode_names_no_args() {
+        assert_eq!(encode_cmd(Command::NAMES(None, None)), "NAMES");
+    }
+
+    #[test]
+    fn test_encode_list() {
+        assert_eq!(
+            encode_cmd(Command::LIST(Some("#channel".into()), None)),
+            "LIST #channel"
+        );
+    }
+
+    #[test]
+    fn test_encode_invite() {
+        assert_eq!(
+            encode_cmd(Command::INVITE("nick".into(), "#channel".into())),
+            "INVITE nick :#channel"
+        );
+    }
+
+    #[test]
+    fn test_encode_kick_with_reason() {
+        assert_eq!(
+            encode_cmd(Command::KICK("#channel".into(), "nick".into(), Some("Reason".into()))),
+            "KICK #channel nick :Reason"
+        );
+    }
+
+    #[test]
+    fn test_encode_kick_no_reason() {
+        assert_eq!(
+            encode_cmd(Command::KICK("#channel".into(), "nick".into(), None)),
+            "KICK #channel nick"
+        );
+    }
+
+    // Messaging
+    #[test]
+    fn test_encode_privmsg() {
+        assert_eq!(
+            encode_cmd(Command::PRIVMSG("#channel".into(), "Hello world".into())),
+            "PRIVMSG #channel :Hello world"
+        );
+    }
+
+    #[test]
+    fn test_encode_notice() {
+        assert_eq!(
+            encode_cmd(Command::NOTICE("nick".into(), "You have mail".into())),
+            "NOTICE nick :You have mail"
+        );
+    }
+
+    // Server queries
+    #[test]
+    fn test_encode_motd() {
+        assert_eq!(encode_cmd(Command::MOTD(None)), "MOTD");
+    }
+
+    #[test]
+    fn test_encode_lusers() {
+        assert_eq!(encode_cmd(Command::LUSERS(None, None)), "LUSERS");
+    }
+
+    #[test]
+    fn test_encode_version() {
+        assert_eq!(encode_cmd(Command::VERSION(None)), "VERSION");
+    }
+
+    #[test]
+    fn test_encode_stats() {
+        assert_eq!(
+            encode_cmd(Command::STATS(Some("o".into()), None)),
+            "STATS o"
+        );
+    }
+
+    #[test]
+    fn test_encode_links() {
+        assert_eq!(encode_cmd(Command::LINKS(None, None)), "LINKS");
+    }
+
+    #[test]
+    fn test_encode_time() {
+        assert_eq!(encode_cmd(Command::TIME(None)), "TIME");
+    }
+
+    #[test]
+    fn test_encode_admin() {
+        assert_eq!(encode_cmd(Command::ADMIN(None)), "ADMIN");
+    }
+
+    #[test]
+    fn test_encode_info() {
+        assert_eq!(encode_cmd(Command::INFO(None)), "INFO");
+    }
+
+    // User queries
+    #[test]
+    fn test_encode_who() {
+        assert_eq!(
+            encode_cmd(Command::WHO(Some("#channel".into()), None)),
+            "WHO #channel"
+        );
+    }
+
+    #[test]
+    fn test_encode_who_with_flags() {
+        assert_eq!(
+            encode_cmd(Command::WHO(Some("#channel".into()), Some("%nuhaf".into()))),
+            "WHO #channel %nuhaf"
+        );
+    }
+
+    #[test]
+    fn test_encode_whois() {
+        assert_eq!(
+            encode_cmd(Command::WHOIS(None, "nick".into())),
+            "WHOIS nick"
+        );
+    }
+
+    #[test]
+    fn test_encode_whowas() {
+        assert_eq!(
+            encode_cmd(Command::WHOWAS("nick".into(), None, None)),
+            "WHOWAS nick"
+        );
+    }
+
+    // Miscellaneous
+    #[test]
+    fn test_encode_ping() {
+        assert_eq!(
+            encode_cmd(Command::PING("server".into(), None)),
+            "PING server"
+        );
+    }
+
+    #[test]
+    fn test_encode_pong() {
+        assert_eq!(
+            encode_cmd(Command::PONG("server".into(), None)),
+            "PONG server"
+        );
+    }
+
+    #[test]
+    fn test_encode_away_with_message() {
+        assert_eq!(
+            encode_cmd(Command::AWAY(Some("Gone fishing".into()))),
+            "AWAY :Gone fishing"
+        );
+    }
+
+    #[test]
+    fn test_encode_away_clear() {
+        assert_eq!(encode_cmd(Command::AWAY(None)), "AWAY");
+    }
+
+    #[test]
+    fn test_encode_rehash() {
+        assert_eq!(encode_cmd(Command::REHASH), "REHASH");
+    }
+
+    #[test]
+    fn test_encode_die() {
+        assert_eq!(encode_cmd(Command::DIE), "DIE");
+    }
+
+    #[test]
+    fn test_encode_restart() {
+        assert_eq!(encode_cmd(Command::RESTART), "RESTART");
+    }
+
+    #[test]
+    fn test_encode_wallops() {
+        assert_eq!(
+            encode_cmd(Command::WALLOPS("Broadcast message".into())),
+            "WALLOPS :Broadcast message"
+        );
+    }
+
+    #[test]
+    fn test_encode_userhost() {
+        assert_eq!(
+            encode_cmd(Command::USERHOST(vec!["nick1".into(), "nick2".into()])),
+            "USERHOST nick1 nick2"
+        );
+    }
+
+    #[test]
+    fn test_encode_ison() {
+        assert_eq!(
+            encode_cmd(Command::ISON(vec!["nick1".into(), "nick2".into()])),
+            "ISON nick1 nick2"
+        );
+    }
+
+    // IRCv3 extensions
+    #[test]
+    fn test_encode_cap_ls() {
+        assert_eq!(
+            encode_cmd(Command::CAP(
+                None,
+                crate::command::CapSubCommand::LS,
+                Some("302".into()),
+                None
+            )),
+            "CAP LS 302"
+        );
+    }
+
+    #[test]
+    fn test_encode_cap_req() {
+        assert_eq!(
+            encode_cmd(Command::CAP(
+                Some("*".into()),
+                crate::command::CapSubCommand::REQ,
+                None,
+                Some("multi-prefix".into())
+            )),
+            "CAP * REQ multi-prefix"
+        );
+    }
+
+    #[test]
+    fn test_encode_cap_end() {
+        assert_eq!(
+            encode_cmd(Command::CAP(None, crate::command::CapSubCommand::END, None, None)),
+            "CAP END"
+        );
+    }
+
+    #[test]
+    fn test_encode_authenticate() {
+        assert_eq!(
+            encode_cmd(Command::AUTHENTICATE("PLAIN".into())),
+            "AUTHENTICATE PLAIN"
+        );
+    }
+
+    #[test]
+    fn test_encode_account() {
+        assert_eq!(
+            encode_cmd(Command::ACCOUNT("accountname".into())),
+            "ACCOUNT accountname"
+        );
+    }
+
+    #[test]
+    fn test_encode_chghost() {
+        assert_eq!(
+            encode_cmd(Command::CHGHOST("newuser".into(), "newhost".into())),
+            "CHGHOST newuser newhost"
+        );
+    }
+
+    #[test]
+    fn test_encode_setname() {
+        assert_eq!(
+            encode_cmd(Command::SETNAME("New Real Name".into())),
+            "SETNAME :New Real Name"
+        );
+    }
+
+    #[test]
+    fn test_encode_tagmsg() {
+        assert_eq!(
+            encode_cmd(Command::TAGMSG("#channel".into())),
+            "TAGMSG #channel"
+        );
+    }
+
+    #[test]
+    fn test_encode_monitor() {
+        assert_eq!(
+            encode_cmd(Command::MONITOR("+".into(), Some("nick1,nick2".into()))),
+            "MONITOR + nick1,nick2"
+        );
+    }
+
+    // Standard replies
+    #[test]
+    fn test_encode_fail() {
+        assert_eq!(
+            encode_cmd(Command::FAIL(
+                "COMMAND".into(),
+                "CODE".into(),
+                vec!["context".into(), "message".into()]
+            )),
+            "FAIL COMMAND CODE context :message"
+        );
+    }
+
+    #[test]
+    fn test_encode_warn() {
+        assert_eq!(
+            encode_cmd(Command::WARN(
+                "CMD".into(),
+                "WARN_CODE".into(),
+                vec!["warning message".into()]
+            )),
+            "WARN CMD WARN_CODE :warning message"
+        );
+    }
+
+    #[test]
+    fn test_encode_note() {
+        assert_eq!(
+            encode_cmd(Command::NOTE(
+                "CMD".into(),
+                "INFO".into(),
+                vec!["informational".into()]
+            )),
+            "NOTE CMD INFO :informational"
+        );
+    }
+
+    // Numeric response
+    #[test]
+    fn test_encode_response_numeric() {
+        assert_eq!(
+            encode_cmd(Command::Response(
+                crate::response::Response::RPL_WELCOME,
+                vec!["nick".into(), "Welcome to the network".into()]
+            )),
+            "001 nick :Welcome to the network"
+        );
+    }
+
+    // Raw command
+    #[test]
+    fn test_encode_raw() {
+        assert_eq!(
+            encode_cmd(Command::Raw("CUSTOM".into(), vec!["arg1".into(), "arg2".into()])),
+            "CUSTOM arg1 arg2"
+        );
+    }
+
+    #[test]
+    fn test_encode_raw_with_trailing() {
+        assert_eq!(
+            encode_cmd(Command::Raw("CUSTOM".into(), vec!["arg1".into(), "with space".into()])),
+            "CUSTOM arg1 :with space"
+        );
     }
 }

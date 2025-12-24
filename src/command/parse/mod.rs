@@ -52,7 +52,7 @@ impl Command {
 
             "MOTD" | "LUSERS" | "VERSION" | "STATS" | "LINKS" | "TIME" | "CONNECT" | "TRACE"
             | "ADMIN" | "INFO" | "MAP" | "RULES" | "USERIP" | "HELP" | "SERVLIST" | "SQUERY"
-            | "SERVER" | "BURST" | "DELTA" | "SID" | "UID" | "SJOIN" | "TMODE" => {
+            | "SERVER" | "SID" | "UID" | "SJOIN" | "TMODE" | "CAPAB" | "SVINFO" => {
                 server::parse(cmd_str, args)
             }
 
