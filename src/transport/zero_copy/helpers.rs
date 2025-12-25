@@ -10,6 +10,11 @@ use super::super::error::TransportReadError;
 /// "Clients MUST NOT send messages with tag data exceeding 4094 bytes"
 pub const MAX_CLIENT_TAG_DATA: usize = 4094;
 
+/// Maximum length for IRC message body (512 bytes including CRLF per RFC 1459/2812).
+/// This is the limit for the message portion EXCLUDING tags.
+/// Messages exceeding this limit receive ERR_INPUTTOOLONG (417).
+pub const MAX_IRC_BODY_LEN: usize = 512;
+
 /// Find the position of the next CRLF or LF line ending in the buffer.
 ///
 /// Returns the position of the LF byte (newline character).
@@ -21,10 +26,13 @@ pub fn find_crlf(buffer: &BytesMut) -> Option<usize> {
 ///
 /// For client messages:
 /// - Tag data (excluding the leading `@` and trailing space) must be ≤ 4094 bytes
-/// - Message body (everything after tags) must be ≤ `max_body_len` bytes (including CRLF)
+/// - Message body (everything after tags) must be ≤ 512 bytes (including CRLF per RFC 1459/2812)
+///
+/// The `_max_total_len` parameter is reserved for future use but currently ignored;
+/// body length is always validated against the RFC 512-byte limit.
 ///
 /// Returns Ok(()) if lengths are valid, or an appropriate error.
-pub fn validate_irc_line_length(line: &[u8], max_body_len: usize) -> Result<(), TransportReadError> {
+pub fn validate_irc_line_length(line: &[u8], _max_total_len: usize) -> Result<(), TransportReadError> {
     // Find where tags end and body begins
     if line.first() == Some(&b'@') {
         // Message has tags - find the first space after the tag section
@@ -38,13 +46,13 @@ pub fn validate_irc_line_length(line: &[u8], max_body_len: usize) -> Result<(), 
                 }));
             }
 
-            // Body is everything after the space
+            // Body is everything after the space (including CRLF)
             let body_len = line.len() - space_pos - 1;
-            if body_len > max_body_len {
+            if body_len > MAX_IRC_BODY_LEN {
                 return Err(TransportReadError::Protocol(
                     ProtocolError::MessageTooLong {
                         actual: body_len,
-                        limit: max_body_len,
+                        limit: MAX_IRC_BODY_LEN,
                     },
                 ));
             }
@@ -59,12 +67,12 @@ pub fn validate_irc_line_length(line: &[u8], max_body_len: usize) -> Result<(), 
             }
         }
     } else {
-        // No tags - entire line is the body
-        if line.len() > max_body_len {
+        // No tags - entire line is the body (including CRLF)
+        if line.len() > MAX_IRC_BODY_LEN {
             return Err(TransportReadError::Protocol(
                 ProtocolError::MessageTooLong {
                     actual: line.len(),
-                    limit: max_body_len,
+                    limit: MAX_IRC_BODY_LEN,
                 },
             ));
         }
